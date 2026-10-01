@@ -10,5 +10,10 @@ section '.data' data readable writeable
     dump_off        dw 0100h
     dump_len        dw 128
 
+    reg_DS          dw 0958h
+    reg_CS          dw 0000h
+    reg_ES          dw 0000h
+    reg_SS          dw 0000h
+
     line_buffer     rb 256
     memory          rb 65536

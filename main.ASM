@@ -65,6 +65,60 @@ cmd_dump:
     cmp     al, 'L'
     je      .parse_len_only
 
+    mov     bl, [esi]
+    or      bl, 20h
+
+    cmp     bl, 'd'
+    je      .seg_ds
+    cmp     bl, 'c'
+    je      .seg_cs
+    cmp     bl, 'e'
+    je      .seg_es
+    cmp     bl, 's'
+    je      .seg_ss
+    jmp     .not_seg
+
+.seg_ds:
+    mov     ax, [reg_DS]
+    jmp     .try_seg
+.seg_cs:
+    mov     ax, [reg_CS]
+    jmp     .try_seg
+.seg_es:
+    mov     ax, [reg_ES]
+    jmp     .try_seg
+.seg_ss:
+    mov     ax, [reg_SS]
+
+.try_seg:
+    mov     bl, [esi+1]
+    or      bl, 20h
+    cmp     bl, 's'
+    jne     .not_seg
+    cmp     byte [esi+2], ':'
+    jne     .not_seg
+
+    mov     [dump_seg], ax
+    add     esi, 3
+
+.skip_ws_seg:
+    mov     al, [esi]
+    cmp     al, ' '
+    je      .adv_seg
+    cmp     al, 9
+    je      .adv_seg
+    jmp     .parse_off_seg
+.adv_seg:
+    inc     esi
+    jmp     .skip_ws_seg
+
+.parse_off_seg:
+    call    parse_hex
+    jc      .after_addr
+    mov     [dump_off], ax
+    jmp     .after_addr
+
+.not_seg:
     call    parse_hex
     jc      .do_it
     mov     bx, ax
@@ -105,7 +159,10 @@ cmd_dump:
     jmp     .after_addr
 
 .set_offset:
+    mov     ax, [reg_DS]
+    mov     [dump_seg], ax
     mov     [dump_off], bx
+    jmp     .after_addr
 
 .after_addr:
 .skip_ws4:
@@ -124,6 +181,26 @@ cmd_dump:
     je      .parse_len
     cmp     al, 'L'
     je      .parse_len
+
+    mov     bl, al
+    or      bl, 20h
+    cmp     bl, '0'
+    jb      .do_it
+    cmp     bl, '9'
+    jbe     .parse_end
+    cmp     bl, 'a'
+    jb      .do_it
+    cmp     bl, 'f'
+    ja      .do_it
+
+.parse_end:
+    call    parse_hex
+    jc      .do_it
+    cmp     ax, [dump_off]
+    jb      .do_it
+    sub     ax, [dump_off]
+    inc     ax
+    mov     [dump_len], ax
     jmp     .do_it
 
 .parse_len_only:
