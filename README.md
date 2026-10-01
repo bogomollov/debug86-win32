@@ -1,0 +1,6 @@
+<div align="center">
+<h1>Debug86 Win32</h1>
+<p align="center">A DOS DEBUG.EXE-style console debugger for Windows: virtual 16-bit 8086 real-mode model, 64 KB of memory, .COM file loading at address 100h, D/E/U/R/T/G/Q commands, disassembler, step() function, and INT 21h support</p>
+</div>
+
+A console debugger for modern Windows (PE console, FASM) that replicates the interface of the classic DOS DEBUG.EXE. It operates atop a virtual 16-bit 8086 real-mode model featuring 64 KB of RAM, a flat memory model (CS = DS = ES = SS), AX–DI registers, IP, and FLAGS; it supports loading .COM files at address 100h, single-stepping (step()), flag updates, and INT 21h handling (specifically AH=09h and AH=4Ch). Key commands (D, E, U, R, T, G, Q) are implemented, along with a disassembler featuring ModR/M parsing and support for approximately 25–35 8086 instructions. The goal is a fully functional mini-DEBUG tool for viewing and editing memory, disassembling code, managing registers, and executing .COM programs.
