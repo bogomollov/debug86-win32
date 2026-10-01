@@ -17,3 +17,10 @@ section '.data' data readable writeable
 
     line_buffer     rb 256
     memory          rb 65536
+
+COMTAB:
+    db 'q'
+    dd cmd_quit
+    db 'd'
+    dd cmd_dump
+    db 0

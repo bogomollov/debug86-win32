@@ -29,11 +29,24 @@ main_loop:
 
     invoke  ReadConsoleA, [hStdIn], input_buffer, 255, chars_read, 0
 
+.check_d:
     mov     al, [input_buffer]
     or      al, 20h
-    cmp     al, 'q'
-    jne     .check_d
+    mov     esi, COMTAB
+.find_cmd:
+    mov     bl, [esi]
+    test    bl, bl
+    jz      main_loop
+    cmp     bl, al
+    je      .exec_cmd
+    add     esi, 5
+    jmp     .find_cmd
+.exec_cmd:
+    mov     eax, [esi+1]
+    call    eax
+    jmp     main_loop
 
+cmd_quit:
     mov     ecx, [chars_read]
     cmp     ecx, 1
     jbe     exit_program
@@ -50,20 +63,13 @@ main_loop:
     je      .q_next
     cmp     al, 10
     je      .q_next
-    jmp     .check_d
+    ret
 
 .q_next:
     inc     esi
     dec     ecx
     jnz     .q_skip
     jmp     exit_program
-
-.check_d:
-    mov     al, [input_buffer]
-    or      al, 20h
-    cmp     al, 'd'
-    je      cmd_dump
-    jmp     main_loop
 
 cmd_dump:
     mov     word [dump_len], 128
@@ -254,7 +260,7 @@ cmd_dump:
 
 .do_it:
     call    do_dump
-    jmp     main_loop
+    ret
 
 exit_program:
     invoke  ExitProcess, 0
