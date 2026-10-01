@@ -31,9 +31,36 @@ main_loop:
 
     mov     al, [input_buffer]
     or      al, 20h
-
     cmp     al, 'q'
-    je      exit_program
+    jne     .check_d
+
+    mov     ecx, [chars_read]
+    cmp     ecx, 1
+    jbe     exit_program
+
+    mov     esi, input_buffer + 1
+    dec     ecx
+.q_skip:
+    mov     al, [esi]
+    cmp     al, ' '
+    je      .q_next
+    cmp     al, 9
+    je      .q_next
+    cmp     al, 13
+    je      .q_next
+    cmp     al, 10
+    je      .q_next
+    jmp     .check_d
+
+.q_next:
+    inc     esi
+    dec     ecx
+    jnz     .q_skip
+    jmp     exit_program
+
+.check_d:
+    mov     al, [input_buffer]
+    or      al, 20h
     cmp     al, 'd'
     je      cmd_dump
     jmp     main_loop
