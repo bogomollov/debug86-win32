@@ -6,41 +6,85 @@ parse_hex:
 
     xor     ax, ax
     xor     cx, cx
-.loop:
+ph_loop:
     mov     bl, [esi]
     cmp     bl, 'a'
-    jb      .upper
+    jb      ph_upper
     cmp     bl, 'z'
-    ja      .upper
+    ja      ph_upper
     sub     bl, 20h
-.upper:
+ph_upper:
     cmp     bl, '0'
-    jb      .done
+    jb      ph_done
     cmp     bl, '9'
-    jbe     .digit
+    jbe     ph_digit
     cmp     bl, 'A'
-    jb      .done
+    jb      ph_done
     cmp     bl, 'F'
-    ja      .done
+    ja      ph_done
     sub     bl, 'A' - 10
-    jmp     .have
-.digit:
+    jmp     ph_have
+ph_digit:
     sub     bl, '0'
-.have:
+ph_have:
     shl     ax, 4
     or      al, bl
     inc     esi
     inc     cx
     cmp     cx, 4
-    jb      .loop
-.done:
+    jb      ph_loop
+ph_done:
     test    cx, cx
-    jnz     .ok
+    jnz     ph_ok
     stc
-    jmp     .out
-.ok:
+    jmp     ph_out
+ph_ok:
     clc
-.out:
+ph_out:
+    pop     cx
+    pop     bx
+    ret
+
+parse_hex_byte:
+    push    bx
+    push    cx
+    xor     ax, ax
+    xor     cx, cx
+phb_loop:
+    mov     bl, [esi]
+    cmp     bl, 'a'
+    jb      phb_upper
+    cmp     bl, 'z'
+    ja      phb_upper
+    sub     bl, 20h
+phb_upper:
+    cmp     bl, '0'
+    jb      phb_done
+    cmp     bl, '9'
+    jbe     phb_digit
+    cmp     bl, 'A'
+    jb      phb_done
+    cmp     bl, 'F'
+    ja      phb_done
+    sub     bl, 'A' - 10
+    jmp     phb_have
+phb_digit:
+    sub     bl, '0'
+phb_have:
+    shl     al, 4
+    or      al, bl
+    inc     esi
+    inc     cx
+    cmp     cx, 2
+    jb      phb_loop
+phb_done:
+    test    cx, cx
+    jnz     phb_ok
+    stc
+    jmp     phb_out
+phb_ok:
+    clc
+phb_out:
     pop     cx
     pop     bx
     ret
@@ -67,11 +111,11 @@ put_hex_byte:
 put_hex_nibble:
     and     al, 0Fh
     cmp     al, 10
-    jb      .digit
+    jb      phn_digit
     add     al, 'A' - 10
     stosb
     ret
-.digit:
+phn_digit:
     add     al, '0'
     stosb
     ret

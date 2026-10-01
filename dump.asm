@@ -9,9 +9,11 @@ do_dump:
     push    edi
     push    ebp
 
-    mov     ebp, 8
+    movzx   ebp, word [dump_len]
+    test    ebp, ebp
+    jz      dd_done
 
-.line_loop:
+dd_line_loop:
     mov     edi, line_buffer
 
     mov     ax, [dump_seg]
@@ -32,42 +34,69 @@ do_dump:
     mov     esi, memory
     add     esi, eax
 
+    mov     ecx, ebp
+    cmp     ecx, 16
+    jbe     dd_have_count
+    mov     ecx, 16
+dd_have_count:
+    mov     ebx, ecx
     xor     edx, edx
-.hex_loop:
+
+dd_hex_loop:
     lodsb
     call    put_hex_byte
     inc     edx
-    cmp     edx, 16
-    je      .hex_done
+    cmp     edx, ebx
+    je      dd_hex_pad
     cmp     edx, 8
-    je      .dash
+    je      dd_dash
     mov     al, ' '
     stosb
-    jmp     .hex_loop
-.dash:
+    jmp     dd_hex_loop
+dd_dash:
     mov     al, '-'
     stosb
-    jmp     .hex_loop
-.hex_done:
+    jmp     dd_hex_loop
+
+dd_hex_pad:
+    cmp     edx, 16
+    je      dd_hex_done
+dd_pad_loop:
+    mov     al, ' '
+    stosb
+    stosb
+    inc     edx
+    cmp     edx, 8
+    je      dd_pad_dash
+    cmp     edx, 16
+    jb      dd_pad_loop
+    jmp     dd_hex_done
+dd_pad_dash:
+    mov     al, '-'
+    stosb
+    jmp     dd_pad_loop
+
+dd_hex_done:
     mov     al, ' '
     stosb
     stosb
     stosb
 
-    sub     esi, 16
-    mov     ecx, 16
-.ascii_loop:
+    sub     esi, ebx
+    mov     ecx, ebx
+dd_ascii_loop:
     lodsb
+    and     al, 7Fh
     cmp     al, 20h
-    jb      .nonprint
-    cmp     al, 7Eh
-    ja      .nonprint
-    jmp     .print
-.nonprint:
+    jb      dd_nonprint
+    cmp     al, 7Fh
+    je      dd_nonprint
+    jmp     dd_print
+dd_nonprint:
     mov     al, '.'
-.print:
+dd_print:
     stosb
-    loop    .ascii_loop
+    loop    dd_ascii_loop
 
     mov     al, 13
     stosb
@@ -78,11 +107,12 @@ do_dump:
     sub     edx, line_buffer
     invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
 
-    add     word [dump_off], 16
+    add     word [dump_off], bx
+    sub     ebp, ebx
+    jz      dd_done
+    jmp     dd_line_loop
 
-    dec     ebp
-    jnz     .line_loop
-
+dd_done:
     pop     ebp
     pop     edi
     pop     esi

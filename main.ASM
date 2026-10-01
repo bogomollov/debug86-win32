@@ -39,21 +39,10 @@ main_loop:
     jmp     main_loop
 
 cmd_dump:
+    mov     word [dump_len], 128
+
     mov     esi, input_buffer
     inc     esi
-    mov     al, [esi]
-    cmp     al, ' '
-    je      .ok_ws
-    cmp     al, 9
-    je      .ok_ws
-    cmp     al, 13
-    je      .ok_ws
-    cmp     al, 10
-    je      .ok_ws
-    cmp     al, 0
-    je      .ok_ws
-    jmp     .bad_cmd
-.ok_ws:
 
 .skip_ws1:
     mov     al, [esi]
@@ -61,39 +50,25 @@ cmd_dump:
     je      .adv1
     cmp     al, 9
     je      .adv1
-    jmp     .check_empty
+    jmp     .check_arg
 .adv1:
     inc     esi
     jmp     .skip_ws1
 
-.check_empty:
+.check_arg:
     cmp     al, 13
     je      .do_it
     cmp     al, 10
     je      .do_it
-    cmp     al, 0
-    je      .do_it
+    cmp     al, 'l'
+    je      .parse_len_only
+    cmp     al, 'L'
+    je      .parse_len_only
 
     call    parse_hex
-    jc      .bad_cmd
+    jc      .do_it
     mov     bx, ax
 
-    mov     al, [esi]
-    cmp     al, ':'
-    je      .colon
-    cmp     al, ' '
-    je      .after_first_ws
-    cmp     al, 9
-    je      .after_first_ws
-    cmp     al, 13
-    je      .set_offset
-    cmp     al, 10
-    je      .set_offset
-    cmp     al, 0
-    je      .set_offset
-    jmp     .bad_cmd
-
-.after_first_ws:
 .skip_ws2:
     mov     al, [esi]
     cmp     al, ' '
@@ -107,16 +82,8 @@ cmd_dump:
 
 .check_colon:
     cmp     al, ':'
-    je      .colon
-    cmp     al, 13
-    je      .set_offset
-    cmp     al, 10
-    je      .set_offset
-    cmp     al, 0
-    je      .set_offset
-    jmp     .bad_cmd
+    jne     .set_offset
 
-.colon:
     inc     esi
 
 .skip_ws3:
@@ -132,39 +99,57 @@ cmd_dump:
 
 .parse_off:
     call    parse_hex
-    jc      .bad_cmd
-
+    jc      .set_offset
     mov     [dump_seg], bx
     mov     [dump_off], ax
+    jmp     .after_addr
 
+.set_offset:
+    mov     [dump_off], bx
+
+.after_addr:
 .skip_ws4:
     mov     al, [esi]
     cmp     al, ' '
     je      .adv4
     cmp     al, 9
     je      .adv4
-    jmp     .check_end
+    jmp     .check_len
 .adv4:
     inc     esi
     jmp     .skip_ws4
 
-.check_end:
-    cmp     al, 13
-    je      .do_it
-    cmp     al, 10
-    je      .do_it
-    cmp     al, 0
-    je      .do_it
-    jmp     .bad_cmd
+.check_len:
+    cmp     al, 'l'
+    je      .parse_len
+    cmp     al, 'L'
+    je      .parse_len
+    jmp     .do_it
 
-.set_offset:
-    mov     [dump_off], bx
+.parse_len_only:
+    jmp     .parse_len
+
+.parse_len:
+    inc     esi
+.skip_ws5:
+    mov     al, [esi]
+    cmp     al, ' '
+    je      .adv5
+    cmp     al, 9
+    je      .adv5
+    jmp     .read_len
+.adv5:
+    inc     esi
+    jmp     .skip_ws5
+.read_len:
+    call    parse_hex
+    jc      .do_it
+    test    ax, ax
+    jz      .do_it
+    mov     [dump_len], ax
 
 .do_it:
     call    do_dump
-    jmp     main_loop
-
-.bad_cmd:
     jmp     main_loop
 
 exit_program:

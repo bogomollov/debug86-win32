@@ -8,6 +8,7 @@ section '.data' data readable writeable
 
     dump_seg        dw 0000h
     dump_off        dw 0100h
+    dump_len        dw 128
 
     line_buffer     rb 256
     memory          rb 65536
