@@ -61,20 +61,19 @@ dd_dash:
 dd_hex_pad:
     cmp     edx, 16
     je      dd_hex_done
-dd_pad_loop:
-    mov     al, ' '
-    stosb
-    stosb
-    inc     edx
+.pad_loop:
+    cmp     edi, line_buffer + 58
+    jae     dd_hex_done
+    cmp     edi, line_buffer + 34
+    jne     .pad_space
     cmp     edx, 8
-    je      dd_pad_dash
-    cmp     edx, 16
-    jb      dd_pad_loop
-    jmp     dd_hex_done
-dd_pad_dash:
+    jbe     .pad_space
     mov     al, '-'
     stosb
-    jmp     dd_pad_loop
+.pad_space:
+    mov     al, ' '
+    stosb
+    jmp     .pad_loop
 
 dd_hex_done:
     mov     al, ' '
@@ -86,7 +85,6 @@ dd_hex_done:
     mov     ecx, ebx
 dd_ascii_loop:
     lodsb
-    and     al, 7Fh
     cmp     al, 20h
     jb      dd_nonprint
     cmp     al, 7Fh

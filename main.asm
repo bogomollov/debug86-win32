@@ -42,6 +42,19 @@ main_loop:
     add     esi, 5
     jmp     .find_cmd
 .exec_cmd:
+    mov     bl, [input_buffer + 1]
+    cmp     bl, ' '
+    je      .run_cmd
+    cmp     bl, 9
+    je      .run_cmd
+    cmp     bl, 13
+    je      .run_cmd
+    cmp     bl, 10
+    je      .run_cmd
+    test    bl, bl
+    jz      .run_cmd
+    jmp     main_loop
+.run_cmd:
     mov     eax, [esi+1]
     call    eax
     jmp     main_loop
@@ -269,7 +282,8 @@ section '.idata' import data readable writeable
     library kernel32, 'KERNEL32.DLL'
 
     import kernel32,\
-           ExitProcess,   'ExitProcess',\
-           GetStdHandle,  'GetStdHandle',\
-           WriteConsoleA, 'WriteConsoleA',\
-           ReadConsoleA,  'ReadConsoleA'
+           ExitProcess,        'ExitProcess',\
+           GetStdHandle,       'GetStdHandle',\
+           WriteConsoleA,      'WriteConsoleA',\
+           ReadConsoleA,       'ReadConsoleA',\
+           SetConsoleOutputCP, 'SetConsoleOutputCP'
