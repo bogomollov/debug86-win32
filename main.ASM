@@ -39,6 +39,69 @@ main_loop:
     jmp     main_loop
 
 cmd_dump:
+    mov     esi, input_buffer
+    inc     esi
+
+.skip_ws1:
+    mov     al, [esi]
+    cmp     al, ' '
+    je      .adv1
+    cmp     al, 9
+    je      .adv1
+    jmp     .check_arg
+.adv1:
+    inc     esi
+    jmp     .skip_ws1
+
+.check_arg:
+    cmp     al, 13
+    je      .do_it
+    cmp     al, 10
+    je      .do_it
+
+    call    parse_hex
+    jc      .do_it
+    mov     bx, ax
+
+.skip_ws2:
+    mov     al, [esi]
+    cmp     al, ' '
+    je      .adv2
+    cmp     al, 9
+    je      .adv2
+    jmp     .check_colon
+.adv2:
+    inc     esi
+    jmp     .skip_ws2
+
+.check_colon:
+    cmp     al, ':'
+    jne     .set_offset
+
+    inc     esi
+
+.skip_ws3:
+    mov     al, [esi]
+    cmp     al, ' '
+    je      .adv3
+    cmp     al, 9
+    je      .adv3
+    jmp     .parse_off
+.adv3:
+    inc     esi
+    jmp     .skip_ws3
+
+.parse_off:
+    call    parse_hex
+    jc      .set_offset
+    mov     [dump_seg], bx
+    mov     [dump_off], ax
+    jmp     .do_it
+
+.set_offset:
+    mov     [dump_off], bx
+
+.do_it:
     call    do_dump
     jmp     main_loop
 
