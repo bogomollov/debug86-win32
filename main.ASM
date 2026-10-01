@@ -41,6 +41,19 @@ main_loop:
 cmd_dump:
     mov     esi, input_buffer
     inc     esi
+    mov     al, [esi]
+    cmp     al, ' '
+    je      .ok_ws
+    cmp     al, 9
+    je      .ok_ws
+    cmp     al, 13
+    je      .ok_ws
+    cmp     al, 10
+    je      .ok_ws
+    cmp     al, 0
+    je      .ok_ws
+    jmp     .bad_cmd
+.ok_ws:
 
 .skip_ws1:
     mov     al, [esi]
@@ -48,21 +61,39 @@ cmd_dump:
     je      .adv1
     cmp     al, 9
     je      .adv1
-    jmp     .check_arg
+    jmp     .check_empty
 .adv1:
     inc     esi
     jmp     .skip_ws1
 
-.check_arg:
+.check_empty:
     cmp     al, 13
     je      .do_it
     cmp     al, 10
     je      .do_it
+    cmp     al, 0
+    je      .do_it
 
     call    parse_hex
-    jc      .do_it
+    jc      .bad_cmd
     mov     bx, ax
 
+    mov     al, [esi]
+    cmp     al, ':'
+    je      .colon
+    cmp     al, ' '
+    je      .after_first_ws
+    cmp     al, 9
+    je      .after_first_ws
+    cmp     al, 13
+    je      .set_offset
+    cmp     al, 10
+    je      .set_offset
+    cmp     al, 0
+    je      .set_offset
+    jmp     .bad_cmd
+
+.after_first_ws:
 .skip_ws2:
     mov     al, [esi]
     cmp     al, ' '
@@ -76,8 +107,16 @@ cmd_dump:
 
 .check_colon:
     cmp     al, ':'
-    jne     .set_offset
+    je      .colon
+    cmp     al, 13
+    je      .set_offset
+    cmp     al, 10
+    je      .set_offset
+    cmp     al, 0
+    je      .set_offset
+    jmp     .bad_cmd
 
+.colon:
     inc     esi
 
 .skip_ws3:
@@ -93,16 +132,39 @@ cmd_dump:
 
 .parse_off:
     call    parse_hex
-    jc      .set_offset
+    jc      .bad_cmd
+
     mov     [dump_seg], bx
     mov     [dump_off], ax
-    jmp     .do_it
+
+.skip_ws4:
+    mov     al, [esi]
+    cmp     al, ' '
+    je      .adv4
+    cmp     al, 9
+    je      .adv4
+    jmp     .check_end
+.adv4:
+    inc     esi
+    jmp     .skip_ws4
+
+.check_end:
+    cmp     al, 13
+    je      .do_it
+    cmp     al, 10
+    je      .do_it
+    cmp     al, 0
+    je      .do_it
+    jmp     .bad_cmd
 
 .set_offset:
     mov     [dump_off], bx
 
 .do_it:
     call    do_dump
+    jmp     main_loop
+
+.bad_cmd:
     jmp     main_loop
 
 exit_program:
