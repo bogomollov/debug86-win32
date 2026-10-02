@@ -99,7 +99,6 @@ dd_line_loop:
     mov     al, ' '
     stosb
     stosb
-    stosb
 
     movzx   ecx, word [dd_line_bytes]
     sub     esi, ecx
