@@ -45,6 +45,10 @@ section '.data' data readable writeable
     asm_off         dw 0
     asm_len         dw 0
     asm_arg_size    db 0
+    
+    unasm_seg       dw 0
+    unasm_off       dw 0100h
+    unasm_len       dw 32
 
     asm_1word_table db "nop", 0, 90h, 0
                     db "int", 0, 0CDh, 1
@@ -68,6 +72,7 @@ section '.data' data readable writeable
                     db 0
 
     help_text db 'assemble              A [адрес]',13,10
+              db 'unassemble            U [адрес]',13,10
               db 'dump                  D [диапазон]',13,10
               db 'enter                 E адрес [список]',13,10
               db 'fill                  F диапазон список',13,10
@@ -84,6 +89,8 @@ section '.data' data readable writeable
 COMTAB:
     db 'a'
     dd cmd_assemble
+    db 'u'
+    dd cmd_unassemble
     db 'q'
     dd cmd_quit
     db 'd'

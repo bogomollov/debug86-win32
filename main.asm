@@ -592,6 +592,235 @@ cmd_assemble:
 .done:
     ret
 
+cmd_unassemble:
+    mov     esi, [cmd_ptr]
+    mov     word [unasm_len], 32
+
+    call    skip_whitespace
+    call    is_eol
+    jc      .do_it
+
+    call    parse_address
+    jc      print_error_and_ret
+    mov     [unasm_seg], ax
+    mov     [unasm_off], bx
+    mov     bp, ax
+
+    mov     dx, bx
+    call    skip_whitespace
+    call    is_eol
+    jc      .do_it
+
+    call    parse_length
+    jc      print_error_and_ret
+    mov     [unasm_len], cx
+
+.do_it:
+    mov     ax, [unasm_seg]
+    mov     bx, [unasm_off]
+    call    calc_linear_addr
+    movzx   ecx, word [unasm_len]
+    call    check_mem_range
+    jc      print_error_and_ret
+
+.unasm_loop:
+    movzx   ecx, word [unasm_len]
+    test    ecx, ecx
+    jz      .done
+
+    mov     edi, line_buffer
+    mov     ax, [unasm_seg]
+    call    put_hex_word
+    mov     al, ':'
+    stosb
+    mov     ax, [unasm_off]
+    call    put_hex_word
+    mov     al, ' '
+    stosb
+    stosb
+
+    mov     ax, [unasm_seg]
+    mov     bx, [unasm_off]
+    call    calc_linear_addr
+    mov     ebp, memory
+    add     ebp, eax
+
+    mov     al, [ebp]
+    call    find_opcode
+    jc      .not_found
+
+    movzx   ebx, dl
+    inc     ebx
+    cmp     ecx, ebx
+    jae     .have_bytes
+
+.not_found:
+    mov     al, [ebp]
+    call    put_hex_byte
+    
+    push    ecx
+    mov     ecx, 8
+    mov     al, ' '
+    rep stosb
+    pop     ecx
+    
+    mov     al, 'D'
+    stosb
+    mov     al, 'B'
+    stosb
+    mov     al, ' '
+    stosb
+    stosb
+    stosb
+    stosb
+    
+    mov     al, [ebp]
+    call    put_hex_byte
+    
+    mov     ebx, 1
+    jmp     .line_done
+
+.have_bytes:
+    push    esi
+    push    edx
+    push    ebx
+    
+    mov     esi, ebp
+.hex_loop:
+    lodsb
+    call    put_hex_byte
+    mov     al, ' '
+    stosb
+    dec     ebx
+    jnz     .hex_loop
+    pop     ebx
+    
+    mov     eax, 3
+    sub     eax, ebx
+    imul    eax, 3
+    add     eax, 2
+    push    ecx
+    mov     ecx, eax
+    mov     al, ' '
+    rep stosb
+    pop     ecx
+    
+    pop     edx
+    pop     esi
+    
+.str_loop:
+    lodsb
+    test    al, al
+    jz      .str_done
+    cmp     al, 'a'
+    jb      .store_char
+    cmp     al, 'z'
+    ja      .store_char
+    sub     al, 20h
+.store_char:
+    stosb
+    jmp     .str_loop
+.str_done:
+
+    test    dl, dl
+    jz      .line_done
+    
+    cmp     dh, 1
+    je      .use_comma
+    mov     al, ' '
+    jmp     .put_sep
+.use_comma:
+    mov     al, ','
+.put_sep:
+    stosb
+    
+    cmp     dl, 1
+    je      .arg_byte
+    
+    mov     al, [ebp+2]
+    call    put_hex_byte
+    mov     al, [ebp+1]
+    call    put_hex_byte
+    jmp     .line_done
+    
+.arg_byte:
+    mov     al, [ebp+1]
+    call    put_hex_byte
+
+.line_done:
+    mov     al, 13
+    stosb
+    mov     al, 10
+    stosb
+    
+    mov     edx, edi
+    sub     edx, line_buffer
+    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
+    
+    add     [unasm_off], bx
+    sub     [unasm_len], bx
+    jmp     .unasm_loop
+
+.done:
+    ret
+
+find_opcode:
+    push    edi
+    mov     edi, asm_1word_table
+.loop1:
+    cmp     byte [edi], 0
+    je      .end1
+    mov     ebx, edi
+.skip1:
+    cmp     byte [ebx], 0
+    je      .found_null1
+    inc     ebx
+    jmp     .skip1
+.found_null1:
+    inc     ebx
+    cmp     al, [ebx]
+    jne     .next1
+    mov     esi, edi
+    mov     dl, [ebx+1]
+    mov     dh, 0
+    pop     edi
+    clc
+    ret
+.next1:
+    add     ebx, 2
+    mov     edi, ebx
+    jmp     .loop1
+.end1:
+
+    mov     edi, asm_2word_table
+.loop2:
+    cmp     byte [edi], 0
+    je      .end2
+    mov     ebx, edi
+.skip2:
+    cmp     byte [ebx], 0
+    je      .found_null2
+    inc     ebx
+    jmp     .skip2
+.found_null2:
+    inc     ebx
+    cmp     al, [ebx]
+    jne     .next2
+    mov     esi, edi
+    mov     dl, [ebx+1]
+    mov     dh, 1
+    pop     edi
+    clc
+    ret
+.next2:
+    add     ebx, 2
+    mov     edi, ebx
+    jmp     .loop2
+.end2:
+    pop     edi
+    stc
+    ret
+
 parse_instruction:
     mov     edi, asm_token
     call    get_token
