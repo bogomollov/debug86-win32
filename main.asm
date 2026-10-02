@@ -637,6 +637,7 @@ cmd_edit:
     invoke  SetConsoleMode, [hStdIn], eax
 
     mov     byte [edit_have_nibble], 0
+    mov     byte [edit_cell_done], 0
 
     mov     edi, line_buffer
     mov     ax, [edit_seg]
@@ -669,6 +670,9 @@ cmd_edit:
     call    hex_to_val
     jc      .ce_int_read
 
+    cmp     byte [edit_cell_done], 0
+    jne     .ce_int_read
+
     mov     [line_buffer+1], al
     mov     al, [edit_char]
     mov     [line_buffer], al
@@ -687,10 +691,12 @@ cmd_edit:
     or      dl, al
     mov     [ebp], dl
     mov     byte [edit_have_nibble], 0
+    mov     byte [edit_cell_done], 1
     jmp     .ce_int_read
 
 .ce_int_space:
     mov     byte [edit_have_nibble], 0
+    mov     byte [edit_cell_done], 0
     inc     ebp
     inc     word [edit_off]
     mov     edi, line_buffer
