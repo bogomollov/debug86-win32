@@ -9,7 +9,7 @@ ph_loop:
     jb      ph_done
     cmp     bl, '9'
     jbe     ph_digit
-    
+
     or      bl, 20h
     cmp     bl, 'a'
     jb      ph_done
@@ -24,27 +24,11 @@ ph_have:
     or      al, bl
     inc     esi
     inc     cx
-    cmp     cx, 4
-    jb      ph_loop
+    jmp     ph_loop
 
 ph_done:
     test    cx, cx
     jz      ph_err
-    cmp     cx, 4
-    jb      ph_ok
-
-    mov     bl, [esi]
-    cmp     bl, '0'
-    jb      ph_ok
-    cmp     bl, '9'
-    jbe     ph_err
-    or      bl, 20h
-    cmp     bl, 'a'
-    jb      ph_ok
-    cmp     bl, 'f'
-    jbe     ph_err
-
-ph_ok:
     clc
     jmp     ph_out
 ph_err:
