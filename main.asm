@@ -85,6 +85,8 @@ cmd_dump:
     mov     [dump_off], bx
     mov     bp, ax
 
+    mov     word [dump_len], 16
+
     mov     dx, bx
     call    skip_whitespace
     call    is_eol
