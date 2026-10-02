@@ -120,8 +120,6 @@ dd_line_loop:
     lodsb
     cmp     al, 20h
     jb      .dd_ascii_nonprint
-    cmp     al, 7Fh
-    jae     .dd_ascii_nonprint
     jmp     .dd_ascii_store
 .dd_ascii_nonprint:
     mov     al, '.'
