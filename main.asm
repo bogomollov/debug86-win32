@@ -17,7 +17,7 @@ start:
 
     invoke  SetConsoleOutputCP, 65001
 
-    mov     ecx, 65536
+    mov     ecx, MEM_SIZE
     mov     edi, memory
     xor     eax, eax
 .init_mem:
@@ -38,7 +38,7 @@ main_loop:
 .find_cmd:
     mov     bl, [esi]
     test    bl, bl
-    jz      main_loop
+    jz      .cmd_not_found
     cmp     bl, al
     je      .run_cmd
     add     esi, 5
@@ -46,6 +46,17 @@ main_loop:
 .run_cmd:
     mov     eax, [esi+1]
     call    eax
+    jmp     main_loop
+
+.cmd_not_found:
+    mov     al, [input_buffer]
+    test    al, al
+    jz      main_loop
+    cmp     al, 13
+    je      main_loop
+    cmp     al, 10
+    je      main_loop
+    call    print_error
     jmp     main_loop
 
 cmd_help:
@@ -153,13 +164,13 @@ cmd_dump:
 
 .parse_off_seg:
     call    parse_hex
-    jc      .after_addr
+    jc      .dump_error
     mov     [dump_off], ax
     jmp     .after_addr
 
 .not_seg:
     call    parse_hex
-    jc      .do_it
+    jc      .dump_error
     mov     bx, ax
 
 .skip_ws2:
@@ -192,7 +203,7 @@ cmd_dump:
 
 .parse_off:
     call    parse_hex
-    jc      .set_offset
+    jc      .dump_error
     mov     [dump_seg], bx
     mov     [dump_off], ax
     jmp     .after_addr
@@ -220,23 +231,29 @@ cmd_dump:
     je      .parse_len
     cmp     al, 'L'
     je      .parse_len
+    cmp     al, 13
+    je      .do_it
+    cmp     al, 10
+    je      .do_it
+    test    al, al
+    jz      .do_it
 
     mov     bl, al
     or      bl, 20h
     cmp     bl, '0'
-    jb      .do_it
+    jb      .dump_error
     cmp     bl, '9'
     jbe     .parse_end
     cmp     bl, 'a'
-    jb      .do_it
+    jb      .dump_error
     cmp     bl, 'f'
-    ja      .do_it
+    ja      .dump_error
 
 .parse_end:
     call    parse_hex
-    jc      .do_it
+    jc      .dump_error
     cmp     ax, [dump_off]
-    jb      .do_it
+    jb      .dump_error
     sub     ax, [dump_off]
     inc     ax
     mov     [dump_len], ax
@@ -259,13 +276,24 @@ cmd_dump:
     jmp     .skip_ws5
 .read_len:
     call    parse_hex
-    jc      .do_it
+    jc      .dump_error
     test    ax, ax
-    jz      .do_it
+    jz      .dump_error
     mov     [dump_len], ax
 
 .do_it:
+    movzx   eax, word [dump_seg]
+    shl     eax, 4
+    movzx   ebx, word [dump_off]
+    add     eax, ebx
+    movzx   ecx, word [dump_len]
+    call    check_mem_range
+    jc      .dump_error
     call    do_dump
+    ret
+
+.dump_error:
+    call    print_error
     ret
 
 cmd_fill:
@@ -285,7 +313,7 @@ cmd_fill:
 
 .cf_parse_addr:
     call    parse_hex
-    jc      .cf_ret
+    jc      .cf_error
     mov     bx, ax
 
 .cf_skip2:
@@ -318,7 +346,7 @@ cmd_fill:
 
 .cf_parse_off:
     call    parse_hex
-    jc      .cf_ret
+    jc      .cf_error
     mov     [fill_seg], bx
     mov     [fill_off], ax
     jmp     .cf_after_addr
@@ -347,9 +375,9 @@ cmd_fill:
     je      .cf_have_l
 
     call    parse_hex
-    jc      .cf_ret
+    jc      .cf_error
     cmp     ax, [fill_off]
-    jb      .cf_ret
+    jb      .cf_error
     sub     ax, [fill_off]
     inc     ax
     mov     [fill_len], ax
@@ -371,9 +399,9 @@ cmd_fill:
 
 .cf_parse_len:
     call    parse_hex
-    jc      .cf_ret
+    jc      .cf_error
     test    ax, ax
-    jz      .cf_ret
+    jz      .cf_error
     mov     [fill_len], ax
 
 .cf_skip6:
@@ -409,7 +437,7 @@ cmd_fill:
     jz      .cf_pat_done
 
     call    parse_hex_byte
-    jc      .cf_pat_done
+    jc      .cf_error
     stosb
     inc     ecx
     cmp     ecx, 64
@@ -422,7 +450,7 @@ cmd_fill:
 
 .cf_pat_done:
     test    ecx, ecx
-    jz      .cf_ret
+    jz      .cf_error
     mov     [fill_patlen], cx
     jmp     .cf_do_fill
 
@@ -451,7 +479,7 @@ cmd_fill:
 
 .cf_str_done:
     test    ecx, ecx
-    jz      .cf_ret
+    jz      .cf_error
     mov     [fill_patlen], cx
 
 .cf_do_fill:
@@ -459,6 +487,10 @@ cmd_fill:
     shl     eax, 4
     movzx   ebx, word [fill_off]
     add     eax, ebx
+
+    movzx   ecx, word [fill_len]
+    call    check_mem_range
+    jc      .cf_error
 
     mov     edi, memory
     add     edi, eax
@@ -484,6 +516,10 @@ cmd_fill:
 .cf_ret:
     ret
 
+.cf_error:
+    call    print_error
+    ret
+
 cmd_edit:
     mov     esi, input_buffer
     inc     esi
@@ -501,7 +537,7 @@ cmd_edit:
 
 .ce_parse_addr:
     call    parse_hex
-    jc      .ce_ret
+    jc      .ce_error
     mov     bx, ax
 
 .ce_skip2:
@@ -534,7 +570,7 @@ cmd_edit:
 
 .ce_parse_off:
     call    parse_hex
-    jc      .ce_ret
+    jc      .ce_error
     mov     [edit_seg], bx
     mov     [edit_off], ax
     jmp     .ce_after_addr
@@ -549,6 +585,11 @@ cmd_edit:
     shl     eax, 4
     movzx   ebx, word [edit_off]
     add     eax, ebx
+
+    mov     ecx, 1
+    call    check_mem_range
+    jc      .ce_error
+
     mov     ebp, memory
     add     ebp, eax
 
@@ -562,6 +603,7 @@ cmd_edit:
 .ce_adv_after:
     inc     esi
     jmp     .ce_skip_ws_after
+
 .ce_check_token:
     cmp     al, 13
     je      .ce_interactive
@@ -593,13 +635,16 @@ cmd_edit:
     test    al, al
     jz      .ce_ret
 
+    cmp     edi, memory + MEM_SIZE
+    jae     .ce_error
+
     cmp     al, 22h
     je      .ce_string
     cmp     al, 27h
     je      .ce_string
 
     call    parse_hex_byte
-    jc      .ce_ret
+    jc      .ce_error
     stosb
     jmp     .ce_next_token
 
@@ -616,6 +661,10 @@ cmd_edit:
     je      .ce_ret
     cmp     al, 10
     je      .ce_ret
+
+    cmp     edi, memory + MEM_SIZE
+    jae     .ce_error
+
     stosb
     inc     esi
     jmp     .ce_str_loop
@@ -727,8 +776,20 @@ cmd_edit:
 .ce_int_space:
     mov     byte [edit_have_nibble], 0
     mov     byte [edit_cell_done], 0
-    inc     ebp
     inc     word [edit_off]
+
+    movzx   eax, word [edit_seg]
+    shl     eax, 4
+    movzx   ebx, word [edit_off]
+    add     eax, ebx
+
+    mov     ecx, 1
+    call    check_mem_range
+    jc      .ce_int_done
+
+    mov     ebp, memory
+    add     ebp, eax
+
     mov     al, [ebp]
     mov     [edit_orig_byte], al
     mov     edi, line_buffer
@@ -752,6 +813,29 @@ cmd_edit:
     ret
 
 .ce_ret:
+    ret
+
+.ce_error:
+    call    print_error
+    ret
+
+print_error:
+    invoke  WriteConsoleA, [hStdOut], err_text, err_text_len, chars_written, 0
+    ret
+
+check_mem_range:
+    push    edx
+    mov     edx, eax
+    add     edx, ecx
+    jc      .bad
+    cmp     edx, MEM_SIZE
+    ja      .bad
+    pop     edx
+    clc
+    ret
+.bad:
+    pop     edx
+    stc
     ret
 
 exit_program:

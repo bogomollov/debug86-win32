@@ -37,8 +37,13 @@ section '.data' data readable writeable
               db 'quit                  Q',13,10
     help_text_len = $ - help_text
 
+    err_text db '^ Error',13,10
+    err_text_len = $ - err_text
+
     line_buffer     rb 256
-    memory          rb 65536
+
+    MEM_SIZE = 110000h
+    memory          rb MEM_SIZE
 
 COMTAB:
     db 'q'

@@ -35,7 +35,28 @@ ph_have:
     jb      ph_loop
 ph_done:
     test    cx, cx
-    jnz     ph_ok
+    jz      ph_err
+    cmp     cx, 4
+    jb      ph_ok
+
+    mov     bl, [esi]
+    cmp     bl, 'a'
+    jb      ph_chk_up
+    cmp     bl, 'z'
+    ja      ph_chk_up
+    sub     bl, 20h
+ph_chk_up:
+    cmp     bl, '0'
+    jb      ph_ok
+    cmp     bl, '9'
+    jbe     ph_err
+    cmp     bl, 'A'
+    jb      ph_ok
+    cmp     bl, 'F'
+    jbe     ph_err
+    jmp     ph_ok
+
+ph_err:
     stc
     jmp     ph_out
 ph_ok:
@@ -79,7 +100,28 @@ phb_have:
     jb      phb_loop
 phb_done:
     test    cx, cx
-    jnz     phb_ok
+    jz      phb_err
+    cmp     cx, 2
+    jb      phb_ok
+
+    mov     bl, [esi]
+    cmp     bl, 'a'
+    jb      phb_chk_up
+    cmp     bl, 'z'
+    ja      phb_chk_up
+    sub     bl, 20h
+phb_chk_up:
+    cmp     bl, '0'
+    jb      phb_ok
+    cmp     bl, '9'
+    jbe     phb_err
+    cmp     bl, 'A'
+    jb      phb_ok
+    cmp     bl, 'F'
+    jbe     phb_err
+    jmp     phb_ok
+
+phb_err:
     stc
     jmp     phb_out
 phb_ok:
