@@ -266,7 +266,7 @@ cmd_edit:
 .ce_interactive:
     invoke  GetConsoleMode, [hStdIn], old_console_mode
     mov     eax, [old_console_mode]
-    and     eax, not 2
+    and     eax, not 6
     invoke  SetConsoleMode, [hStdIn], eax
 
     mov     byte [edit_have_nibble], 0
