@@ -1076,7 +1076,45 @@ cmd_go:
     cmp     al, 20h
     je      .program_end
     cmp     al, 21h
+    je      .int21
+    add     word [reg_IP], 2
+    jmp     .run_loop
+
+.int21:
+    mov     ah, byte [reg_AX+1]
+    cmp     ah, 09h
+    je      .int21_ah09
+    cmp     ah, 4Ch
     je      .program_end
+    add     word [reg_IP], 2
+    jmp     .run_loop
+
+.int21_ah09:
+    mov     ax, [reg_DS]
+    mov     bx, [reg_DX]
+    call    calc_linear_addr
+    
+    mov     ecx, MEM_SIZE
+    sub     ecx, eax
+    jbe     .int21_09_skip
+    
+    mov     esi, memory
+    add     esi, eax
+    mov     edi, esi
+    push    ecx
+    mov     al, '$'
+    repne   scasb
+    pop     ecx
+    jne     .int21_09_skip
+    
+    mov     edx, edi
+    sub     edx, esi
+    dec     edx
+    jz      .int21_09_skip
+    
+    invoke  WriteConsoleA, [hStdOut], esi, edx, chars_written, 0
+
+.int21_09_skip:
     add     word [reg_IP], 2
     jmp     .run_loop
 
@@ -1161,7 +1199,7 @@ cmd_go:
 
 .program_end:
     invoke  WriteConsoleA, [hStdOut], msg_prog_end, msg_prog_end_len, chars_written, 0
-    jmp     print_registers
+    ret
 
 .unknown_insn:
     invoke  WriteConsoleA, [hStdOut], msg_unknown_insn, msg_unknown_insn_len, chars_written, 0

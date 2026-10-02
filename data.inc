@@ -85,7 +85,7 @@ section '.data' data readable writeable
               db 'dump                  D [диапазон]',13,10
               db 'enter                 E адрес [список]',13,10
               db 'fill                  F диапазон список',13,10
-              db 'fill                  M диапазон адрес',13,10
+              db 'fill                  M блокнач блоккон',13,10
               db 'go                    G [=addr] [bp]',13,10
               db 'quit                  Q',13,10
     help_text_len = $ - help_text
@@ -93,7 +93,7 @@ section '.data' data readable writeable
     err_text db '^ Error',13,10
     err_text_len = $ - err_text
 
-    msg_prog_end db 'Program terminated normally',13,10
+    msg_prog_end db 13,10,'Программа завершилась нормально',13,10
     msg_prog_end_len = $ - msg_prog_end
 
     msg_breakpoint db 'Breakpoint reached',13,10
