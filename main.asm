@@ -696,6 +696,7 @@ cmd_edit:
     mov     edi, line_buffer
     mov     al, ' '
     stosb
+    stosb
     mov     al, [ebp]
     call    put_hex_byte
     mov     al, '.'
