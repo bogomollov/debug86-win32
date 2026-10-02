@@ -21,6 +21,9 @@ section '.data' data readable writeable
     fill_patlen     dw 0
     fill_pat        rb 64
 
+    edit_seg        dw 0
+    edit_off        dw 0
+
     line_buffer     rb 256
     memory          rb 65536
 
@@ -31,4 +34,6 @@ COMTAB:
     dd cmd_dump
     db 'f'
     dd cmd_fill
+    db 'e'
+    dd cmd_edit
     db 0

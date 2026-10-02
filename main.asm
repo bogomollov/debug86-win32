@@ -491,6 +491,127 @@ cmd_fill:
 .cf_ret:
     ret
 
+cmd_edit:
+    mov     esi, input_buffer
+    inc     esi
+
+.ce_skip1:
+    mov     al, [esi]
+    cmp     al, ' '
+    je      .ce_adv1
+    cmp     al, 9
+    je      .ce_adv1
+    jmp     .ce_parse_addr
+.ce_adv1:
+    inc     esi
+    jmp     .ce_skip1
+
+.ce_parse_addr:
+    call    parse_hex
+    jc      .ce_ret
+    mov     bx, ax
+
+.ce_skip2:
+    mov     al, [esi]
+    cmp     al, ' '
+    je      .ce_adv2
+    cmp     al, 9
+    je      .ce_adv2
+    jmp     .ce_check_colon
+.ce_adv2:
+    inc     esi
+    jmp     .ce_skip2
+
+.ce_check_colon:
+    cmp     al, ':'
+    jne     .ce_no_colon
+
+    inc     esi
+
+.ce_skip3:
+    mov     al, [esi]
+    cmp     al, ' '
+    je      .ce_adv3
+    cmp     al, 9
+    je      .ce_adv3
+    jmp     .ce_parse_off
+.ce_adv3:
+    inc     esi
+    jmp     .ce_skip3
+
+.ce_parse_off:
+    call    parse_hex
+    jc      .ce_ret
+    mov     [edit_seg], bx
+    mov     [edit_off], ax
+    jmp     .ce_after_addr
+
+.ce_no_colon:
+    mov     ax, [reg_DS]
+    mov     [edit_seg], ax
+    mov     [edit_off], bx
+
+.ce_after_addr:
+    movzx   eax, word [edit_seg]
+    shl     eax, 4
+    movzx   ebx, word [edit_off]
+    add     eax, ebx
+    mov     edi, memory
+    add     edi, eax
+
+.ce_next_token:
+.ce_skip_ws:
+    mov     al, [esi]
+    cmp     al, ' '
+    je      .ce_skip_inc
+    cmp     al, 9
+    je      .ce_skip_inc
+    jmp     .ce_check_end
+.ce_skip_inc:
+    inc     esi
+    jmp     .ce_skip_ws
+
+.ce_check_end:
+    cmp     al, 13
+    je      .ce_ret
+    cmp     al, 10
+    je      .ce_ret
+    test    al, al
+    jz      .ce_ret
+
+    cmp     al, 22h
+    je      .ce_string
+    cmp     al, 27h
+    je      .ce_string
+
+    call    parse_hex_byte
+    jc      .ce_ret
+    stosb
+    jmp     .ce_next_token
+
+.ce_string:
+    mov     dl, al
+    inc     esi
+.ce_str_loop:
+    mov     al, [esi]
+    test    al, al
+    jz      .ce_ret
+    cmp     al, dl
+    je      .ce_str_end
+    cmp     al, 13
+    je      .ce_ret
+    cmp     al, 10
+    je      .ce_ret
+    stosb
+    inc     esi
+    jmp     .ce_str_loop
+.ce_str_end:
+    inc     esi
+    jmp     .ce_next_token
+
+.ce_ret:
+    ret
+
 exit_program:
     invoke  ExitProcess, 0
 
