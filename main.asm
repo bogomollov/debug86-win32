@@ -52,6 +52,7 @@ main_loop:
     jmp     .find_cmd
 .run_cmd:
     mov     eax, [esi+1]
+    inc     dword [cmd_ptr]
     call    eax
     jmp     main_loop
 
@@ -64,7 +65,7 @@ cmd_help:
     ret
 
 cmd_quit:
-    mov     esi, input_buffer + 1
+    mov     esi, [cmd_ptr]
     call    skip_whitespace
     call    is_eol
     jc      exit_program
@@ -72,7 +73,7 @@ cmd_quit:
 
 cmd_dump:
     mov     word [dump_len], 128
-    mov     esi, input_buffer + 1
+    mov     esi, [cmd_ptr]
 
     call    skip_whitespace
     call    is_eol
@@ -103,7 +104,7 @@ cmd_dump:
     ret
 
 cmd_fill:
-    mov     esi, input_buffer + 1
+    mov     esi, [cmd_ptr]
 
     call    parse_address
     jc      print_error_and_ret
@@ -201,7 +202,7 @@ cmd_fill:
     ret
 
 cmd_edit:
-    mov     esi, input_buffer + 1
+    mov     esi, [cmd_ptr]
 
     call    parse_address
     jc      print_error_and_ret
