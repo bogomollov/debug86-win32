@@ -352,7 +352,15 @@ cmd_fill:
     je      .cf_have_l
     cmp     al, 'L'
     je      .cf_have_l
-    jmp     .cf_ret
+
+    call    parse_hex
+    jc      .cf_ret
+    cmp     ax, [fill_off]
+    jb      .cf_ret
+    sub     ax, [fill_off]
+    inc     ax
+    mov     [fill_len], ax
+    jmp     .cf_skip6
 
 .cf_have_l:
     inc     esi
