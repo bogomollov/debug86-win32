@@ -289,6 +289,8 @@ cmd_edit:
     je      .ce_int_done
     cmp     al, ' '
     je      .ce_int_space
+    cmp     al, '-'
+    je      .ce_int_minus
     cmp     al, 8
     je      .ce_int_back
     cmp     al, 127
@@ -366,6 +368,32 @@ cmd_edit:
 .ce_int_space_newline:
     mov     dl, 1
 .ce_int_space_show:
+    call    ce_show_byte
+    jc      .ce_int_done
+    jmp     .ce_int_read
+
+.ce_int_minus:
+    mov     byte [edit_have_nibble], 0
+    mov     byte [edit_cell_done], 0
+
+    dec     word [edit_off]
+    cmp     word [edit_off], 0FFFFh
+    jne     .ce_int_minus_chk_line
+    sub     word [edit_seg], 1000h
+    jc      .ce_int_done
+
+.ce_int_minus_chk_line:
+    mov     ax, [edit_off]
+    and     ax, 0Fh
+    cmp     ax, 0Fh
+    jne     .ce_int_minus_same_line
+    mov     dl, 1
+    jmp     .ce_int_minus_show
+
+.ce_int_minus_same_line:
+    xor     dl, dl
+
+.ce_int_minus_show:
     call    ce_show_byte
     jc      .ce_int_done
     jmp     .ce_int_read
