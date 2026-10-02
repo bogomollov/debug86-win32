@@ -119,3 +119,26 @@ phn_digit:
     add     al, '0'
     stosb
     ret
+
+hex_to_val:
+    cmp     al, '0'
+    jb      .invalid
+    cmp     al, '9'
+    jbe     .digit
+    mov     ah, al
+    or      ah, 20h
+    cmp     ah, 'a'
+    jb      .invalid
+    cmp     ah, 'f'
+    ja      .invalid
+    sub     ah, 'a' - 10
+    mov     al, ah
+    clc
+    ret
+.digit:
+    sub     al, '0'
+    clc
+    ret
+.invalid:
+    stc
+    ret

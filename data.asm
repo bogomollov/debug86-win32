@@ -10,7 +10,7 @@ section '.data' data readable writeable
     dump_off        dw 0100h
     dump_len        dw 128
 
-    reg_DS          dw 0958h
+    reg_DS          dw 0000h
     reg_CS          dw 0000h
     reg_ES          dw 0000h
     reg_SS          dw 0000h
@@ -21,8 +21,13 @@ section '.data' data readable writeable
     fill_patlen     dw 0
     fill_pat        rb 64
 
-    edit_seg        dw 0
-    edit_off        dw 0
+    edit_seg         dw 0
+    edit_off         dw 0
+    edit_char        db 0
+    edit_chars_read  dd 0
+    old_console_mode dd 0
+    edit_nibble      db 0
+    edit_have_nibble db 0
 
     line_buffer     rb 256
     memory          rb 65536

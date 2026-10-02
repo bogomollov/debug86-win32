@@ -556,8 +556,29 @@ cmd_edit:
     shl     eax, 4
     movzx   ebx, word [edit_off]
     add     eax, ebx
-    mov     edi, memory
-    add     edi, eax
+    mov     ebp, memory
+    add     ebp, eax
+
+.ce_skip_ws_after:
+    mov     al, [esi]
+    cmp     al, ' '
+    je      .ce_adv_after
+    cmp     al, 9
+    je      .ce_adv_after
+    jmp     .ce_check_token
+.ce_adv_after:
+    inc     esi
+    jmp     .ce_skip_ws_after
+.ce_check_token:
+    cmp     al, 13
+    je      .ce_interactive
+    cmp     al, 10
+    je      .ce_interactive
+    test    al, al
+    jz      .ce_interactive
+
+    mov     edi, ebp
+    jmp     .ce_next_token
 
 .ce_next_token:
 .ce_skip_ws:
@@ -609,6 +630,88 @@ cmd_edit:
     inc     esi
     jmp     .ce_next_token
 
+.ce_interactive:
+    invoke  GetConsoleMode, [hStdIn], old_console_mode
+    mov     eax, [old_console_mode]
+    and     eax, not 2
+    invoke  SetConsoleMode, [hStdIn], eax
+
+    mov     byte [edit_have_nibble], 0
+
+    mov     edi, line_buffer
+    mov     ax, [edit_seg]
+    call    put_hex_word
+    mov     al, ':'
+    stosb
+    mov     ax, [edit_off]
+    call    put_hex_word
+    mov     al, ' '
+    stosb
+    mov     al, [ebp]
+    call    put_hex_byte
+    mov     al, '.'
+    stosb
+    mov     edx, edi
+    sub     edx, line_buffer
+    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
+
+.ce_int_read:
+    invoke  ReadConsoleA, [hStdIn], edit_char, 1, edit_chars_read, 0
+    mov     al, [edit_char]
+
+    cmp     al, 13
+    je      .ce_int_done
+    cmp     al, 10
+    je      .ce_int_done
+    cmp     al, ' '
+    je      .ce_int_space
+
+    call    hex_to_val
+    jc      .ce_int_read
+
+    mov     [line_buffer+1], al
+    mov     al, [edit_char]
+    mov     [line_buffer], al
+    invoke  WriteConsoleA, [hStdOut], line_buffer, 1, chars_written, 0
+    mov     al, [line_buffer+1]
+
+    cmp     byte [edit_have_nibble], 0
+    jne     .ce_int_second
+    mov     [edit_nibble], al
+    mov     byte [edit_have_nibble], 1
+    jmp     .ce_int_read
+
+.ce_int_second:
+    mov     dl, [edit_nibble]
+    shl     dl, 4
+    or      dl, al
+    mov     [ebp], dl
+    mov     byte [edit_have_nibble], 0
+    jmp     .ce_int_read
+
+.ce_int_space:
+    mov     byte [edit_have_nibble], 0
+    inc     ebp
+    inc     word [edit_off]
+    mov     edi, line_buffer
+    mov     al, ' '
+    stosb
+    mov     al, [ebp]
+    call    put_hex_byte
+    mov     al, '.'
+    stosb
+    mov     edx, edi
+    sub     edx, line_buffer
+    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
+    jmp     .ce_int_read
+
+.ce_int_done:
+    invoke  SetConsoleMode, [hStdIn], [old_console_mode]
+    mov     byte [line_buffer], 13
+    mov     byte [line_buffer+1], 10
+    invoke  WriteConsoleA, [hStdOut], line_buffer, 2, chars_written, 0
+    ret
+
 .ce_ret:
     ret
 
@@ -623,4 +726,6 @@ section '.idata' import data readable writeable
            GetStdHandle,       'GetStdHandle',\
            WriteConsoleA,      'WriteConsoleA',\
            ReadConsoleA,       'ReadConsoleA',\
-           SetConsoleOutputCP, 'SetConsoleOutputCP'
+           SetConsoleOutputCP, 'SetConsoleOutputCP',\
+           GetConsoleMode,     'GetConsoleMode',\
+           SetConsoleMode,     'SetConsoleMode'
