@@ -4,7 +4,6 @@ section '.data' data readable writeable
     hStdIn          dd 0
     chars_written   dd 0
     chars_read      dd 0
-    input_buffer    rb 256
 
     dump_seg        dw 0000h
     dump_off        dw 0100h
@@ -41,10 +40,8 @@ section '.data' data readable writeable
     err_text db '^ Error',13,10
     err_text_len = $ - err_text
 
-    line_buffer     rb 256
-
     MEM_SIZE = 110000h
-    memory          rb MEM_SIZE
+    
 
 COMTAB:
     db 'q'
@@ -58,3 +55,8 @@ COMTAB:
     db '?'
     dd cmd_help
     db 0
+
+section '.bss' readable writeable
+    input_buffer    rb 256
+    line_buffer     rb 256
+    memory          rb MEM_SIZE
