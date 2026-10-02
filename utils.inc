@@ -30,6 +30,8 @@ skip_whitespace:
     je      .adv
     cmp     al, 9
     je      .adv
+    cmp     al, ','
+    je      .adv
     ret
 .adv:
     inc     esi
