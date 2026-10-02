@@ -18,7 +18,8 @@ section '.data' data readable writeable
     fill_seg        dw 0
     fill_off        dw 0
     fill_len        dw 0
-    fill_val        db 0
+    fill_patlen     dw 0
+    fill_pat        rb 64
 
     line_buffer     rb 256
     memory          rb 65536

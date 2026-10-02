@@ -389,15 +389,44 @@ cmd_fill:
     je      .cf_adv6
     cmp     al, 9
     je      .cf_adv6
-    jmp     .cf_parse_byte
+    jmp     .cf_parse_pattern
 .cf_adv6:
     inc     esi
     jmp     .cf_skip6
 
-.cf_parse_byte:
+.cf_parse_pattern:
+    mov     edi, fill_pat
+    xor     ecx, ecx
+
+.cf_pat_loop:
+    mov     al, [esi]
+    cmp     al, ' '
+    je      .cf_pat_skip
+    cmp     al, 9
+    je      .cf_pat_skip
+    cmp     al, 13
+    je      .cf_pat_done
+    cmp     al, 10
+    je      .cf_pat_done
+    test    al, al
+    jz      .cf_pat_done
+
     call    parse_hex_byte
-    jc      .cf_ret
-    mov     [fill_val], al
+    jc      .cf_pat_done
+    stosb
+    inc     ecx
+    cmp     ecx, 64
+    jae     .cf_pat_done
+    jmp     .cf_pat_loop
+
+.cf_pat_skip:
+    inc     esi
+    jmp     .cf_pat_loop
+
+.cf_pat_done:
+    test    ecx, ecx
+    jz      .cf_ret
+    mov     [fill_patlen], cx
 
     movzx   eax, word [fill_seg]
     shl     eax, 4
@@ -408,8 +437,22 @@ cmd_fill:
     add     edi, eax
 
     movzx   ecx, word [fill_len]
-    mov     al, [fill_val]
-    rep     stosb
+    mov     esi, fill_pat
+    movzx   edx, word [fill_patlen]
+    xor     ebx, ebx
+
+.cf_fill_loop:
+    test    ecx, ecx
+    jz      .cf_ret
+    mov     al, [esi + ebx]
+    stosb
+    inc     ebx
+    cmp     ebx, edx
+    jb      .cf_no_wrap
+    xor     ebx, ebx
+.cf_no_wrap:
+    dec     ecx
+    jmp     .cf_fill_loop
 
 .cf_ret:
     ret
