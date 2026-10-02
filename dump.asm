@@ -88,7 +88,7 @@ dd_ascii_loop:
     cmp     al, 20h
     jb      dd_nonprint
     cmp     al, 7Fh
-    je      dd_nonprint
+    jae     dd_nonprint
     jmp     dd_print
 dd_nonprint:
     mov     al, '.'
