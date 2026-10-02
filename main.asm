@@ -357,9 +357,6 @@ cmd_edit:
     mov     byte [edit_have_nibble], 0
     mov     byte [edit_cell_done], 0
     inc     word [edit_off]
-    jnz     .ce_int_space_chk_line
-    add     word [edit_seg], 1000h
-    jc      .ce_int_done
 .ce_int_space_chk_line:
     test    word [edit_off], 0Fh
     jz      .ce_int_space_newline
@@ -377,10 +374,6 @@ cmd_edit:
     mov     byte [edit_cell_done], 0
 
     dec     word [edit_off]
-    cmp     word [edit_off], 0FFFFh
-    jne     .ce_int_minus_chk_line
-    sub     word [edit_seg], 1000h
-    jc      .ce_int_done
 
 .ce_int_minus_chk_line:
     mov     ax, [edit_off]
