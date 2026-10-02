@@ -522,6 +522,204 @@ cmd_move:
 .cm_ret:
     ret
 
+cmd_assemble:
+    mov     esi, [cmd_ptr]
+
+    call    skip_whitespace
+    call    is_eol
+    jc      .use_default
+    
+    call    parse_address
+    jc      print_error_and_ret
+    mov     [asm_seg], ax
+    mov     [asm_off], bx
+    jmp     .loop
+
+.use_default:
+    mov     ax, [reg_CS]
+    mov     [asm_seg], ax
+    mov     ax, [asm_off]
+    test    ax, ax
+    jnz     .loop
+    mov     word [asm_off], 0100h
+
+.loop:
+    mov     edi, line_buffer
+    mov     ax, [asm_seg]
+    call    put_hex_word
+    mov     al, ':'
+    stosb
+    mov     ax, [asm_off]
+    call    put_hex_word
+    mov     al, ' '
+    stosb
+    stosb
+    
+    mov     edx, edi
+    sub     edx, line_buffer
+    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
+
+    invoke  ReadConsoleA, [hStdIn], input_buffer, 255, chars_read, 0
+    
+    mov     esi, input_buffer
+    call    skip_whitespace
+    call    is_eol
+    jc      .done
+
+    call    parse_instruction
+    jc      .error
+    
+    mov     ax, [asm_seg]
+    mov     bx, [asm_off]
+    call    calc_linear_addr
+    movzx   ecx, word [asm_len]
+    call    check_mem_range
+    jc      .error
+    
+    mov     edi, memory
+    add     edi, eax
+    mov     esi, asm_bytes
+    rep     movsb
+    
+    mov     ax, [asm_len]
+    add     [asm_off], ax
+    jmp     .loop
+
+.error:
+    call    print_error
+    jmp     .loop
+
+.done:
+    ret
+
+parse_instruction:
+    mov     edi, asm_token
+    call    get_token
+    
+    cmp     byte [asm_token], 0
+    je      .err
+    
+    mov     ebx, asm_1word_table
+    call    search_table
+    jnc     .found
+    
+    mov     edi, asm_token
+.find_end:
+    cmp     byte [edi], 0
+    je      .append_space
+    inc     edi
+    jmp     .find_end
+.append_space:
+    mov     byte [edi], ' '
+    inc     edi
+    
+    call    get_token
+    cmp     byte [asm_token], 0
+    je      .err
+    
+    mov     ebx, asm_2word_table
+    call    search_table
+    jc      .err
+
+.found:
+    mov     [asm_bytes], al
+    mov     word [asm_len], 1
+    mov     [asm_arg_size], ah
+    
+    test    ah, ah
+    jz      .ok
+    
+    call    skip_whitespace
+    call    parse_hex
+    jc      .err
+    
+    mov     dl, [asm_arg_size]
+    cmp     dl, 1
+    je      .arg_byte
+    
+    mov     [asm_bytes+1], al
+    mov     [asm_bytes+2], ah
+    mov     word [asm_len], 3
+    clc
+    ret
+    
+.arg_byte:
+    mov     [asm_bytes+1], al
+    mov     word [asm_len], 2
+.ok:
+    clc
+    ret
+    
+.err:
+    stc
+    ret
+
+get_token:
+    call    skip_whitespace
+.loop:
+    call    is_eol
+    jc      .done
+    mov     al, [esi]
+    cmp     al, ' '
+    je      .done
+    cmp     al, 9
+    je      .done
+    cmp     al, ','
+    je      .done
+    
+    cmp     al, 'A'
+    jb      .store
+    cmp     al, 'Z'
+    ja      .store
+    add     al, 20h
+.store:
+    stosb
+    inc     esi
+    jmp     .loop
+.done:
+    mov     byte [edi], 0
+    ret
+
+search_table:
+.loop:
+    mov     al, [ebx]
+    test    al, al
+    jz      .not_found
+    
+    mov     edi, asm_token
+    mov     edx, ebx
+.cmp:
+    mov     cl, [edi]
+    mov     ch, [edx]
+    cmp     cl, ch
+    jne     .next
+    test    cl, cl
+    jz      .match
+    inc     edi
+    inc     edx
+    jmp     .cmp
+    
+.next:
+    mov     al, [ebx]
+    test    al, al
+    jz      .skip_done
+    inc     ebx
+    jmp     .next
+.skip_done:
+    add     ebx, 3
+    jmp     .loop
+    
+.match:
+    inc     edx
+    mov     al, [edx]
+    mov     ah, [edx+1]
+    clc
+    ret
+    
+.not_found:
+    stc
+    ret
+
 
 section '.idata' import data readable writeable
     library kernel32, 'KERNEL32.DLL'

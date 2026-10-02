@@ -41,7 +41,34 @@ section '.data' data readable writeable
     edit_orig_byte   db 0
     edit_wrapped     db 0
 
-    help_text db 'dump                  D [диапазон]',13,10
+    asm_seg         dw 0
+    asm_off         dw 0
+    asm_len         dw 0
+    asm_arg_size    db 0
+
+    asm_1word_table db "nop", 0, 90h, 0
+                    db "int", 0, 0CDh, 1
+                    db "ret", 0, 0C3h, 0
+                    db 0
+
+    asm_2word_table db "mov ax", 0, 0B8h, 2
+                    db "mov bx", 0, 0BBh, 2
+                    db "mov cx", 0, 0B9h, 2
+                    db "mov dx", 0, 0BAh, 2
+                    db "mov al", 0, 0B0h, 1
+                    db "mov cl", 0, 0B1h, 1
+                    db "mov dl", 0, 0B2h, 1
+                    db "mov bl", 0, 0B3h, 1
+                    db "mov ah", 0, 0B4h, 1
+                    db "mov ch", 0, 0B5h, 1
+                    db "mov dh", 0, 0B6h, 1
+                    db "mov bh", 0, 0B7h, 1
+                    db "add ax", 0, 05h, 2
+                    db "sub ax", 0, 2Dh, 2
+                    db 0
+
+    help_text db 'assemble              A [адрес]',13,10
+              db 'dump                  D [диапазон]',13,10
               db 'enter                 E адрес [список]',13,10
               db 'fill                  F диапазон список',13,10
               db 'fill                  M диапазон адрес',13,10
@@ -55,6 +82,8 @@ section '.data' data readable writeable
     
 
 COMTAB:
+    db 'a'
+    dd cmd_assemble
     db 'q'
     dd cmd_quit
     db 'd'
@@ -73,3 +102,5 @@ section '.bss' readable writeable
     input_buffer    rb 256
     line_buffer     rb 256
     memory          rb MEM_SIZE
+    asm_token       rb 32
+    asm_bytes       rb 16
