@@ -31,6 +31,12 @@ section '.data' data readable writeable
     edit_cell_done   db 0
     edit_orig_byte   db 0
 
+    help_text db 'dump                  D [диапазон]',13,10
+              db 'enter                 E адрес [список]',13,10
+              db 'fill                  F диапазон список',13,10
+              db 'quit                  Q',13,10
+    help_text_len = $ - help_text
+
     line_buffer     rb 256
     memory          rb 65536
 
@@ -43,4 +49,6 @@ COMTAB:
     dd cmd_fill
     db 'e'
     dd cmd_edit
+    db '?'
+    dd cmd_help
     db 0

@@ -61,6 +61,10 @@ main_loop:
     call    eax
     jmp     main_loop
 
+cmd_help:
+    invoke  WriteConsoleA, [hStdOut], help_text, help_text_len, chars_written, 0
+    ret
+
 cmd_quit:
     mov     ecx, [chars_read]
     cmp     ecx, 1
