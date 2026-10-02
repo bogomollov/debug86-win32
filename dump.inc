@@ -1,5 +1,8 @@
 section '.text' code readable executable
 
+DUMP_ASCII_OFFSET = 34
+DUMP_LINE_LENGTH  = 58
+
 do_dump:
     push    eax
     push    ebx
@@ -62,9 +65,9 @@ dd_hex_pad:
     cmp     edx, 16
     je      dd_hex_done
 .pad_loop:
-    cmp     edi, line_buffer + 58
+    cmp     edi, line_buffer + DUMP_LINE_LENGTH
     jae     dd_hex_done
-    cmp     edi, line_buffer + 34
+    cmp     edi, line_buffer + DUMP_ASCII_OFFSET
     jne     .pad_space
     cmp     edx, 8
     jbe     .pad_space

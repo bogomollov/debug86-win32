@@ -1,28 +1,21 @@
-section '.text' code readable executable
-
 parse_hex:
     push    bx
     push    cx
-
     xor     ax, ax
     xor     cx, cx
 ph_loop:
     mov     bl, [esi]
-    cmp     bl, 'a'
-    jb      ph_upper
-    cmp     bl, 'z'
-    ja      ph_upper
-    sub     bl, 20h
-ph_upper:
     cmp     bl, '0'
     jb      ph_done
     cmp     bl, '9'
     jbe     ph_digit
-    cmp     bl, 'A'
+    
+    or      bl, 20h
+    cmp     bl, 'a'
     jb      ph_done
-    cmp     bl, 'F'
+    cmp     bl, 'f'
     ja      ph_done
-    sub     bl, 'A' - 10
+    sub     bl, 'a' - 10
     jmp     ph_have
 ph_digit:
     sub     bl, '0'
@@ -33,6 +26,7 @@ ph_have:
     inc     cx
     cmp     cx, 4
     jb      ph_loop
+
 ph_done:
     test    cx, cx
     jz      ph_err
@@ -40,27 +34,21 @@ ph_done:
     jb      ph_ok
 
     mov     bl, [esi]
-    cmp     bl, 'a'
-    jb      ph_chk_up
-    cmp     bl, 'z'
-    ja      ph_chk_up
-    sub     bl, 20h
-ph_chk_up:
     cmp     bl, '0'
     jb      ph_ok
     cmp     bl, '9'
     jbe     ph_err
-    cmp     bl, 'A'
+    or      bl, 20h
+    cmp     bl, 'a'
     jb      ph_ok
-    cmp     bl, 'F'
+    cmp     bl, 'f'
     jbe     ph_err
-    jmp     ph_ok
 
-ph_err:
-    stc
-    jmp     ph_out
 ph_ok:
     clc
+    jmp     ph_out
+ph_err:
+    stc
 ph_out:
     pop     cx
     pop     bx
@@ -73,21 +61,17 @@ parse_hex_byte:
     xor     cx, cx
 phb_loop:
     mov     bl, [esi]
-    cmp     bl, 'a'
-    jb      phb_upper
-    cmp     bl, 'z'
-    ja      phb_upper
-    sub     bl, 20h
-phb_upper:
     cmp     bl, '0'
     jb      phb_done
     cmp     bl, '9'
     jbe     phb_digit
-    cmp     bl, 'A'
+    
+    or      bl, 20h
+    cmp     bl, 'a'
     jb      phb_done
-    cmp     bl, 'F'
+    cmp     bl, 'f'
     ja      phb_done
-    sub     bl, 'A' - 10
+    sub     bl, 'a' - 10
     jmp     phb_have
 phb_digit:
     sub     bl, '0'
@@ -98,6 +82,7 @@ phb_have:
     inc     cx
     cmp     cx, 2
     jb      phb_loop
+
 phb_done:
     test    cx, cx
     jz      phb_err
@@ -105,27 +90,21 @@ phb_done:
     jb      phb_ok
 
     mov     bl, [esi]
-    cmp     bl, 'a'
-    jb      phb_chk_up
-    cmp     bl, 'z'
-    ja      phb_chk_up
-    sub     bl, 20h
-phb_chk_up:
     cmp     bl, '0'
     jb      phb_ok
     cmp     bl, '9'
     jbe     phb_err
-    cmp     bl, 'A'
+    or      bl, 20h
+    cmp     bl, 'a'
     jb      phb_ok
-    cmp     bl, 'F'
+    cmp     bl, 'f'
     jbe     phb_err
-    jmp     phb_ok
 
-phb_err:
-    stc
-    jmp     phb_out
 phb_ok:
     clc
+    jmp     phb_out
+phb_err:
+    stc
 phb_out:
     pop     cx
     pop     bx

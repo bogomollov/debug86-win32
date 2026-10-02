@@ -4,9 +4,10 @@ entry start
 
 include 'fasm/include/win32a.inc'
 
-include 'data.asm'
-include 'hex.asm'
-include 'dump.asm'
+include 'data.inc'
+include 'hex.inc'
+include 'dump.inc'
+include 'utils.inc'
 
 start:
     invoke  GetStdHandle, STD_OUTPUT_HANDLE
@@ -28,7 +29,6 @@ start:
 
 main_loop:
     invoke  WriteConsoleA, [hStdOut], prompt, 1, chars_written, 0
-
     invoke  ReadConsoleA, [hStdIn], input_buffer, 255, chars_read, 0
 
 .check_d:
@@ -49,13 +49,9 @@ main_loop:
     jmp     main_loop
 
 .cmd_not_found:
-    mov     al, [input_buffer]
-    test    al, al
-    jz      main_loop
-    cmp     al, 13
-    je      main_loop
-    cmp     al, 10
-    je      main_loop
+    mov     esi, input_buffer
+    call    is_eol
+    jc      main_loop
     call    print_error
     jmp     main_loop
 
@@ -64,357 +60,58 @@ cmd_help:
     ret
 
 cmd_quit:
-    mov     ecx, [chars_read]
-    cmp     ecx, 1
-    jbe     exit_program
-
     mov     esi, input_buffer + 1
-    dec     ecx
-.q_skip:
-    mov     al, [esi]
-    cmp     al, ' '
-    je      .q_next
-    cmp     al, 9
-    je      .q_next
-    cmp     al, 13
-    je      .q_next
-    cmp     al, 10
-    je      .q_next
+    call    skip_whitespace
+    call    is_eol
+    jc      exit_program
     ret
-
-.q_next:
-    inc     esi
-    dec     ecx
-    jnz     .q_skip
-    jmp     exit_program
 
 cmd_dump:
     mov     word [dump_len], 128
+    mov     esi, input_buffer + 1
 
-    mov     esi, input_buffer
-    inc     esi
+    call    skip_whitespace
+    call    is_eol
+    jc      .do_it
 
-.skip_ws1:
-    mov     al, [esi]
-    cmp     al, ' '
-    je      .adv1
-    cmp     al, 9
-    je      .adv1
-    jmp     .check_arg
-.adv1:
-    inc     esi
-    jmp     .skip_ws1
-
-.check_arg:
-    cmp     al, 13
-    je      .do_it
-    cmp     al, 10
-    je      .do_it
-    cmp     al, 'l'
-    je      .parse_len_only
-    cmp     al, 'L'
-    je      .parse_len_only
-
-    mov     bl, [esi]
-    or      bl, 20h
-
-    cmp     bl, 'd'
-    je      .seg_ds
-    cmp     bl, 'c'
-    je      .seg_cs
-    cmp     bl, 'e'
-    je      .seg_es
-    cmp     bl, 's'
-    je      .seg_ss
-    jmp     .not_seg
-
-.seg_ds:
-    mov     ax, [reg_DS]
-    jmp     .try_seg
-.seg_cs:
-    mov     ax, [reg_CS]
-    jmp     .try_seg
-.seg_es:
-    mov     ax, [reg_ES]
-    jmp     .try_seg
-.seg_ss:
-    mov     ax, [reg_SS]
-
-.try_seg:
-    mov     bl, [esi+1]
-    or      bl, 20h
-    cmp     bl, 's'
-    jne     .not_seg
-    cmp     byte [esi+2], ':'
-    jne     .not_seg
-
-    mov     [dump_seg], ax
-    add     esi, 3
-
-.skip_ws_seg:
-    mov     al, [esi]
-    cmp     al, ' '
-    je      .adv_seg
-    cmp     al, 9
-    je      .adv_seg
-    jmp     .parse_off_seg
-.adv_seg:
-    inc     esi
-    jmp     .skip_ws_seg
-
-.parse_off_seg:
-    call    parse_hex
-    jc      .dump_error
-    mov     [dump_off], ax
-    jmp     .after_addr
-
-.not_seg:
-    call    parse_hex
-    jc      .dump_error
-    mov     bx, ax
-
-.skip_ws2:
-    mov     al, [esi]
-    cmp     al, ' '
-    je      .adv2
-    cmp     al, 9
-    je      .adv2
-    jmp     .check_colon
-.adv2:
-    inc     esi
-    jmp     .skip_ws2
-
-.check_colon:
-    cmp     al, ':'
-    jne     .set_offset
-
-    inc     esi
-
-.skip_ws3:
-    mov     al, [esi]
-    cmp     al, ' '
-    je      .adv3
-    cmp     al, 9
-    je      .adv3
-    jmp     .parse_off
-.adv3:
-    inc     esi
-    jmp     .skip_ws3
-
-.parse_off:
-    call    parse_hex
-    jc      .dump_error
-    mov     [dump_seg], bx
-    mov     [dump_off], ax
-    jmp     .after_addr
-
-.set_offset:
-    mov     ax, [reg_DS]
+    call    parse_address
+    jc      print_error_and_ret
     mov     [dump_seg], ax
     mov     [dump_off], bx
-    jmp     .after_addr
 
-.after_addr:
-.skip_ws4:
-    mov     al, [esi]
-    cmp     al, ' '
-    je      .adv4
-    cmp     al, 9
-    je      .adv4
-    jmp     .check_len
-.adv4:
-    inc     esi
-    jmp     .skip_ws4
+    mov     dx, bx
+    call    skip_whitespace
+    call    is_eol
+    jc      .do_it
 
-.check_len:
-    cmp     al, 'l'
-    je      .parse_len
-    cmp     al, 'L'
-    je      .parse_len
-    cmp     al, 13
-    je      .do_it
-    cmp     al, 10
-    je      .do_it
-    test    al, al
-    jz      .do_it
-
-    mov     bl, al
-    or      bl, 20h
-    cmp     bl, '0'
-    jb      .dump_error
-    cmp     bl, '9'
-    jbe     .parse_end
-    cmp     bl, 'a'
-    jb      .dump_error
-    cmp     bl, 'f'
-    ja      .dump_error
-
-.parse_end:
-    call    parse_hex
-    jc      .dump_error
-    cmp     ax, [dump_off]
-    jb      .dump_error
-    sub     ax, [dump_off]
-    inc     ax
-    mov     [dump_len], ax
-    jmp     .do_it
-
-.parse_len_only:
-    jmp     .parse_len
-
-.parse_len:
-    inc     esi
-.skip_ws5:
-    mov     al, [esi]
-    cmp     al, ' '
-    je      .adv5
-    cmp     al, 9
-    je      .adv5
-    jmp     .read_len
-.adv5:
-    inc     esi
-    jmp     .skip_ws5
-.read_len:
-    call    parse_hex
-    jc      .dump_error
-    test    ax, ax
-    jz      .dump_error
-    mov     [dump_len], ax
+    call    parse_length
+    jc      print_error_and_ret
+    mov     [dump_len], cx
 
 .do_it:
-    movzx   eax, word [dump_seg]
-    shl     eax, 4
-    movzx   ebx, word [dump_off]
-    add     eax, ebx
+    mov     ax, [dump_seg]
+    mov     bx, [dump_off]
+    call    calc_linear_addr
     movzx   ecx, word [dump_len]
     call    check_mem_range
-    jc      .dump_error
+    jc      print_error_and_ret
     call    do_dump
     ret
 
-.dump_error:
-    call    print_error
-    ret
-
 cmd_fill:
-    mov     esi, input_buffer
-    inc     esi
+    mov     esi, input_buffer + 1
 
-.cf_skip1:
-    mov     al, [esi]
-    cmp     al, ' '
-    je      .cf_adv1
-    cmp     al, 9
-    je      .cf_adv1
-    jmp     .cf_parse_addr
-.cf_adv1:
-    inc     esi
-    jmp     .cf_skip1
-
-.cf_parse_addr:
-    call    parse_hex
-    jc      .cf_error
-    mov     bx, ax
-
-.cf_skip2:
-    mov     al, [esi]
-    cmp     al, ' '
-    je      .cf_adv2
-    cmp     al, 9
-    je      .cf_adv2
-    jmp     .cf_check_colon
-.cf_adv2:
-    inc     esi
-    jmp     .cf_skip2
-
-.cf_check_colon:
-    cmp     al, ':'
-    jne     .cf_no_colon
-
-    inc     esi
-
-.cf_skip3:
-    mov     al, [esi]
-    cmp     al, ' '
-    je      .cf_adv3
-    cmp     al, 9
-    je      .cf_adv3
-    jmp     .cf_parse_off
-.cf_adv3:
-    inc     esi
-    jmp     .cf_skip3
-
-.cf_parse_off:
-    call    parse_hex
-    jc      .cf_error
-    mov     [fill_seg], bx
-    mov     [fill_off], ax
-    jmp     .cf_after_addr
-
-.cf_no_colon:
-    mov     ax, [reg_DS]
+    call    parse_address
+    jc      print_error_and_ret
     mov     [fill_seg], ax
     mov     [fill_off], bx
 
-.cf_after_addr:
-.cf_skip4:
-    mov     al, [esi]
-    cmp     al, ' '
-    je      .cf_adv4
-    cmp     al, 9
-    je      .cf_adv4
-    jmp     .cf_check_len
-.cf_adv4:
-    inc     esi
-    jmp     .cf_skip4
+    mov     dx, bx
+    call    parse_length
+    jc      print_error_and_ret
+    mov     [fill_len], cx
 
-.cf_check_len:
-    cmp     al, 'l'
-    je      .cf_have_l
-    cmp     al, 'L'
-    je      .cf_have_l
-
-    call    parse_hex
-    jc      .cf_error
-    cmp     ax, [fill_off]
-    jb      .cf_error
-    sub     ax, [fill_off]
-    inc     ax
-    mov     [fill_len], ax
-    jmp     .cf_skip6
-
-.cf_have_l:
-    inc     esi
-
-.cf_skip5:
-    mov     al, [esi]
-    cmp     al, ' '
-    je      .cf_adv5
-    cmp     al, 9
-    je      .cf_adv5
-    jmp     .cf_parse_len
-.cf_adv5:
-    inc     esi
-    jmp     .cf_skip5
-
-.cf_parse_len:
-    call    parse_hex
-    jc      .cf_error
-    test    ax, ax
-    jz      .cf_error
-    mov     [fill_len], ax
-
-.cf_skip6:
-    mov     al, [esi]
-    cmp     al, ' '
-    je      .cf_adv6
-    cmp     al, 9
-    je      .cf_adv6
-    jmp     .cf_parse_pattern
-.cf_adv6:
-    inc     esi
-    jmp     .cf_skip6
-
+    call    skip_whitespace
 .cf_parse_pattern:
     mov     al, [esi]
     cmp     al, '"'
@@ -424,33 +121,21 @@ cmd_fill:
     xor     ecx, ecx
 
 .cf_pat_loop:
-    mov     al, [esi]
-    cmp     al, ' '
-    je      .cf_pat_skip
-    cmp     al, 9
-    je      .cf_pat_skip
-    cmp     al, 13
-    je      .cf_pat_done
-    cmp     al, 10
-    je      .cf_pat_done
-    test    al, al
-    jz      .cf_pat_done
+    call    skip_whitespace
+    call    is_eol
+    jc      .cf_pat_done
 
     call    parse_hex_byte
-    jc      .cf_error
+    jc      print_error_and_ret
     stosb
     inc     ecx
     cmp     ecx, 64
     jae     .cf_pat_done
     jmp     .cf_pat_loop
 
-.cf_pat_skip:
-    inc     esi
-    jmp     .cf_pat_loop
-
 .cf_pat_done:
     test    ecx, ecx
-    jz      .cf_error
+    jz      print_error_and_ret
     mov     [fill_patlen], cx
     jmp     .cf_do_fill
 
@@ -461,13 +146,9 @@ cmd_fill:
 
 .cf_str_loop:
     mov     al, [esi]
-    test    al, al
-    jz      .cf_str_done
+    call    is_eol
+    jc      .cf_str_done
     cmp     al, '"'
-    je      .cf_str_done
-    cmp     al, 13
-    je      .cf_str_done
-    cmp     al, 10
     je      .cf_str_done
 
     stosb
@@ -479,18 +160,17 @@ cmd_fill:
 
 .cf_str_done:
     test    ecx, ecx
-    jz      .cf_error
+    jz      print_error_and_ret
     mov     [fill_patlen], cx
 
 .cf_do_fill:
-    movzx   eax, word [fill_seg]
-    shl     eax, 4
-    movzx   ebx, word [fill_off]
-    add     eax, ebx
+    mov     ax, [fill_seg]
+    mov     bx, [fill_off]
+    call    calc_linear_addr
 
     movzx   ecx, word [fill_len]
     call    check_mem_range
-    jc      .cf_error
+    jc      print_error_and_ret
 
     mov     edi, memory
     add     edi, eax
@@ -516,127 +196,37 @@ cmd_fill:
 .cf_ret:
     ret
 
-.cf_error:
-    call    print_error
-    ret
-
 cmd_edit:
-    mov     esi, input_buffer
-    inc     esi
+    mov     esi, input_buffer + 1
 
-.ce_skip1:
-    mov     al, [esi]
-    cmp     al, ' '
-    je      .ce_adv1
-    cmp     al, 9
-    je      .ce_adv1
-    jmp     .ce_parse_addr
-.ce_adv1:
-    inc     esi
-    jmp     .ce_skip1
-
-.ce_parse_addr:
-    call    parse_hex
-    jc      .ce_error
-    mov     bx, ax
-
-.ce_skip2:
-    mov     al, [esi]
-    cmp     al, ' '
-    je      .ce_adv2
-    cmp     al, 9
-    je      .ce_adv2
-    jmp     .ce_check_colon
-.ce_adv2:
-    inc     esi
-    jmp     .ce_skip2
-
-.ce_check_colon:
-    cmp     al, ':'
-    jne     .ce_no_colon
-
-    inc     esi
-
-.ce_skip3:
-    mov     al, [esi]
-    cmp     al, ' '
-    je      .ce_adv3
-    cmp     al, 9
-    je      .ce_adv3
-    jmp     .ce_parse_off
-.ce_adv3:
-    inc     esi
-    jmp     .ce_skip3
-
-.ce_parse_off:
-    call    parse_hex
-    jc      .ce_error
-    mov     [edit_seg], bx
-    mov     [edit_off], ax
-    jmp     .ce_after_addr
-
-.ce_no_colon:
-    mov     ax, [reg_DS]
+    call    parse_address
+    jc      print_error_and_ret
     mov     [edit_seg], ax
     mov     [edit_off], bx
 
-.ce_after_addr:
-    movzx   eax, word [edit_seg]
-    shl     eax, 4
-    movzx   ebx, word [edit_off]
-    add     eax, ebx
+    mov     ax, [edit_seg]
+    mov     bx, [edit_off]
+    call    calc_linear_addr
 
     mov     ecx, 1
     call    check_mem_range
-    jc      .ce_error
+    jc      print_error_and_ret
 
     mov     ebp, memory
     add     ebp, eax
 
-.ce_skip_ws_after:
-    mov     al, [esi]
-    cmp     al, ' '
-    je      .ce_adv_after
-    cmp     al, 9
-    je      .ce_adv_after
-    jmp     .ce_check_token
-.ce_adv_after:
-    inc     esi
-    jmp     .ce_skip_ws_after
-
-.ce_check_token:
-    cmp     al, 13
-    je      .ce_interactive
-    cmp     al, 10
-    je      .ce_interactive
-    test    al, al
-    jz      .ce_interactive
+    call    skip_whitespace
+    call    is_eol
+    jc      .ce_interactive
 
     mov     edi, ebp
-    jmp     .ce_next_token
-
 .ce_next_token:
-.ce_skip_ws:
-    mov     al, [esi]
-    cmp     al, ' '
-    je      .ce_skip_inc
-    cmp     al, 9
-    je      .ce_skip_inc
-    jmp     .ce_check_end
-.ce_skip_inc:
-    inc     esi
-    jmp     .ce_skip_ws
-
-.ce_check_end:
-    cmp     al, 13
-    je      .ce_ret
-    cmp     al, 10
-    je      .ce_ret
-    test    al, al
-    jz      .ce_ret
+    call    skip_whitespace
+    call    is_eol
+    jc      .ce_ret
 
     cmp     edi, memory + MEM_SIZE
-    jae     .ce_error
+    jae     print_error_and_ret
 
     cmp     al, 22h
     je      .ce_string
@@ -644,7 +234,7 @@ cmd_edit:
     je      .ce_string
 
     call    parse_hex_byte
-    jc      .ce_error
+    jc      print_error_and_ret
     stosb
     jmp     .ce_next_token
 
@@ -653,17 +243,13 @@ cmd_edit:
     inc     esi
 .ce_str_loop:
     mov     al, [esi]
-    test    al, al
-    jz      .ce_ret
+    call    is_eol
+    jc      .ce_ret
     cmp     al, dl
     je      .ce_str_end
-    cmp     al, 13
-    je      .ce_ret
-    cmp     al, 10
-    je      .ce_ret
 
     cmp     edi, memory + MEM_SIZE
-    jae     .ce_error
+    jae     print_error_and_ret
 
     stosb
     inc     esi
@@ -779,40 +365,20 @@ cmd_edit:
     jc      .ce_int_done
     jmp     .ce_int_read
 
-.ce_int_space_print_normal:
-    mov     edi, line_buffer
-    mov     al, ' '
-    stosb
-    stosb
-    mov     al, [ebp]
-    call    put_hex_byte
-    mov     al, '.'
-    stosb
-    mov     edx, edi
-    sub     edx, line_buffer
-    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
-    jmp     .ce_int_read
-
 .ce_int_done:
     invoke  SetConsoleMode, [hStdIn], [old_console_mode]
     mov     byte [line_buffer], 13
     mov     byte [line_buffer+1], 10
     invoke  WriteConsoleA, [hStdOut], line_buffer, 2, chars_written, 0
-    ret
-
 .ce_ret:
-    ret
-
-.ce_error:
-    call    print_error
     ret
 
 ce_show_byte:
     push    edx
-    movzx   eax, word [edit_seg]
-    shl     eax, 4
-    movzx   ebx, word [edit_off]
-    add     eax, ebx
+    
+    mov     ax, [edit_seg]
+    mov     bx, [edit_off]
+    call    calc_linear_addr
 
     mov     ecx, 1
     call    check_mem_range
@@ -864,28 +430,6 @@ ce_show_byte:
     pop     edx
     stc
     ret
-
-print_error:
-    invoke  WriteConsoleA, [hStdOut], err_text, err_text_len, chars_written, 0
-    ret
-
-check_mem_range:
-    push    edx
-    mov     edx, eax
-    add     edx, ecx
-    jc      .bad
-    cmp     edx, MEM_SIZE
-    ja      .bad
-    pop     edx
-    clc
-    ret
-.bad:
-    pop     edx
-    stc
-    ret
-
-exit_program:
-    invoke  ExitProcess, 0
 
 section '.idata' import data readable writeable
     library kernel32, 'KERNEL32.DLL'
