@@ -30,6 +30,7 @@ section '.data' data readable writeable
     edit_have_nibble db 0
     edit_cell_done   db 0
     edit_orig_byte   db 0
+    edit_wrapped     db 0
 
     help_text db 'dump                  D [диапазон]',13,10
               db 'enter                 E адрес [список]',13,10

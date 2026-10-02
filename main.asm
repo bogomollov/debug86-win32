@@ -684,22 +684,9 @@ cmd_edit:
     mov     al, [ebp]
     mov     [edit_orig_byte], al
 
-    mov     edi, line_buffer
-    mov     ax, [edit_seg]
-    call    put_hex_word
-    mov     al, ':'
-    stosb
-    mov     ax, [edit_off]
-    call    put_hex_word
-    mov     al, ' '
-    stosb
-    mov     al, [ebp]
-    call    put_hex_byte
-    mov     al, '.'
-    stosb
-    mov     edx, edi
-    sub     edx, line_buffer
-    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
+    mov     dl, 1
+    call    ce_show_byte
+    jc      .ce_int_done
 
 .ce_int_read:
     invoke  ReadConsoleA, [hStdIn], edit_char, 1, edit_chars_read, 0
@@ -777,21 +764,22 @@ cmd_edit:
     mov     byte [edit_have_nibble], 0
     mov     byte [edit_cell_done], 0
     inc     word [edit_off]
-
-    movzx   eax, word [edit_seg]
-    shl     eax, 4
-    movzx   ebx, word [edit_off]
-    add     eax, ebx
-
-    mov     ecx, 1
-    call    check_mem_range
+    jnz     .ce_int_space_chk_line
+    add     word [edit_seg], 1000h
     jc      .ce_int_done
+.ce_int_space_chk_line:
+    test    word [edit_off], 0Fh
+    jz      .ce_int_space_newline
+    xor     dl, dl
+    jmp     .ce_int_space_show
+.ce_int_space_newline:
+    mov     dl, 1
+.ce_int_space_show:
+    call    ce_show_byte
+    jc      .ce_int_done
+    jmp     .ce_int_read
 
-    mov     ebp, memory
-    add     ebp, eax
-
-    mov     al, [ebp]
-    mov     [edit_orig_byte], al
+.ce_int_space_print_normal:
     mov     edi, line_buffer
     mov     al, ' '
     stosb
@@ -817,6 +805,64 @@ cmd_edit:
 
 .ce_error:
     call    print_error
+    ret
+
+ce_show_byte:
+    push    edx
+    movzx   eax, word [edit_seg]
+    shl     eax, 4
+    movzx   ebx, word [edit_off]
+    add     eax, ebx
+
+    mov     ecx, 1
+    call    check_mem_range
+    jc      .csb_err
+
+    mov     ebp, memory
+    add     ebp, eax
+
+    mov     al, [ebp]
+    mov     [edit_orig_byte], al
+
+    pop     edx
+    mov     edi, line_buffer
+    test    dl, dl
+    jz      .csb_normal
+
+    mov     al, 13
+    stosb
+    mov     al, 10
+    stosb
+    mov     ax, [edit_seg]
+    call    put_hex_word
+    mov     al, ':'
+    stosb
+    mov     ax, [edit_off]
+    call    put_hex_word
+    mov     al, ' '
+    stosb
+    jmp     .csb_byte
+
+.csb_normal:
+    mov     al, ' '
+    stosb
+    stosb
+
+.csb_byte:
+    mov     al, [ebp]
+    call    put_hex_byte
+    mov     al, '.'
+    stosb
+
+    mov     edx, edi
+    sub     edx, line_buffer
+    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
+    clc
+    ret
+
+.csb_err:
+    pop     edx
+    stc
     ret
 
 print_error:
