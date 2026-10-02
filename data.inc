@@ -24,6 +24,12 @@ section '.data' data readable writeable
     fill_patlen     dw 0
     fill_pat        rb 64
 
+    move_src_seg    dw 0
+    move_src_off    dw 0
+    move_len        dw 0
+    move_dst_seg    dw 0
+    move_dst_off    dw 0
+
     edit_seg         dw 0
     edit_off         dw 0
     edit_char        db 0
@@ -38,6 +44,7 @@ section '.data' data readable writeable
     help_text db 'dump                  D [диапазон]',13,10
               db 'enter                 E адрес [список]',13,10
               db 'fill                  F диапазон список',13,10
+              db 'fill                  M диапазон адрес',13,10
               db 'quit                  Q',13,10
     help_text_len = $ - help_text
 
@@ -56,6 +63,8 @@ COMTAB:
     dd cmd_fill
     db 'e'
     dd cmd_edit
+    db 'm'
+    dd cmd_move
     db '?'
     dd cmd_help
     db 0

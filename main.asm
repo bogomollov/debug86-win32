@@ -457,6 +457,72 @@ ce_show_byte:
     stc
     ret
 
+cmd_move:
+    mov     esi, [cmd_ptr]
+
+    call    parse_address
+    jc      print_error_and_ret
+    mov     [move_src_seg], ax
+    mov     [move_src_off], bx
+    mov     bp, ax
+
+    mov     dx, bx
+    call    parse_length
+    jc      print_error_and_ret
+    mov     [move_len], cx
+
+    call    parse_address
+    jc      print_error_and_ret
+    mov     [move_dst_seg], ax
+    mov     [move_dst_off], bx
+
+    mov     ax, [move_src_seg]
+    mov     bx, [move_src_off]
+    call    calc_linear_addr
+    movzx   ecx, word [move_len]
+    call    check_mem_range
+    jc      print_error_and_ret
+    mov     edx, memory
+    add     edx, eax
+
+    mov     ax, [move_dst_seg]
+    mov     bx, [move_dst_off]
+    call    calc_linear_addr
+    movzx   ecx, word [move_len]
+    call    check_mem_range
+    jc      print_error_and_ret
+    mov     edi, memory
+    add     edi, eax
+    
+    mov     esi, edx
+    test    ecx, ecx
+    jz      .cm_ret
+
+    cmp     esi, edi
+    je      .cm_ret
+    ja      .cm_forward
+
+    mov     eax, esi
+    add     eax, ecx
+    cmp     eax, edi
+    jbe     .cm_forward
+
+    add     esi, ecx
+    dec     esi
+    add     edi, ecx
+    dec     edi
+    std
+    rep movsb
+    cld
+    ret
+
+.cm_forward:
+    cld
+    rep movsb
+.cm_ret:
+    ret
+
+
 section '.idata' import data readable writeable
     library kernel32, 'KERNEL32.DLL'
 
