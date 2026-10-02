@@ -60,7 +60,7 @@ calc_linear_addr:
 
 parse_address:
     call    skip_whitespace
-    
+
     mov     bl, [esi]
     or      bl, 20h
     cmp     bl, 'd'
@@ -88,7 +88,7 @@ parse_address:
     jne     .parse_num
     cmp     byte [esi+2], ':'
     jne     .parse_num
-    
+
     mov     ax, cx
     add     esi, 3
     call    skip_whitespace
@@ -111,7 +111,7 @@ parse_address:
     call    skip_whitespace
     call    parse_hex
     jc      .err
-    
+
     push    ax
     mov     ax, bx
     pop     bx
@@ -139,17 +139,18 @@ parse_length:
     call    parse_hex
     jc      .err
 
+    mov     bx, ax
+
     call    skip_whitespace
     cmp     al, ':'
     je      .full_end
 
-    mov     bx, ax
     mov     ax, bp
     jmp     .calc
 
 .full_end:
     inc     esi
-    push    ax
+    push    bx
     call    skip_whitespace
     call    parse_hex
     jc      .err_pop
@@ -162,18 +163,18 @@ parse_length:
     movzx   edx, dx
     add     ecx, edx
 
-    movzx   ebp, ax
-    shl     ebp, 4
-    movzx   edx, bx
-    add     ebp, edx
+    movzx   edx, ax
+    shl     edx, 4
+    movzx   eax, bx
+    add     edx, eax
 
-    cmp     ebp, ecx
+    cmp     edx, ecx
     jb      .err
-    sub     ebp, ecx
-    inc     ebp
-    cmp     ebp, 10000h
+    sub     edx, ecx
+    inc     edx
+    cmp     edx, 10000h
     jae     .err
-    mov     cx, bp
+    mov     cx, dx
     clc
     ret
 

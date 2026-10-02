@@ -12,8 +12,7 @@ do_dump:
     push    edi
     push    ebp
 
-    movzx   ebp, word [dump_len]
-    test    ebp, ebp
+    cmp     word [dump_len], 0
     jz      dd_done
 
     mov     ax, [dump_off]
@@ -50,9 +49,10 @@ dd_line_loop:
     movzx   ecx, word [dd_skip]
     mov     edx, 16
     sub     edx, ecx
-    cmp     ebp, edx
+    movzx   eax, word [dump_len]
+    cmp     eax, edx
     jae     .dd_have_n
-    mov     edx, ebp
+    mov     edx, eax
 .dd_have_n:
     mov     [dd_line_bytes], dx
     mov     ebx, edx
@@ -119,6 +119,8 @@ dd_line_loop:
     lodsb
     cmp     al, 20h
     jb      .dd_ascii_nonprint
+    cmp     al, 7Eh
+    ja      .dd_ascii_nonprint
     jmp     .dd_ascii_store
 .dd_ascii_nonprint:
     mov     al, '.'
@@ -137,7 +139,7 @@ dd_line_loop:
     invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
 
     movzx   ecx, word [dd_line_bytes]
-    sub     ebp, ecx
+    sub     word [dump_len], cx
     jz      dd_done
     add     word [dump_off], 16
     mov     word [dd_skip], 0

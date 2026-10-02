@@ -24,7 +24,6 @@ start:
 .init_mem:
     mov     [edi], al
     inc     edi
-    inc     al
     loop    .init_mem
 
 main_loop:
