@@ -5,6 +5,8 @@ section '.data' data readable writeable
     chars_written   dd 0
     chars_read      dd 0
 
+    cmd_ptr         dd 0
+
     dump_seg        dw 0000h
     dump_off        dw 0100h
     dump_len        dw 128

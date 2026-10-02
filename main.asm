@@ -29,11 +29,18 @@ start:
 
 main_loop:
     invoke  WriteConsoleA, [hStdOut], prompt, 1, chars_written, 0
-    invoke  ReadConsoleA, [hStdIn], input_buffer, 255, chars_read, 0
+    invoke  ReadConsoleA,  [hStdIn], input_buffer, 255, chars_read, 0
 
-.check_d:
-    mov     al, [input_buffer]
+    mov     esi, input_buffer
+    call    skip_whitespace
+
+    call    is_eol
+    jc      main_loop
+
+    mov     [cmd_ptr], esi
+    mov     al, [esi]
     or      al, 20h
+
     mov     esi, COMTAB
 .find_cmd:
     mov     bl, [esi]
@@ -49,9 +56,6 @@ main_loop:
     jmp     main_loop
 
 .cmd_not_found:
-    mov     esi, input_buffer
-    call    is_eol
-    jc      main_loop
     call    print_error
     jmp     main_loop
 
