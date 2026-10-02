@@ -15,6 +15,8 @@ start:
     invoke  GetStdHandle, STD_INPUT_HANDLE
     mov     [hStdIn], eax
 
+    invoke  SetConsoleOutputCP, 65001
+
     mov     ecx, 65536
     mov     edi, memory
     xor     eax, eax
