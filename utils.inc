@@ -22,6 +22,10 @@ check_mem_range:
     ret
 
 exit_program:
+    cmp     dword [old_console_mode], 0
+    je      .do_exit
+    invoke  SetConsoleMode, [hStdIn], [old_console_mode]
+.do_exit:
     invoke  ExitProcess, 0
 
 skip_whitespace:
