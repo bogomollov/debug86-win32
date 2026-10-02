@@ -83,6 +83,7 @@ cmd_dump:
     jc      print_error_and_ret
     mov     [dump_seg], ax
     mov     [dump_off], bx
+    mov     bp, ax
 
     mov     dx, bx
     call    skip_whitespace
@@ -110,60 +111,57 @@ cmd_fill:
     jc      print_error_and_ret
     mov     [fill_seg], ax
     mov     [fill_off], bx
+    mov     bp, ax
 
     mov     dx, bx
     call    parse_length
     jc      print_error_and_ret
     mov     [fill_len], cx
 
-    call    skip_whitespace
-.cf_parse_pattern:
-    mov     al, [esi]
-    cmp     al, '"'
-    je      .cf_parse_string
-
     mov     edi, fill_pat
     xor     ecx, ecx
 
-.cf_pat_loop:
+.cf_next_token:
     call    skip_whitespace
     call    is_eol
     jc      .cf_pat_done
+
+    cmp     ecx, 64
+    jae     .cf_pat_done
+
+    cmp     al, 22h
+    je      .cf_string
+    cmp     al, 27h
+    je      .cf_string
 
     call    parse_hex_byte
     jc      print_error_and_ret
     stosb
     inc     ecx
-    cmp     ecx, 64
-    jae     .cf_pat_done
-    jmp     .cf_pat_loop
+    jmp     .cf_next_token
 
-.cf_pat_done:
-    test    ecx, ecx
-    jz      print_error_and_ret
-    mov     [fill_patlen], cx
-    jmp     .cf_do_fill
-
-.cf_parse_string:
+.cf_string:
+    mov     dl, al
     inc     esi
-    mov     edi, fill_pat
-    xor     ecx, ecx
-
 .cf_str_loop:
     mov     al, [esi]
     call    is_eol
-    jc      .cf_str_done
-    cmp     al, '"'
-    je      .cf_str_done
+    jc      .cf_pat_done
+    cmp     al, dl
+    je      .cf_str_end
+
+    cmp     ecx, 64
+    jae     .cf_pat_done
 
     stosb
     inc     ecx
     inc     esi
-    cmp     ecx, 64
-    jae     .cf_str_done
     jmp     .cf_str_loop
+.cf_str_end:
+    inc     esi
+    jmp     .cf_next_token
 
-.cf_str_done:
+.cf_pat_done:
     test    ecx, ecx
     jz      print_error_and_ret
     mov     [fill_patlen], cx

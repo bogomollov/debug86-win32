@@ -130,7 +130,7 @@ parse_length:
     call    skip_whitespace
     call    is_eol
     jc      .err
-    
+
     mov     bl, al
     or      bl, 20h
     cmp     bl, 'l'
@@ -138,12 +138,49 @@ parse_length:
 
     call    parse_hex
     jc      .err
-    cmp     ax, dx
+
+    call    skip_whitespace
+    cmp     al, ':'
+    je      .full_end
+
+    mov     bx, ax
+    mov     ax, bp
+    jmp     .calc
+
+.full_end:
+    inc     esi
+    push    ax
+    call    skip_whitespace
+    call    parse_hex
+    jc      .err_pop
+    mov     bx, ax
+    pop     ax
+
+.calc:
+    movzx   ecx, bp
+    shl     ecx, 4
+    movzx   edx, dx
+    add     ecx, edx
+
+    movzx   ebp, ax
+    shl     ebp, 4
+    movzx   edx, bx
+    add     ebp, edx
+
+    cmp     ebp, ecx
     jb      .err
-    sub     ax, dx
-    inc     ax
-    mov     cx, ax
+    sub     ebp, ecx
+    inc     ebp
+    cmp     ebp, 10000h
+    jae     .err
+    mov     cx, bp
     clc
+    ret
+
+.err_pop:
+    pop     ax
+.err:
+    stc
     ret
 
 .have_l:
@@ -155,7 +192,4 @@ parse_length:
     jz      .err
     mov     cx, ax
     clc
-    ret
-.err:
-    stc
     ret
