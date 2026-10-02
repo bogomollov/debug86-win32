@@ -85,7 +85,7 @@ section '.data' data readable writeable
               db 'dump                  D [диапазон]',13,10
               db 'enter                 E адрес [список]',13,10
               db 'fill                  F диапазон список',13,10
-              db 'fill                  M блокнач блоккон',13,10
+              db 'move                  M блокнач блоккон',13,10
               db 'go                    G [=addr] [bp]',13,10
               db 'quit                  Q',13,10
     help_text_len = $ - help_text
