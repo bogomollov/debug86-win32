@@ -639,6 +639,9 @@ cmd_edit:
     mov     byte [edit_have_nibble], 0
     mov     byte [edit_cell_done], 0
 
+    mov     al, [ebp]
+    mov     [edit_orig_byte], al
+
     mov     edi, line_buffer
     mov     ax, [edit_seg]
     call    put_hex_word
@@ -666,6 +669,10 @@ cmd_edit:
     je      .ce_int_done
     cmp     al, ' '
     je      .ce_int_space
+    cmp     al, 8
+    je      .ce_int_back
+    cmp     al, 127
+    je      .ce_int_back
 
     call    hex_to_val
     jc      .ce_int_read
@@ -694,11 +701,43 @@ cmd_edit:
     mov     byte [edit_cell_done], 1
     jmp     .ce_int_read
 
+.ce_int_back:
+    cmp     byte [edit_cell_done], 0
+    jne     .ce_back_second
+    cmp     byte [edit_have_nibble], 0
+    jne     .ce_back_first
+    jmp     .ce_int_read
+
+.ce_back_second:
+    mov     byte [edit_cell_done], 0
+    mov     byte [edit_have_nibble], 1
+    mov     al, [edit_nibble]
+    shl     al, 4
+    mov     [ebp], al
+    call    .ce_erase_char
+    jmp     .ce_int_read
+
+.ce_back_first:
+    mov     byte [edit_have_nibble], 0
+    mov     al, [edit_orig_byte]
+    mov     [ebp], al
+    call    .ce_erase_char
+    jmp     .ce_int_read
+
+.ce_erase_char:
+    mov     byte [line_buffer], 8
+    mov     byte [line_buffer+1], ' '
+    mov     byte [line_buffer+2], 8
+    invoke  WriteConsoleA, [hStdOut], line_buffer, 3, chars_written, 0
+    ret
+
 .ce_int_space:
     mov     byte [edit_have_nibble], 0
     mov     byte [edit_cell_done], 0
     inc     ebp
     inc     word [edit_off]
+    mov     al, [ebp]
+    mov     [edit_orig_byte], al
     mov     edi, line_buffer
     mov     al, ' '
     stosb

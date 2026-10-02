@@ -29,6 +29,7 @@ section '.data' data readable writeable
     edit_nibble      db 0
     edit_have_nibble db 0
     edit_cell_done   db 0
+    edit_orig_byte   db 0
 
     line_buffer     rb 256
     memory          rb 65536
