@@ -395,6 +395,10 @@ cmd_fill:
     jmp     .cf_skip6
 
 .cf_parse_pattern:
+    mov     al, [esi]
+    cmp     al, '"'
+    je      .cf_parse_string
+
     mov     edi, fill_pat
     xor     ecx, ecx
 
@@ -427,7 +431,37 @@ cmd_fill:
     test    ecx, ecx
     jz      .cf_ret
     mov     [fill_patlen], cx
+    jmp     .cf_do_fill
 
+.cf_parse_string:
+    inc     esi
+    mov     edi, fill_pat
+    xor     ecx, ecx
+
+.cf_str_loop:
+    mov     al, [esi]
+    test    al, al
+    jz      .cf_str_done
+    cmp     al, '"'
+    je      .cf_str_done
+    cmp     al, 13
+    je      .cf_str_done
+    cmp     al, 10
+    je      .cf_str_done
+
+    stosb
+    inc     ecx
+    inc     esi
+    cmp     ecx, 64
+    jae     .cf_str_done
+    jmp     .cf_str_loop
+
+.cf_str_done:
+    test    ecx, ecx
+    jz      .cf_ret
+    mov     [fill_patlen], cx
+
+.cf_do_fill:
     movzx   eax, word [fill_seg]
     shl     eax, 4
     movzx   ebx, word [fill_off]
