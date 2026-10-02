@@ -10,6 +10,8 @@ section '.data' data readable writeable
     dump_seg        dw 0000h
     dump_off        dw 0100h
     dump_len        dw 128
+    dd_skip         dw 0
+    dd_line_bytes   dw 0
 
     reg_DS          dw 0000h
     reg_CS          dw 0000h

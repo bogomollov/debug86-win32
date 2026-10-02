@@ -16,6 +16,14 @@ do_dump:
     test    ebp, ebp
     jz      dd_done
 
+    mov     ax, [dump_off]
+    movzx   ecx, ax
+    and     ecx, 0Fh
+    mov     [dd_skip], cx
+
+    and     ax, 0FFF0h
+    mov     [dump_off], ax
+
 dd_line_loop:
     mov     edi, line_buffer
 
@@ -34,71 +42,94 @@ dd_line_loop:
     shl     eax, 4
     movzx   ebx, word [dump_off]
     add     eax, ebx
+    movzx   ecx, word [dd_skip]
+    add     eax, ecx
     mov     esi, memory
     add     esi, eax
 
-    mov     ecx, ebp
-    cmp     ecx, 16
-    jbe     dd_have_count
-    mov     ecx, 16
-dd_have_count:
-    mov     ebx, ecx
-    xor     edx, edx
+    movzx   ecx, word [dd_skip]
+    mov     edx, 16
+    sub     edx, ecx
+    cmp     ebp, edx
+    jae     .dd_have_n
+    mov     edx, ebp
+.dd_have_n:
+    mov     [dd_line_bytes], dx
+    mov     ebx, edx
 
-dd_hex_loop:
+    movzx   edx, word [dd_skip]
+    xor     ecx, ecx
+
+.dd_hex_slot:
+    cmp     ecx, 16
+    jae     .dd_hex_done
+    cmp     edx, 0
+    je      .dd_hex_try_byte
+    mov     al, ' '
+    stosb
+    stosb
+    dec     edx
+    jmp     .dd_hex_sep
+.dd_hex_try_byte:
+    cmp     ebx, 0
+    je      .dd_hex_blank
     lodsb
     call    put_hex_byte
-    inc     edx
-    cmp     edx, ebx
-    je      dd_hex_pad
-    cmp     edx, 8
-    je      dd_dash
+    dec     ebx
+    jmp     .dd_hex_sep
+.dd_hex_blank:
     mov     al, ' '
     stosb
-    jmp     dd_hex_loop
-dd_dash:
+    stosb
+.dd_hex_sep:
+    inc     ecx
+    cmp     ecx, 16
+    jae     .dd_hex_done
+    cmp     ecx, 8
+    jne     .dd_hex_sep_space
     mov     al, '-'
     stosb
-    jmp     dd_hex_loop
-
-dd_hex_pad:
-    cmp     edx, 16
-    je      dd_hex_done
-.pad_loop:
-    cmp     edi, line_buffer + DUMP_LINE_LENGTH
-    jae     dd_hex_done
-    cmp     edi, line_buffer + DUMP_ASCII_OFFSET
-    jne     .pad_space
-    cmp     edx, 8
-    jbe     .pad_space
-    mov     al, '-'
-    stosb
-.pad_space:
+    jmp     .dd_hex_slot
+.dd_hex_sep_space:
     mov     al, ' '
     stosb
-    jmp     .pad_loop
+    jmp     .dd_hex_slot
 
-dd_hex_done:
+.dd_hex_done:
     mov     al, ' '
     stosb
     stosb
     stosb
 
-    sub     esi, ebx
-    mov     ecx, ebx
-dd_ascii_loop:
+    movzx   ecx, word [dd_line_bytes]
+    sub     esi, ecx
+
+    movzx   edx, word [dd_skip]
+    movzx   ebx, word [dd_line_bytes]
+
+.dd_ascii_loop:
+    test    edx, edx
+    jz      .dd_ascii_char
+    mov     al, ' '
+    stosb
+    dec     edx
+    jmp     .dd_ascii_loop
+.dd_ascii_char:
+    test    ebx, ebx
+    jz      .dd_ascii_done
     lodsb
     cmp     al, 20h
-    jb      dd_nonprint
+    jb      .dd_ascii_nonprint
     cmp     al, 7Fh
-    jae     dd_nonprint
-    jmp     dd_print
-dd_nonprint:
+    jae     .dd_ascii_nonprint
+    jmp     .dd_ascii_store
+.dd_ascii_nonprint:
     mov     al, '.'
-dd_print:
+.dd_ascii_store:
     stosb
-    loop    dd_ascii_loop
-
+    dec     ebx
+    jmp     .dd_ascii_loop
+.dd_ascii_done:
     mov     al, 13
     stosb
     mov     al, 10
@@ -108,9 +139,11 @@ dd_print:
     sub     edx, line_buffer
     invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
 
-    add     word [dump_off], bx
-    sub     ebp, ebx
+    movzx   ecx, word [dd_line_bytes]
+    sub     ebp, ecx
     jz      dd_done
+    add     word [dump_off], 16
+    mov     word [dd_skip], 0
     jmp     dd_line_loop
 
 dd_done:
