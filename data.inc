@@ -17,6 +17,15 @@ section '.data' data readable writeable
     reg_CS          dw 0000h
     reg_ES          dw 0000h
     reg_SS          dw 0000h
+    reg_IP          dw 0100h
+    reg_AX          dw 0000h
+    reg_BX          dw 0000h
+    reg_CX          dw 0000h
+    reg_DX          dw 0000h
+
+    num_breakpoints dw 0
+    breakpoints_seg rw 10
+    breakpoints_off rw 10
 
     fill_seg        dw 0
     fill_off        dw 0
@@ -77,15 +86,24 @@ section '.data' data readable writeable
               db 'enter                 E адрес [список]',13,10
               db 'fill                  F диапазон список',13,10
               db 'fill                  M диапазон адрес',13,10
+              db 'go                    G [=addr] [bp]',13,10
               db 'quit                  Q',13,10
     help_text_len = $ - help_text
 
     err_text db '^ Error',13,10
     err_text_len = $ - err_text
 
+    msg_prog_end db 'Program terminated normally',13,10
+    msg_prog_end_len = $ - msg_prog_end
+
+    msg_breakpoint db 'Breakpoint reached',13,10
+    msg_breakpoint_len = $ - msg_breakpoint
+
+    msg_unknown_insn db 'Unknown instruction',13,10
+    msg_unknown_insn_len = $ - msg_unknown_insn
+
     MEM_SIZE = 110000h
     
-
 COMTAB:
     db 'a'
     dd cmd_assemble
@@ -101,6 +119,8 @@ COMTAB:
     dd cmd_edit
     db 'm'
     dd cmd_move
+    db 'g'
+    dd cmd_go
     db '?'
     dd cmd_help
     db 0
