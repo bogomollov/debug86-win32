@@ -35,9 +35,9 @@ section '.data' data readable writeable
     edit_orig_byte   db 0
     edit_wrapped     db 0
 
-    help_text db 'dump                  D [–¥–∏–∞–ø–∞–∑–æ–Ω]',13,10
-              db 'enter                 E –∞–¥—Ä–µ—Å [—Å–ø–∏—Å–æ–∫]',13,10
-              db 'fill                  F –¥–∏–∞–ø–∞–∑–æ–Ω —Å–ø–∏—Å–æ–∫',13,10
+    help_text db 'dump                  D [§®†Ø†ßÆ≠]',13,10
+              db 'enter                 E †§‡•· [·Ø®·Æ™]',13,10
+              db 'fill                  F §®†Ø†ßÆ≠ ·Ø®·Æ™',13,10
               db 'quit                  Q',13,10
     help_text_len = $ - help_text
 
