@@ -15,6 +15,11 @@ section '.data' data readable writeable
     reg_ES          dw 0000h
     reg_SS          dw 0000h
 
+    fill_seg        dw 0
+    fill_off        dw 0
+    fill_len        dw 0
+    fill_val        db 0
+
     line_buffer     rb 256
     memory          rb 65536
 
@@ -23,4 +28,6 @@ COMTAB:
     dd cmd_quit
     db 'd'
     dd cmd_dump
+    db 'f'
+    dd cmd_fill
     db 0

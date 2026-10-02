@@ -275,6 +275,137 @@ cmd_dump:
     call    do_dump
     ret
 
+cmd_fill:
+    mov     esi, input_buffer
+    inc     esi
+
+.cf_skip1:
+    mov     al, [esi]
+    cmp     al, ' '
+    je      .cf_adv1
+    cmp     al, 9
+    je      .cf_adv1
+    jmp     .cf_parse_addr
+.cf_adv1:
+    inc     esi
+    jmp     .cf_skip1
+
+.cf_parse_addr:
+    call    parse_hex
+    jc      .cf_ret
+    mov     bx, ax
+
+.cf_skip2:
+    mov     al, [esi]
+    cmp     al, ' '
+    je      .cf_adv2
+    cmp     al, 9
+    je      .cf_adv2
+    jmp     .cf_check_colon
+.cf_adv2:
+    inc     esi
+    jmp     .cf_skip2
+
+.cf_check_colon:
+    cmp     al, ':'
+    jne     .cf_no_colon
+
+    inc     esi
+
+.cf_skip3:
+    mov     al, [esi]
+    cmp     al, ' '
+    je      .cf_adv3
+    cmp     al, 9
+    je      .cf_adv3
+    jmp     .cf_parse_off
+.cf_adv3:
+    inc     esi
+    jmp     .cf_skip3
+
+.cf_parse_off:
+    call    parse_hex
+    jc      .cf_ret
+    mov     [fill_seg], bx
+    mov     [fill_off], ax
+    jmp     .cf_after_addr
+
+.cf_no_colon:
+    mov     ax, [reg_DS]
+    mov     [fill_seg], ax
+    mov     [fill_off], bx
+
+.cf_after_addr:
+.cf_skip4:
+    mov     al, [esi]
+    cmp     al, ' '
+    je      .cf_adv4
+    cmp     al, 9
+    je      .cf_adv4
+    jmp     .cf_check_len
+.cf_adv4:
+    inc     esi
+    jmp     .cf_skip4
+
+.cf_check_len:
+    cmp     al, 'l'
+    je      .cf_have_l
+    cmp     al, 'L'
+    je      .cf_have_l
+    jmp     .cf_ret
+
+.cf_have_l:
+    inc     esi
+
+.cf_skip5:
+    mov     al, [esi]
+    cmp     al, ' '
+    je      .cf_adv5
+    cmp     al, 9
+    je      .cf_adv5
+    jmp     .cf_parse_len
+.cf_adv5:
+    inc     esi
+    jmp     .cf_skip5
+
+.cf_parse_len:
+    call    parse_hex
+    jc      .cf_ret
+    test    ax, ax
+    jz      .cf_ret
+    mov     [fill_len], ax
+
+.cf_skip6:
+    mov     al, [esi]
+    cmp     al, ' '
+    je      .cf_adv6
+    cmp     al, 9
+    je      .cf_adv6
+    jmp     .cf_parse_byte
+.cf_adv6:
+    inc     esi
+    jmp     .cf_skip6
+
+.cf_parse_byte:
+    call    parse_hex_byte
+    jc      .cf_ret
+    mov     [fill_val], al
+
+    movzx   eax, word [fill_seg]
+    shl     eax, 4
+    movzx   ebx, word [fill_off]
+    add     eax, ebx
+
+    mov     edi, memory
+    add     edi, eax
+
+    movzx   ecx, word [fill_len]
+    mov     al, [fill_val]
+    rep     stosb
+
+.cf_ret:
+    ret
+
 exit_program:
     invoke  ExitProcess, 0
 
