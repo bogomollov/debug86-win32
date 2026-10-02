@@ -80,12 +80,18 @@ section '.data' data readable writeable
                     db "sub ax", 0, 2Dh, 2
                     db 0
 
+    asm_3word_table db "mov bx ax", 0, 8Bh, 0D8h
+                    db 0
+
+    asm_2byte_table db "mov bx,ax", 0, 8Bh, 0D8h
+                    db 0
+
     help_text db 'assemble              A [адрес]',13,10
               db 'unassemble            U [адрес]',13,10
               db 'dump                  D [диапазон]',13,10
               db 'enter                 E адрес [список]',13,10
               db 'fill                  F диапазон список',13,10
-              db 'move                  M блокнач блоккон',13,10
+              db 'move                  M диапазон адрес',13,10
               db 'go                    G [=addr] [bp]',13,10
               db 'quit                  Q',13,10
     help_text_len = $ - help_text

@@ -724,6 +724,9 @@ cmd_unassemble:
     test    dl, dl
     jz      .line_done
     
+    cmp     dh, 2
+    je      .line_done
+    
     cmp     dh, 1
     je      .use_comma
     mov     al, ' '
@@ -765,6 +768,36 @@ cmd_unassemble:
 
 find_opcode:
     push    edi
+    
+    mov     edi, asm_2byte_table
+.loop3:
+    cmp     byte [edi], 0
+    je      .end3
+    mov     ebx, edi
+.skip3:
+    cmp     byte [ebx], 0
+    je      .found_null3
+    inc     ebx
+    jmp     .skip3
+.found_null3:
+    inc     ebx
+    cmp     al, [ebx]
+    jne     .next3
+    mov     ah, [ebp+1]
+    cmp     ah, [ebx+1]
+    jne     .next3
+    mov     esi, edi
+    mov     dl, 1
+    mov     dh, 2
+    pop     edi
+    clc
+    ret
+.next3:
+    add     ebx, 2
+    mov     edi, ebx
+    jmp     .loop3
+.end3:
+
     mov     edi, asm_1word_table
 .loop1:
     cmp     byte [edi], 0
@@ -845,9 +878,42 @@ parse_instruction:
     cmp     byte [asm_token], 0
     je      .err
     
+    push    esi
+    
+    mov     edi, asm_token
+.find_end2:
+    cmp     byte [edi], 0
+    je      .append_space2
+    inc     edi
+    jmp     .find_end2
+.append_space2:
+    mov     byte [edi], ' '
+    push    edi
+    inc     edi
+    
+    call    get_token
+    
+    mov     ebx, asm_3word_table
+    call    search_table
+    jnc     .found_3word
+    
+    pop     edi
+    mov     byte [edi], 0
+    pop     esi
+    
     mov     ebx, asm_2word_table
     call    search_table
-    jc      .err
+    jnc     .found
+    jmp     .err
+
+.found_3word:
+    pop     edi
+    pop     esi
+    mov     [asm_bytes], al
+    mov     [asm_bytes+1], ah
+    mov     word [asm_len], 2
+    clc
+    ret
 
 .found:
     mov     [asm_bytes], al
@@ -1057,6 +1123,9 @@ cmd_go:
     cmp     al, 0B7h
     je      .exec_mov_bh
     
+    cmp     al, 8Bh
+    je      .exec_mov_bx_ax
+
     cmp     al, 05h
     je      .exec_add_ax
     cmp     al, 2Dh
@@ -1178,6 +1247,15 @@ cmd_go:
 .exec_mov_bh:
     mov     al, [ebp+1]
     mov     byte [reg_BX+1], al
+    add     word [reg_IP], 2
+    jmp     .run_loop
+    
+.exec_mov_bx_ax:
+    mov     al, [ebp+1]
+    cmp     al, 0D8h
+    jne     .unknown_insn
+    mov     ax, [reg_AX]
+    mov     [reg_BX], ax
     add     word [reg_IP], 2
     jmp     .run_loop
 
