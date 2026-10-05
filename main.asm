@@ -63,6 +63,158 @@ cmd_help:
     invoke  WriteConsoleA, [hStdOut], help_text, help_text_len, chars_written, 0
     ret
 
+cmd_register:
+    mov     esi, [cmd_ptr]
+    call    skip_whitespace
+    call    is_eol
+    jc      .show_all
+
+    call    parse_reg_name
+    jc      print_error_and_ret
+    mov     [edit_reg_ptr], eax
+
+    mov     edi, line_buffer
+    mov     al, [edit_reg_name+0]
+    stosb
+    mov     al, [edit_reg_name+1]
+    stosb
+    mov     al, ' '
+    stosb
+
+    mov     eax, [edit_reg_ptr]
+    mov     ax, [eax]
+    call    put_hex_word
+
+    mov     al, 13
+    stosb
+    mov     al, 10
+    stosb
+    mov     al, ':'
+    stosb
+
+    mov     edx, edi
+    sub     edx, line_buffer
+    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
+
+    invoke  ReadConsoleA, [hStdIn], input_buffer, 255, chars_read, 0
+
+    mov     esi, input_buffer
+    call    skip_whitespace
+    call    is_eol
+    jc      .reg_done
+
+    call    parse_hex
+    jc      .reg_done
+
+    mov     edi, [edit_reg_ptr]
+    mov     [edi], ax
+
+.reg_done:
+    mov     byte [line_buffer], 13
+    mov     byte [line_buffer+1], 10
+    invoke  WriteConsoleA, [hStdOut], line_buffer, 2, chars_written, 0
+    ret
+
+.show_all:
+    call    print_registers
+
+    mov     edi, line_buffer
+
+    mov     ax, [reg_CS]
+    call    put_hex_word
+    mov     al, ':'
+    stosb
+    mov     ax, [reg_IP]
+    call    put_hex_word
+    mov     al, ' '
+    stosb
+
+    mov     ax, [reg_CS]
+    mov     bx, [reg_IP]
+    call    calc_linear_addr
+    mov     ebp, memory
+    add     ebp, eax
+
+    mov     al, [ebp]
+    cmp     al, 00h
+    je      .cr_add_bxsi
+
+    call    put_hex_byte
+    mov     al, ' '
+    stosb
+    mov     al, 'D'
+    stosb
+    mov     al, 'B'
+    stosb
+    mov     al, ' '
+    stosb
+    mov     al, [ebp]
+    call    put_hex_byte
+    jmp     .cr_done
+
+.cr_add_bxsi:
+    mov     al, [ebp]
+    call    put_hex_byte
+    mov     al, [ebp+1]
+    call    put_hex_byte
+    mov     al, ' '
+    stosb
+
+    mov     esi, str_add_bxsi_al
+.cr_str:
+    lodsb
+    test    al, al
+    jz      .cr_mem_chk
+    stosb
+    jmp     .cr_str
+
+.cr_mem_chk:
+    mov     al, [ebp+1]
+    test    al, 0C0h
+    jnz     .cr_done
+    and     al, 07h
+    jnz     .cr_done
+
+    movzx   ecx, word [reg_BX]
+    movzx   ebx, word [reg_SI]
+    add     ecx, ebx
+    push    ecx
+
+    movzx   eax, word [reg_DS]
+    shl     eax, 4
+    add     eax, ecx
+    mov     esi, memory
+    add     esi, eax
+    mov     bl, [esi]
+
+    pop     ecx
+
+    mov     al, ' '
+    stosb
+    mov     al, 'D'
+    stosb
+    mov     al, 'S'
+    stosb
+    mov     al, ':'
+    stosb
+    mov     ax, cx
+    call    put_hex_word
+    mov     al, '='
+    stosb
+    mov     al, bl
+    call    put_hex_byte
+
+.cr_done:
+    mov     al, 13
+    stosb
+    mov     al, 10
+    stosb
+
+    mov     edx, edi
+    sub     edx, line_buffer
+    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
+    ret
+
 cmd_quit:
     mov     esi, [cmd_ptr]
     call    skip_whitespace
@@ -1287,43 +1439,134 @@ cmd_go:
     call    print_error
     ret
 
+parse_reg_name:
+    mov     edi, edit_reg_name
+    xor     ecx, ecx
+.rd_name:
+    mov     al, [esi]
+    test    al, al
+    jz      .rd_name_done
+    cmp     al, 13
+    je      .rd_name_done
+    cmp     al, 10
+    je      .rd_name_done
+    cmp     al, ' '
+    je      .rd_name_done
+    cmp     al, 9
+    je      .rd_name_done
+
+    cmp     al, 'A'
+    jb      .rd_store
+    cmp     al, 'Z'
+    ja      .rd_store
+    add     al, 20h
+.rd_store:
+    stosb
+    inc     esi
+    inc     ecx
+    cmp     ecx, 3
+    jb      .rd_name
+.rd_name_done:
+    mov     byte [edi], 0
+    test    ecx, ecx
+    jz      .rd_err
+    cmp     ecx, 2
+    jne     .rd_err
+
+    ; поиск в таблице
+    mov     ebx, reg_name_table
+.rt_loop:
+    cmp     byte [ebx], 0
+    je      .rd_err
+    mov     cl, [ebx]
+    cmp     cl, [edit_reg_name]
+    jne     .rt_next
+    mov     cl, [ebx+1]
+    cmp     cl, [edit_reg_name+1]
+    jne     .rt_next
+    mov     eax, [ebx+3]
+    clc
+    ret
+.rt_next:
+    add     ebx, 7
+    jmp     .rt_loop
+
+.rd_err:
+    stc
+    ret
+
 print_registers:
     mov     edi, line_buffer
-    
+
     mov     ax, 'AX'
     stosw
     mov     al, '='
     stosb
     mov     ax, [reg_AX]
     call    put_hex_word
-    
-    mov     ax, '  '
-    stosw
+    mov     al, ' '
+    stosb
+
     mov     ax, 'BX'
     stosw
     mov     al, '='
     stosb
     mov     ax, [reg_BX]
     call    put_hex_word
+    mov     al, ' '
+    stosb
 
-    mov     ax, '  '
-    stosw
     mov     ax, 'CX'
     stosw
     mov     al, '='
     stosb
     mov     ax, [reg_CX]
     call    put_hex_word
+    mov     al, ' '
+    stosb
 
-    mov     ax, '  '
-    stosw
     mov     ax, 'DX'
     stosw
     mov     al, '='
     stosb
     mov     ax, [reg_DX]
     call    put_hex_word
+    mov     al, ' '
+    stosb
 
+    mov     ax, 'SP'
+    stosw
+    mov     al, '='
+    stosb
+    mov     ax, [reg_SP]
+    call    put_hex_word
+    mov     al, ' '
+    stosb
+
+    mov     ax, 'BP'
+    stosw
+    mov     al, '='
+    stosb
+    mov     ax, [reg_BP]
+    call    put_hex_word
+    mov     al, ' '
+    stosb
+
+    mov     ax, 'SI'
+    stosw
+    mov     al, '='
+    stosb
+    mov     ax, [reg_SI]
+    call    put_hex_word
+    mov     al, ' '
+    stosb
+
+    mov     ax, 'DI'
+    stosw
+    mov     al, '='
+    stosb
+    mov     ax, [reg_DI]
+    call    put_hex_word
     mov     al, 13
     stosb
     mov     al, 10
@@ -1335,48 +1578,54 @@ print_registers:
     stosb
     mov     ax, [reg_DS]
     call    put_hex_word
+    mov     al, ' '
+    stosb
 
-    mov     ax, '  '
-    stosw
     mov     ax, 'ES'
     stosw
     mov     al, '='
     stosb
     mov     ax, [reg_ES]
     call    put_hex_word
+    mov     al, ' '
+    stosb
 
-    mov     ax, '  '
-    stosw
     mov     ax, 'SS'
     stosw
     mov     al, '='
     stosb
     mov     ax, [reg_SS]
     call    put_hex_word
+    mov     al, ' '
+    stosb
 
-    mov     ax, '  '
-    stosw
     mov     ax, 'CS'
     stosw
     mov     al, '='
     stosb
     mov     ax, [reg_CS]
     call    put_hex_word
+    mov     al, ' '
+    stosb
 
-    mov     ax, '  '
-    stosw
     mov     ax, 'IP'
     stosw
     mov     al, '='
     stosb
     mov     ax, [reg_IP]
     call    put_hex_word
+    mov     al, ' '
+    stosb
+
+    mov     esi, flags_text
+    mov     ecx, flags_text_len
+    rep movsb
 
     mov     al, 13
     stosb
     mov     al, 10
     stosb
-    
+
     mov     edx, edi
     sub     edx, line_buffer
     invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0

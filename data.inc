@@ -13,15 +13,24 @@ section '.data' data readable writeable
     dd_skip         dw 0
     dd_line_bytes   dw 0
 
-    reg_DS          dw 0000h
-    reg_CS          dw 0000h
-    reg_ES          dw 0000h
-    reg_SS          dw 0000h
+    reg_DS          dw 0958h
+    reg_CS          dw 0958h
+    reg_ES          dw 0958h
+    reg_SS          dw 0958h
     reg_IP          dw 0100h
     reg_AX          dw 0000h
     reg_BX          dw 0000h
     reg_CX          dw 0000h
     reg_DX          dw 0000h
+    reg_SP          dw 0FFEEh
+    reg_BP          dw 0000h
+    reg_SI          dw 0000h
+    reg_DI          dw 0000h
+
+    flags_text      db 'NO ND EI NS NZ NA NP NC'
+    flags_text_len  = $ - flags_text
+
+    str_add_bxsi_al db 'ADD [BX+SI],AL',0
 
     num_breakpoints dw 0
     breakpoints_seg rw 10
@@ -49,6 +58,8 @@ section '.data' data readable writeable
     edit_cell_done   db 0
     edit_orig_byte   db 0
     edit_wrapped     db 0
+    edit_reg_ptr    dd 0
+    edit_reg_name   rb 4
 
     asm_seg         dw 0
     asm_off         dw 0
@@ -58,6 +69,35 @@ section '.data' data readable writeable
     unasm_seg       dw 0
     unasm_off       dw 0100h
     unasm_len       dw 32
+
+    reg_name_table:
+        db 'ax', 0
+        dd reg_AX
+        db 'bx', 0
+        dd reg_BX
+        db 'cx', 0
+        dd reg_CX
+        db 'dx', 0
+        dd reg_DX
+        db 'sp', 0
+        dd reg_SP
+        db 'bp', 0
+        dd reg_BP
+        db 'si', 0
+        dd reg_SI
+        db 'di', 0
+        dd reg_DI
+        db 'ds', 0
+        dd reg_DS
+        db 'es', 0
+        dd reg_ES
+        db 'ss', 0
+        dd reg_SS
+        db 'cs', 0
+        dd reg_CS
+        db 'ip', 0
+        dd reg_IP
+        db 0
 
     asm_1word_table db "nop", 0, 90h, 0
                     db "int", 0, 0CDh, 1
@@ -92,6 +132,7 @@ section '.data' data readable writeable
               db 'enter                 E адрес [список]',13,10
               db 'fill                  F диапазон список',13,10
               db 'move                  M диапазон адрес',13,10
+              db 'register              R [имя]',13,10
               db 'go                    G [=addr] [bp]',13,10
               db 'quit                  Q',13,10
     help_text_len = $ - help_text
@@ -127,6 +168,8 @@ COMTAB:
     dd cmd_move
     db 'g'
     dd cmd_go
+    db 'r'
+    dd cmd_register
     db '?'
     dd cmd_help
     db 0
