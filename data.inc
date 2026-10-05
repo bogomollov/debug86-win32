@@ -122,10 +122,14 @@ section '.data' data readable writeable
         dd reg_IP
         db 0
 
-    asm_1word_table db "nop", 0, 90h, 0
-                    db "int", 0, 0CDh, 1
-                    db "ret", 0, 0C3h, 0
-                    db 0
+    asm_1word_table:
+        db "nop",0,90h,0
+        db "int",0,0CDh,1
+        db "ret",0,0C3h,0
+        db "push cx",0,51h,0
+        db "pop cx",0,59h,0
+        db "dec cx",0,49h,0
+        db 0
 
     asm_2word_table db "mov ax", 0, 0B8h, 2
                     db "mov bx", 0, 0BBh, 2
@@ -147,6 +151,7 @@ section '.data' data readable writeable
                     db 0
 
     asm_2byte_table db "mov bx,ax", 0, 8Bh, 0D8h
+                    db "add [bx+si],al", 0, 00h, 00h
                     db 0
 
     help_text db 'assemble              A [адрес]',13,10

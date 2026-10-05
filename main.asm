@@ -932,37 +932,40 @@ cmd_unassemble:
     add     ebp, eax
 
     mov     al, [ebp]
+    cmp     al, 75h
+    je      .rel_jump
     call    find_opcode
     jc      .not_found
 
     movzx   ebx, dl
     inc     ebx
-    cmp     ecx, ebx
-    jae     .have_bytes
+
+    mov     eax, ebp
+    sub     eax, memory
+    add     eax, ebx
+    cmp     eax, MEM_SIZE
+    jbe     .have_bytes
 
 .not_found:
     mov     al, [ebp]
     call    put_hex_byte
-    
-    push    ecx
-    mov     ecx, 8
+
+    mov     ecx, 12
     mov     al, ' '
-    rep stosb
-    pop     ecx
-    
+    rep     stosb
+
     mov     al, 'D'
     stosb
     mov     al, 'B'
     stosb
+
+    mov     ecx, 6
     mov     al, ' '
-    stosb
-    stosb
-    stosb
-    stosb
-    
+    rep     stosb
+
     mov     al, [ebp]
     call    put_hex_byte
-    
+
     mov     ebx, 1
     jmp     .line_done
 
@@ -970,50 +973,87 @@ cmd_unassemble:
     push    esi
     push    edx
     push    ebx
-    
+    push    ecx
+
+    ; Печатаем байты БЕЗ пробелов: B90010
     mov     esi, ebp
+    mov     ecx, ebx
 .hex_loop:
     lodsb
     call    put_hex_byte
-    mov     al, ' '
-    stosb
-    dec     ebx
+    dec     ecx
     jnz     .hex_loop
-    pop     ebx
-    
-    mov     eax, 3
+
+    ; Выравниваем поле байтов до 14 символов
+    mov     eax, 14
     sub     eax, ebx
-    imul    eax, 3
-    add     eax, 2
-    push    ecx
+    sub     eax, ebx        ; eax = 14 - 2*len
     mov     ecx, eax
     mov     al, ' '
-    rep stosb
+    rep     stosb
+
     pop     ecx
-    
+    pop     ebx
     pop     edx
     pop     esi
-    
+
+    ; Разбиваем строку мнемоники на "мнемоника + операнды" по первому пробелу
 .str_loop:
+    xor     ecx, ecx
+.str_mnem:
+    lodsb
+    test    al, al
+    jz      .str_pad_only
+    cmp     al, ' '
+    je      .str_have_ops
+    cmp     al, 'a'
+    jb      .str_store_m
+    cmp     al, 'z'
+    ja      .str_store_m
+    sub     al, 20h
+.str_store_m:
+    stosb
+    inc     ecx
+    jmp     .str_mnem
+
+.str_have_ops:
+    ; Дополняем мнемонику пробелами до 8 символов
+    mov     eax, 8
+    sub     eax, ecx
+    jle     .str_ops
+    mov     ecx, eax
+    mov     al, ' '
+    rep     stosb
+.str_ops:
     lodsb
     test    al, al
     jz      .str_done
     cmp     al, 'a'
-    jb      .store_char
+    jb      .str_store_op
     cmp     al, 'z'
-    ja      .store_char
+    ja      .str_store_op
     sub     al, 20h
-.store_char:
+.str_store_op:
     stosb
-    jmp     .str_loop
+    jmp     .str_ops
+
+.str_pad_only:
+    ; Мнемоника без операндов (NOP, RET, PUSH CX …) — тоже 8 символов
+    mov     eax, 8
+    sub     eax, ecx
+    jle     .str_done
+    mov     ecx, eax
+    mov     al, ' '
+    rep     stosb
 .str_done:
 
+    ; ===== Существующая логика вывода операндов (НЕ изменена) =====
     test    dl, dl
     jz      .line_done
-    
+
     cmp     dh, 2
     je      .line_done
-    
+
     cmp     dh, 1
     je      .use_comma
     mov     al, ' '
@@ -1022,16 +1062,16 @@ cmd_unassemble:
     mov     al, ','
 .put_sep:
     stosb
-    
+
     cmp     dl, 1
     je      .arg_byte
-    
+
     mov     al, [ebp+2]
     call    put_hex_byte
     mov     al, [ebp+1]
     call    put_hex_byte
     jmp     .line_done
-    
+
 .arg_byte:
     mov     al, [ebp+1]
     call    put_hex_byte
@@ -1041,17 +1081,60 @@ cmd_unassemble:
     stosb
     mov     al, 10
     stosb
-    
+
     mov     edx, edi
     sub     edx, line_buffer
     invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
-    
+
     add     [unasm_off], bx
-    sub     [unasm_len], bx
+
+    ; Защита от underflow: если прочли больше, чем было в unasm_len,
+    ; просто завершаем (иначе 16-битное вычитание даст огромное число
+    ; и цикл уйдёт в бесконечность).
+    mov     ax, [unasm_len]
+    sub     ax, bx
+    jbe     .done
+    mov     [unasm_len], ax
     jmp     .unasm_loop
 
 .done:
     ret
+
+.rel_jump:
+    ; 75 xx — JNZ rel8. Печатаем байты + выровненная мнемоника + адрес.
+    mov     eax, ebp
+    sub     eax, memory
+    add     eax, 2
+    cmp     eax, MEM_SIZE
+    ja      .not_found
+
+    mov     al, [ebp]
+    call    put_hex_byte
+    mov     al, [ebp+1]
+    call    put_hex_byte
+
+    mov     ecx, 10
+    mov     al, ' '
+    rep     stosb
+
+    mov     al, 'J'
+    stosb
+    mov     al, 'N'
+    stosb
+    mov     al, 'Z'
+    stosb
+
+    mov     ecx, 5
+    mov     al, ' '
+    rep     stosb
+
+    movsx   eax, byte [ebp+1]
+    add     ax, [unasm_off]
+    add     ax, 2
+    call    put_hex_word
+
+    mov     bx, 2
+    jmp     .line_done
 
 find_opcode:
     push    edi
