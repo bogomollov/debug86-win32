@@ -27,8 +27,31 @@ section '.data' data readable writeable
     reg_SI          dw 0000h
     reg_DI          dw 0000h
 
-    flags_text      db 'NO ND EI NS NZ NA NP NC'
-    flags_text_len  = $ - flags_text
+    flag_states     db 0, 0, 1, 0, 0, 0, 0, 0
+    flag_set_codes   db 'OV','DN','EI','NG','ZR','AC','PE','CY'
+    flag_clr_codes   db 'NV','UP','DI','PL','NZ','NA','PO','NC'
+
+    flag_map:
+        db 'ov', 0, 1
+        db 'nv', 0, 0
+        db 'dn', 1, 1
+        db 'up', 1, 0
+        db 'ei', 2, 1
+        db 'di', 2, 0
+        db 'ng', 3, 1
+        db 'pl', 3, 0
+        db 'sf', 3, 1
+        db 'ns', 3, 0
+        db 'zr', 4, 1
+        db 'nz', 4, 0
+        db 'ac', 5, 1
+        db 'na', 5, 0
+        db 'pe', 6, 1
+        db 'po', 6, 0
+        db 'cy', 7, 1
+        db 'cf', 7, 1
+        db 'nc', 7, 0
+        db 0
 
     str_add_bxsi_al db 'ADD [BX+SI],AL',0
 

@@ -69,6 +69,11 @@ cmd_register:
     call    is_eol
     jc      .show_all
 
+    mov     al, [esi]
+    or      al, 20h
+    cmp     al, 'f'
+    je      cmd_rf
+
     call    parse_reg_name
     jc      print_error_and_ret
     mov     [edit_reg_ptr], eax
@@ -213,6 +218,136 @@ cmd_register:
     mov     edx, edi
     sub     edx, line_buffer
     invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
+    ret
+
+; ========== Команда rf ==========
+cmd_rf:
+    call    show_flags
+
+    invoke  ReadConsoleA, [hStdIn], input_buffer, 255, chars_read, 0
+
+    mov     esi, input_buffer
+    call    skip_whitespace
+    call    is_eol
+    jc      .rf_done
+
+.rf_parse_loop:
+    mov     al, [esi]
+    or      al, 20h
+    mov     ah, al
+    inc     esi
+    mov     al, [esi]
+    or      al, 20h
+    inc     esi
+
+    mov     edi, flag_map
+.rf_find:
+    cmp     byte [edi], 0
+    je      .rf_next
+    cmp     ah, [edi]
+    jne     .rf_skip
+    cmp     al, [edi+1]
+    jne     .rf_skip
+    movzx   ebx, byte [edi+2]
+    mov     al, [edi+3]
+    mov     [flag_states + ebx], al
+    jmp     .rf_next
+.rf_skip:
+    add     edi, 4
+    jmp     .rf_find
+
+.rf_next:
+    call    skip_whitespace
+    call    is_eol
+    jc      .rf_done
+    jmp     .rf_parse_loop
+
+.rf_done:
+    mov     byte [line_buffer], 13
+    mov     byte [line_buffer+1], 10
+    invoke  WriteConsoleA, [hStdOut], line_buffer, 2, chars_written, 0
+    ret
+
+; ========== Дописать флаги в текущий буфер (EDI) ==========
+append_flags:
+    push    eax
+    push    ebx
+    push    ecx
+    push    edx
+    push    esi
+
+    xor     ebx, ebx
+    mov     ecx, 8
+.af_loop:
+    mov     al, [flag_states + ebx]
+    test    al, al
+    jz      .af_use_clr
+    mov     esi, flag_set_codes
+    jmp     .af_copy
+.af_use_clr:
+    mov     esi, flag_clr_codes
+.af_copy:
+    mov     eax, ebx
+    shl     eax, 1
+    add     esi, eax
+    movsw                    ; 2 байта кода
+    mov     al, ' '
+    stosb
+    inc     ebx
+    loop    .af_loop
+
+    pop     esi
+    pop     edx
+    pop     ecx
+    pop     ebx
+    pop     eax
+    ret
+
+; ========== Отображение флагов ==========
+show_flags:
+    push    eax
+    push    ebx
+    push    ecx
+    push    edx
+    push    esi
+    push    edi
+
+    mov     edi, line_buffer
+    xor     ebx, ebx
+    mov     ecx, 8
+.sf_loop:
+    mov     al, [flag_states + ebx]
+    test    al, al
+    jz      .sf_use_clr
+    mov     esi, flag_set_codes
+    jmp     .sf_copy
+.sf_use_clr:
+    mov     esi, flag_clr_codes
+.sf_copy:
+    mov     eax, ebx
+    shl     eax, 1
+    add     esi, eax
+    movsw
+    mov     al, ' '
+    stosb
+    inc     ebx
+    loop    .sf_loop
+
+    mov     al, '-'
+    stosb
+    mov     al, ' '
+    stosb
+
+    mov     edx, edi
+    sub     edx, line_buffer
+    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
+
+    pop     edi
+    pop     esi
+    pop     edx
+    pop     ecx
+    pop     ebx
+    pop     eax
     ret
 
 cmd_quit:
@@ -1617,9 +1752,7 @@ print_registers:
     mov     al, ' '
     stosb
 
-    mov     esi, flags_text
-    mov     ecx, flags_text_len
-    rep movsb
+    call    append_flags
 
     mov     al, 13
     stosb
