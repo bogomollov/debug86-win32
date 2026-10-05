@@ -96,9 +96,11 @@ parse_address:
     mov     ax, cx
     add     esi, 3
     call    skip_whitespace
+    mov     dx, ax
     call    parse_hex
     jc      .err
     mov     bx, ax
+    mov     ax, dx
     clc
     ret
 

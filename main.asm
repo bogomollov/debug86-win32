@@ -475,7 +475,8 @@ cmd_fill:
     test    ecx, ecx
     jz      .cf_ret
     mov     al, [esi + ebx]
-    stosb
+    mov     [edi], al
+    inc     edi
     inc     ebx
     cmp     ebx, edx
     jb      .cf_no_wrap
@@ -526,7 +527,8 @@ cmd_edit:
 
     call    parse_hex_byte
     jc      print_error_and_ret
-    stosb
+    mov     [edi], al
+    inc     edi
     jmp     .ce_next_token
 
 .ce_string:
@@ -542,7 +544,8 @@ cmd_edit:
     cmp     edi, memory + MEM_SIZE
     jae     print_error_and_ret
 
-    stosb
+    mov     [edi], al
+    inc     edi
     inc     esi
     jmp     .ce_str_loop
 .ce_str_end:
