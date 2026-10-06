@@ -119,6 +119,21 @@ macro flag_entry flag_name, flag_idx, flag_val {
     db  flag_val                       ; +3: значение
 }
 
+CPU_STATE_DS    equ 0
+CPU_STATE_CS    equ 2
+CPU_STATE_ES    equ 4
+CPU_STATE_SS    equ 6
+CPU_STATE_IP    equ 8
+CPU_STATE_AX    equ 10
+CPU_STATE_BX    equ 12
+CPU_STATE_CX    equ 14
+CPU_STATE_DX    equ 16
+CPU_STATE_SP    equ 18
+CPU_STATE_BP    equ 20
+CPU_STATE_SI    equ 22
+CPU_STATE_DI    equ 24
+CPU_STATE_SIZE  equ 26
+
 section '.data' data readable writeable
     prompt          db '-',0
     hStdOut         dd 0
@@ -134,19 +149,37 @@ section '.data' data readable writeable
     dd_skip         dw 0
     dd_line_bytes   dw 0
 
-    reg_DS          dw 0958h
-    reg_CS          dw 0958h
-    reg_ES          dw 0958h
-    reg_SS          dw 0958h
-    reg_IP          dw 0100h
-    reg_AX          dw 0000h
-    reg_BX          dw 0000h
-    reg_CX          dw 0000h
-    reg_DX          dw 0000h
-    reg_SP          dw 0FFEEh
-    reg_BP          dw 0000h
-    reg_SI          dw 0000h
-    reg_DI          dw 0000h
+    cpu_state:
+        dw 0958h   ; DS
+        dw 0958h   ; CS
+        dw 0958h   ; ES
+        dw 0958h   ; SS
+        dw 0100h   ; IP
+        dw 0000h   ; AX
+        dw 0000h   ; BX
+        dw 0000h   ; CX
+        dw 0000h   ; DX
+        dw 0FFEEh  ; SP
+        dw 0000h   ; BP
+        dw 0000h   ; SI
+        dw 0000h   ; DI
+
+    reg_DS  equ     cpu_state + CPU_STATE_DS
+    reg_CS  equ     cpu_state + CPU_STATE_CS
+    reg_ES  equ     cpu_state + CPU_STATE_ES
+    reg_SS  equ     cpu_state + CPU_STATE_SS
+    reg_IP  equ     cpu_state + CPU_STATE_IP
+    reg_AX  equ     cpu_state + CPU_STATE_AX
+    reg_BX  equ     cpu_state + CPU_STATE_BX
+    reg_CX  equ     cpu_state + CPU_STATE_CX
+    reg_DX  equ     cpu_state + CPU_STATE_DX
+    reg_SP  equ     cpu_state + CPU_STATE_SP
+    reg_BP  equ     cpu_state + CPU_STATE_BP
+    reg_SI  equ     cpu_state + CPU_STATE_SI
+    reg_DI  equ     cpu_state + CPU_STATE_DI
+
+    reg_names:
+        dw 'DS','CS','ES','SS','IP','AX','BX','CX','DX','SP','BP','SI','DI'
 
     flag_states     db 0, 0, 1, 0, 0, 0, 0, 0
     flag_set_codes   db 'OV','DN','EI','NG','ZR','AC','PE','CY'

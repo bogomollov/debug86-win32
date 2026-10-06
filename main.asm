@@ -1720,38 +1720,34 @@ parse_reg_name:
 print_registers:
     push    esi
     push    edi
-    push    ebx
     push    ecx
+    push    ebx
 
     mov     edi, line_buffer
-    mov     esi, reg_print_table
+    lea     esi, [reg_print_table]
     mov     ecx, REG_PRINT_COUNT
-    xor     ebx, ebx
+    xor     edx, edx
 
 .pr_loop:
-    lodsw
+    mov     ax, [esi]
     stosw
     mov     al, '='
     stosb
-
-    lodsd
-    mov     edx, eax
-    mov     ax, [edx]
+    mov     ebx, [esi + 2]
+    mov     ax, [ebx]
     call    put_hex_word
-
     mov     al, SPACE
     stosb
 
-    inc     ebx
-    cmp     ebx, 8
+    add     esi, 6
+    inc     edx
+    cmp     edx, 8
     jne     .pr_next
-
     dec     edi
     mov     al, CR
     stosb
     mov     al, LF
     stosb
-
 .pr_next:
     loop    .pr_loop
 
