@@ -1,9 +1,19 @@
+print_buffer:
+    push    esi
+    push    ecx
+    invoke  WriteConsoleA, [hStdOut], esi, ecx, chars_written, 0
+    pop     ecx
+    pop     esi
+    ret
+
 print_error_and_ret:
     call    print_error
     ret
 
 print_error:
-    invoke  WriteConsoleA, [hStdOut], err_text, err_text_len, chars_written, 0
+    mov     esi, err_text
+    mov     ecx, err_text_len
+    call    print_buffer
     ret
 
 check_mem_range:

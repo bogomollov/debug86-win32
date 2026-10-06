@@ -317,9 +317,10 @@ show_flags:
     mov     al, SPACE
     stosb
 
-    mov     edx, edi
-    sub     edx, line_buffer
-    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
+    mov     ecx, edi
+    sub     ecx, line_buffer
+    mov     esi, line_buffer
+    call    print_buffer
 
     pop     edi
     pop     esi
@@ -1724,22 +1725,22 @@ print_registers:
     push    ebx
 
     mov     edi, line_buffer
-    lea     esi, [reg_print_table]
+    lea     esi, [reg_names]
+    lea     ebx, [cpu_state]
     mov     ecx, REG_PRINT_COUNT
     xor     edx, edx
 
 .pr_loop:
-    mov     ax, [esi]
+    lodsw
     stosw
     mov     al, '='
     stosb
-    mov     ebx, [esi + 2]
     mov     ax, [ebx]
     call    put_hex_word
     mov     al, SPACE
     stosb
 
-    add     esi, 6
+    add     ebx, 2
     inc     edx
     cmp     edx, 8
     jne     .pr_next

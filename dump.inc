@@ -129,9 +129,10 @@ dd_line_loop:
     mov     al, 10
     stosb
 
-    mov     edx, edi
-    sub     edx, line_buffer
-    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
+    mov     ecx, edi
+    sub     ecx, line_buffer
+    mov     esi, line_buffer
+    call    print_buffer
 
     movzx   ecx, word [dd_line_bytes]
     sub     word [dump_len], cx
