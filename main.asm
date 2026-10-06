@@ -60,8 +60,7 @@ main_loop:
     jmp     main_loop
 
 cmd_help:
-    mov     esi, help_text
-    call    print_string
+    invoke  WriteConsoleA, [hStdOut], help_text, help_text_len, chars_written, 0
     ret
 
 cmd_register:
@@ -318,10 +317,9 @@ show_flags:
     mov     al, SPACE
     stosb
 
-    mov     ecx, edi
-    sub     ecx, line_buffer
-    mov     esi, line_buffer
-    call    print_buffer
+    mov     edx, edi
+    sub     edx, line_buffer
+    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
 
     pop     edi
     pop     esi
@@ -432,9 +430,9 @@ cmd_fill:
     cmp     ecx, FILL_PAT_MAX
     jae     .cf_pat_done
 
-    cmp     al, QUOTE_DOUBLE
+    cmp     al, 22h
     je      .cf_string
-    cmp     al, QUOTE_SINGLE
+    cmp     al, 27h
     je      .cf_string
 
     call    parse_hex_byte
@@ -535,9 +533,9 @@ cmd_edit:
     cmp     edi, memory + MEM_SIZE
     jae     print_error_and_ret
 
-    cmp     al, QUOTE_DOUBLE
+    cmp     al, 22h
     je      .ce_string
-    cmp     al, QUOTE_SINGLE
+    cmp     al, 27h
     je      .ce_string
 
     call    parse_hex_byte
@@ -570,7 +568,7 @@ cmd_edit:
 .ce_interactive:
     invoke  GetConsoleMode, [hStdIn], old_console_mode
     mov     eax, [old_console_mode]
-    and     eax, not (ENABLE_LINE_INPUT or ENABLE_ECHO_INPUT)
+    and     eax, not 6
     invoke  SetConsoleMode, [hStdIn], eax
 
     mov     byte [edit_have_nibble], 0
@@ -1466,8 +1464,49 @@ cmd_go:
     add     ebp, eax
     
     mov     al, [ebp]
-    movzx   eax, al
-    jmp     dword [jump_table + eax*4]
+    
+    cmp     al, OP_NOP
+    je      .exec_nop
+    cmp     al, 0C3h
+    je      .exec_ret
+    cmp     al, OP_INT
+    je      .exec_int
+    
+    cmp     al, OP_MOV_AX
+    je      .exec_mov_ax
+    cmp     al, OP_MOV_BX
+    je      .exec_mov_bx
+    cmp     al, OP_MOV_CX
+    je      .exec_mov_cx
+    cmp     al, OP_MOV_DX
+    je      .exec_mov_dx
+    
+    cmp     al, OP_MOV_AL
+    je      .exec_mov_al
+    cmp     al, OP_MOV_CL
+    je      .exec_mov_cl
+    cmp     al, OP_MOV_DL
+    je      .exec_mov_dl
+    cmp     al, OP_MOV_BL
+    je      .exec_mov_bl
+    cmp     al, OP_MOV_AH
+    je      .exec_mov_ah
+    cmp     al, OP_MOV_CH
+    je      .exec_mov_ch
+    cmp     al, OP_MOV_DH
+    je      .exec_mov_dh
+    cmp     al, OP_MOV_BH
+    je      .exec_mov_bh
+    
+    cmp     al, OP_MOV_BX_AX
+    je      .exec_mov_bx_ax
+
+    cmp     al, OP_ADD_AX
+    je      .exec_add_ax
+    cmp     al, OP_SUB_AX
+    je      .exec_sub_ax
+
+    jmp     .unknown_insn
 
 .exec_nop:
     add     word [reg_IP], INSN_LEN_1
@@ -1523,22 +1562,67 @@ cmd_go:
     add     word [reg_IP], INSN_LEN_2
     jmp     .run_loop
 
-.exec_mov_r8:
-    movzx   ebx, byte [ebp]
-    sub     bl, OP_MOV_AL
-    movzx   ebx, byte [mov8_reg_offsets + ebx]
+.exec_mov_ax:
+    mov     ax, [ebp+1]
+    mov     [reg_AX], ax
+    add     word [reg_IP], INSN_LEN_3
+    jmp     .run_loop
+.exec_mov_bx:
+    mov     ax, [ebp+1]
+    mov     [reg_BX], ax
+    add     word [reg_IP], INSN_LEN_3
+    jmp     .run_loop
+.exec_mov_cx:
+    mov     ax, [ebp+1]
+    mov     [reg_CX], ax
+    add     word [reg_IP], INSN_LEN_3
+    jmp     .run_loop
+.exec_mov_dx:
+    mov     ax, [ebp+1]
+    mov     [reg_DX], ax
+    add     word [reg_IP], INSN_LEN_3
+    jmp     .run_loop
+
+.exec_mov_al:
     mov     al, [ebp+1]
-    mov     [cpu_state + ebx], al
+    mov     byte [reg_AX], al
+    add     word [reg_IP], INSN_LEN_2
+    jmp     .run_loop
+.exec_mov_cl:
+    mov     al, [ebp+1]
+    mov     byte [reg_CX], al
+    add     word [reg_IP], INSN_LEN_2
+    jmp     .run_loop
+.exec_mov_dl:
+    mov     al, [ebp+1]
+    mov     byte [reg_DX], al
+    add     word [reg_IP], INSN_LEN_2
+    jmp     .run_loop
+.exec_mov_bl:
+    mov     al, [ebp+1]
+    mov     byte [reg_BX], al
     add     word [reg_IP], INSN_LEN_2
     jmp     .run_loop
 
-.exec_mov_r16:
-    movzx   ebx, byte [ebp]
-    sub     bl, OP_MOV_AX
-    movzx   ebx, byte [mov16_reg_offsets + ebx]
-    mov     ax, [ebp+1]
-    mov     [cpu_state + ebx], ax
-    add     word [reg_IP], INSN_LEN_3
+.exec_mov_ah:
+    mov     al, [ebp+1]
+    mov     byte [reg_AX+1], al
+    add     word [reg_IP], INSN_LEN_2
+    jmp     .run_loop
+.exec_mov_ch:
+    mov     al, [ebp+1]
+    mov     byte [reg_CX+1], al
+    add     word [reg_IP], INSN_LEN_2
+    jmp     .run_loop
+.exec_mov_dh:
+    mov     al, [ebp+1]
+    mov     byte [reg_DX+1], al
+    add     word [reg_IP], INSN_LEN_2
+    jmp     .run_loop
+.exec_mov_bh:
+    mov     al, [ebp+1]
+    mov     byte [reg_BX+1], al
+    add     word [reg_IP], INSN_LEN_2
     jmp     .run_loop
     
 .exec_mov_bx_ax:
@@ -1563,18 +1647,15 @@ cmd_go:
     jmp     .run_loop
 
 .hit_breakpoint:
-    mov     esi, msg_breakpoint
-    call    print_string
+    invoke  WriteConsoleA, [hStdOut], msg_breakpoint, msg_breakpoint_len, chars_written, 0
     jmp     print_registers
 
 .program_end:
-    mov     esi, msg_prog_end
-    call    print_string
+    invoke  WriteConsoleA, [hStdOut], msg_prog_end, msg_prog_end_len, chars_written, 0
     ret
 
 .unknown_insn:
-    mov     esi, msg_unknown_insn
-    call    print_string
+    invoke  WriteConsoleA, [hStdOut], msg_unknown_insn, msg_unknown_insn_len, chars_written, 0
     jmp     print_registers
 
 .out_of_bounds:
