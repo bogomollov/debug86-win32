@@ -432,9 +432,9 @@ cmd_fill:
     cmp     ecx, FILL_PAT_MAX
     jae     .cf_pat_done
 
-    cmp     al, 22h
+    cmp     al, QUOTE_DOUBLE
     je      .cf_string
-    cmp     al, 27h
+    cmp     al, QUOTE_SINGLE
     je      .cf_string
 
     call    parse_hex_byte
@@ -535,9 +535,9 @@ cmd_edit:
     cmp     edi, memory + MEM_SIZE
     jae     print_error_and_ret
 
-    cmp     al, 22h
+    cmp     al, QUOTE_DOUBLE
     je      .ce_string
-    cmp     al, 27h
+    cmp     al, QUOTE_SINGLE
     je      .ce_string
 
     call    parse_hex_byte

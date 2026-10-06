@@ -5,6 +5,8 @@ LF                      equ 10
 SPACE                   equ 20h
 COLON                   equ 3Ah
 COMMA                   equ 2Ch
+QUOTE_DOUBLE            equ 22h
+QUOTE_SINGLE            equ 27h
 
 INPUT_BUFFER_MAX        equ 255
 INPUT_BUFFER_SIZE       equ 256
