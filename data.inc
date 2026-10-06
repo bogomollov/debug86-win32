@@ -74,6 +74,11 @@ INSN_LEN_1              equ 1
 INSN_LEN_2              equ 2
 INSN_LEN_3              equ 3
 
+STEP_OK                 equ 0
+STEP_PROGRAM_END        equ 1
+STEP_UNKNOWN            equ 2
+STEP_ERROR              equ 3
+
 ; ============================================================
 ;  Записи таблиц через макросы + именованные смещения полей.
 ;  Параметры макросов подставляются текстуально, поэтому
@@ -257,6 +262,8 @@ section '.data' data readable writeable
     unasm_seg       dw 0
     unasm_off       dw 0100h
     unasm_len       dw 32
+
+    trace_count     dw 1
     
     reg_name_table:
         reg_entry 'ax', reg_AX
@@ -366,6 +373,7 @@ COMTAB:
     cmd_entry 'e', cmd_edit
     cmd_entry 'm', cmd_move
     cmd_entry 'g', cmd_go
+    cmd_entry 't', cmd_trace
     cmd_entry 'r', cmd_register
     cmd_entry '?', cmd_help
     db 0

@@ -29,7 +29,7 @@ start:
 
 main_loop:
     invoke  WriteConsoleA, [hStdOut], prompt, 1, chars_written, 0
-    invoke ReadConsoleA, [hStdIn], input_buffer, INPUT_BUFFER_MAX, chars_read, 0
+    invoke  ReadConsoleA, [hStdIn], input_buffer, INPUT_BUFFER_MAX, chars_read, 0
 
     mov     esi, input_buffer
     call    skip_whitespace
@@ -1627,6 +1627,289 @@ cmd_go:
 
 .out_of_bounds:
     call    print_error
+    ret
+
+cmd_trace:
+    mov     word [trace_count], 1
+    mov     esi, [cmd_ptr]
+    call    skip_whitespace
+    call    is_eol
+    jc      .trace_loop
+
+    mov     al, [esi]
+    cmp     al, '='
+    jne     .parse_count
+
+    inc     esi
+    call    parse_address
+    jc      print_error_and_ret
+    mov     [reg_CS], ax
+    mov     [reg_IP], bx
+
+    call    skip_whitespace
+    call    is_eol
+    jc      .trace_loop
+
+.parse_count:
+    call    parse_hex
+    jc      print_error_and_ret
+    test    ax, ax
+    jz      print_error_and_ret
+    mov     [trace_count], ax
+
+    call    skip_whitespace
+    call    is_eol
+    jnc     print_error_and_ret
+
+.trace_loop:
+    call    step
+    cmp     eax, STEP_OK
+    je      .step_ok
+    cmp     eax, STEP_PROGRAM_END
+    je      .step_prog_end
+    cmp     eax, STEP_UNKNOWN
+    je      .step_unknown
+
+.step_out_of_bounds:
+    call    print_error
+    ret
+
+.step_prog_end:
+    invoke  WriteConsoleA, [hStdOut], msg_prog_end, msg_prog_end_len, chars_written, 0
+    ret
+
+.step_unknown:
+    invoke  WriteConsoleA, [hStdOut], msg_unknown_insn, msg_unknown_insn_len, chars_written, 0
+    jmp     print_registers
+
+.step_ok:
+    call    cmd_register.show_all
+    dec     word [trace_count]
+    jnz     .trace_loop
+    ret
+
+step:
+    mov     ax, [reg_CS]
+    mov     bx, [reg_IP]
+    call    calc_linear_addr
+
+    mov     ecx, 3
+    call    check_mem_range
+    jc      .out_of_bounds
+
+    mov     ebp, memory
+    add     ebp, eax
+
+    mov     al, [ebp]
+
+    cmp     al, OP_NOP
+    je      .exec_nop
+    cmp     al, 0C3h
+    je      .exec_ret
+    cmp     al, OP_INT
+    je      .exec_int
+
+    cmp     al, OP_MOV_AX
+    je      .exec_mov_ax
+    cmp     al, OP_MOV_BX
+    je      .exec_mov_bx
+    cmp     al, OP_MOV_CX
+    je      .exec_mov_cx
+    cmp     al, OP_MOV_DX
+    je      .exec_mov_dx
+
+    cmp     al, OP_MOV_AL
+    je      .exec_mov_al
+    cmp     al, OP_MOV_CL
+    je      .exec_mov_cl
+    cmp     al, OP_MOV_DL
+    je      .exec_mov_dl
+    cmp     al, OP_MOV_BL
+    je      .exec_mov_bl
+    cmp     al, OP_MOV_AH
+    je      .exec_mov_ah
+    cmp     al, OP_MOV_CH
+    je      .exec_mov_ch
+    cmp     al, OP_MOV_DH
+    je      .exec_mov_dh
+    cmp     al, OP_MOV_BH
+    je      .exec_mov_bh
+
+    cmp     al, OP_MOV_BX_AX
+    je      .exec_mov_bx_ax
+
+    cmp     al, OP_ADD_AX
+    je      .exec_add_ax
+    cmp     al, OP_SUB_AX
+    je      .exec_sub_ax
+
+    mov     eax, STEP_UNKNOWN
+    ret
+
+.exec_nop:
+    add     word [reg_IP], INSN_LEN_1
+    mov     eax, STEP_OK
+    ret
+
+.exec_ret:
+    mov     eax, STEP_PROGRAM_END
+    ret
+
+.exec_int:
+    mov     al, [ebp+1]
+    cmp     al, INT_VECTOR_20
+    je      .exec_ret
+    cmp     al, INT_VECTOR_21
+    je      .int21
+    add     word [reg_IP], INSN_LEN_2
+    mov     eax, STEP_OK
+    ret
+
+.int21:
+    mov     ah, byte [reg_AX+1]
+    cmp     ah, 09h
+    je      .int21_ah09
+    cmp     ah, 4Ch
+    je      .exec_ret
+    add     word [reg_IP], INSN_LEN_2
+    mov     eax, STEP_OK
+    ret
+
+.int21_ah09:
+    mov     ax, [reg_DS]
+    mov     bx, [reg_DX]
+    call    calc_linear_addr
+
+    mov     ecx, MEM_SIZE
+    sub     ecx, eax
+    jbe     .int21_09_skip
+
+    mov     esi, memory
+    add     esi, eax
+    mov     edi, esi
+    push    ecx
+    mov     al, '$'
+    repne   scasb
+    pop     ecx
+    jne     .int21_09_skip
+
+    mov     edx, edi
+    sub     edx, esi
+    dec     edx
+    jz      .int21_09_skip
+
+    invoke  WriteConsoleA, [hStdOut], esi, edx, chars_written, 0
+
+.int21_09_skip:
+    add     word [reg_IP], INSN_LEN_2
+    mov     eax, STEP_OK
+    ret
+
+.exec_mov_ax:
+    mov     ax, [ebp+1]
+    mov     [reg_AX], ax
+    add     word [reg_IP], INSN_LEN_3
+    mov     eax, STEP_OK
+    ret
+.exec_mov_bx:
+    mov     ax, [ebp+1]
+    mov     [reg_BX], ax
+    add     word [reg_IP], INSN_LEN_3
+    mov     eax, STEP_OK
+    ret
+.exec_mov_cx:
+    mov     ax, [ebp+1]
+    mov     [reg_CX], ax
+    add     word [reg_IP], INSN_LEN_3
+    mov     eax, STEP_OK
+    ret
+.exec_mov_dx:
+    mov     ax, [ebp+1]
+    mov     [reg_DX], ax
+    add     word [reg_IP], INSN_LEN_3
+    mov     eax, STEP_OK
+    ret
+
+.exec_mov_al:
+    mov     al, [ebp+1]
+    mov     byte [reg_AX], al
+    add     word [reg_IP], INSN_LEN_2
+    mov     eax, STEP_OK
+    ret
+.exec_mov_cl:
+    mov     al, [ebp+1]
+    mov     byte [reg_CX], al
+    add     word [reg_IP], INSN_LEN_2
+    mov     eax, STEP_OK
+    ret
+.exec_mov_dl:
+    mov     al, [ebp+1]
+    mov     byte [reg_DX], al
+    add     word [reg_IP], INSN_LEN_2
+    mov     eax, STEP_OK
+    ret
+.exec_mov_bl:
+    mov     al, [ebp+1]
+    mov     byte [reg_BX], al
+    add     word [reg_IP], INSN_LEN_2
+    mov     eax, STEP_OK
+    ret
+
+.exec_mov_ah:
+    mov     al, [ebp+1]
+    mov     byte [reg_AX+1], al
+    add     word [reg_IP], INSN_LEN_2
+    mov     eax, STEP_OK
+    ret
+.exec_mov_ch:
+    mov     al, [ebp+1]
+    mov     byte [reg_CX+1], al
+    add     word [reg_IP], INSN_LEN_2
+    mov     eax, STEP_OK
+    ret
+.exec_mov_dh:
+    mov     al, [ebp+1]
+    mov     byte [reg_DX+1], al
+    add     word [reg_IP], INSN_LEN_2
+    mov     eax, STEP_OK
+    ret
+.exec_mov_bh:
+    mov     al, [ebp+1]
+    mov     byte [reg_BX+1], al
+    add     word [reg_IP], INSN_LEN_2
+    mov     eax, STEP_OK
+    ret
+
+.exec_mov_bx_ax:
+    mov     al, [ebp+1]
+    cmp     al, OP_MOV_BX_AX_MODRM
+    jne     .unknown_insn
+    mov     ax, [reg_AX]
+    mov     [reg_BX], ax
+    add     word [reg_IP], INSN_LEN_2
+    mov     eax, STEP_OK
+    ret
+
+.exec_add_ax:
+    mov     ax, [ebp+1]
+    add     [reg_AX], ax
+    add     word [reg_IP], INSN_LEN_3
+    mov     eax, STEP_OK
+    ret
+
+.exec_sub_ax:
+    mov     ax, [ebp+1]
+    sub     [reg_AX], ax
+    add     word [reg_IP], INSN_LEN_3
+    mov     eax, STEP_OK
+    ret
+
+.unknown_insn:
+    mov     eax, STEP_UNKNOWN
+    ret
+
+.out_of_bounds:
+    mov     eax, STEP_ERROR
     ret
 
 parse_reg_name:
