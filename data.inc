@@ -1,4 +1,3 @@
-; ===== Именованные константы =====
 MEM_SIZE                equ 110000h
 
 CR                      equ 13
@@ -14,6 +13,7 @@ ASM_TOKEN_SIZE          equ 32
 ASM_BYTES_SIZE          equ 16
 REG_NAME_BUFFER_SIZE    equ 4
 REG_NAME_MAX_LEN        equ 3
+REG_PRINT_COUNT         equ 13
 
 COMTAB_RECORD_SIZE      equ 5
 REG_NAME_RECORD_SIZE    equ 7
@@ -195,6 +195,34 @@ section '.data' data readable writeable
         db 'ip', 0
         dd reg_IP
         db 0
+    
+    reg_print_table:
+        dw 'AX'
+        dd reg_AX
+        dw 'BX'
+        dd reg_BX
+        dw 'CX'
+        dd reg_CX
+        dw 'DX'
+        dd reg_DX
+        dw 'SP'
+        dd reg_SP
+        dw 'BP'
+        dd reg_BP
+        dw 'SI'
+        dd reg_SI
+        dw 'DI'
+        dd reg_DI
+        dw 'DS'
+        dd reg_DS
+        dw 'ES'
+        dd reg_ES
+        dw 'SS'
+        dd reg_SS
+        dw 'CS'
+        dd reg_CS
+        dw 'IP'
+        dd reg_IP
 
     asm_1word_table:
         db "nop",0,OP_NOP,0

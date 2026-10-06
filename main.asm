@@ -220,7 +220,6 @@ cmd_register:
     invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
     ret
 
-; ========== Команда rf ==========
 cmd_rf:
     call    show_flags
 
@@ -268,7 +267,6 @@ cmd_rf:
     invoke  WriteConsoleA, [hStdOut], line_buffer, 2, chars_written, 0
     ret
 
-; ========== Дописать флаги в текущий буфер (EDI) ==========
 append_flags:
     push    eax
     push    ebx
@@ -290,7 +288,7 @@ append_flags:
     mov     eax, ebx
     shl     eax, 1
     add     esi, eax
-    movsw                    ; 2 байта кода
+    movsw
     mov     al, SPACE
     stosb
     inc     ebx
@@ -303,7 +301,6 @@ append_flags:
     pop     eax
     ret
 
-; ========== Отображение флагов ==========
 show_flags:
     push    eax
     push    ebx
@@ -978,7 +975,6 @@ cmd_unassemble:
     push    ebx
     push    ecx
 
-    ; Печатаем байты БЕЗ пробелов: B90010
     mov     esi, ebp
     mov     ecx, ebx
 .hex_loop:
@@ -987,10 +983,9 @@ cmd_unassemble:
     dec     ecx
     jnz     .hex_loop
 
-    ; Выравниваем поле байтов до 14 символов
     mov     eax, 14
     sub     eax, ebx
-    sub     eax, ebx        ; eax = 14 - 2*len
+    sub     eax, ebx
     mov     ecx, eax
     mov     al, SPACE
     rep     stosb
@@ -1000,7 +995,6 @@ cmd_unassemble:
     pop     edx
     pop     esi
 
-    ; Разбиваем строку мнемоники на "мнемоника + операнды" по первому пробелу
 .str_loop:
     xor     ecx, ecx
 .str_mnem:
@@ -1020,7 +1014,6 @@ cmd_unassemble:
     jmp     .str_mnem
 
 .str_have_ops:
-    ; Дополняем мнемонику пробелами до 8 символов
     mov     eax, 8
     sub     eax, ecx
     jle     .str_ops
@@ -1041,7 +1034,6 @@ cmd_unassemble:
     jmp     .str_ops
 
 .str_pad_only:
-    ; Мнемоника без операндов (NOP, RET, PUSH CX …) — тоже 8 символов
     mov     eax, 8
     sub     eax, ecx
     jle     .str_done
@@ -1049,8 +1041,6 @@ cmd_unassemble:
     mov     al, SPACE
     rep     stosb
 .str_done:
-
-    ; ===== Существующая логика вывода операндов (НЕ изменена) =====
     test    dl, dl
     jz      .line_done
 
@@ -1091,9 +1081,6 @@ cmd_unassemble:
 
     add     [unasm_off], bx
 
-    ; Защита от underflow: если прочли больше, чем было в unasm_len,
-    ; просто завершаем (иначе 16-битное вычитание даст огромное число
-    ; и цикл уйдёт в бесконечность).
     mov     ax, [unasm_len]
     sub     ax, bx
     jbe     .done
@@ -1104,7 +1091,6 @@ cmd_unassemble:
     ret
 
 .rel_jump:
-    ; 75 xx — JNZ rel8. Печатаем байты + выровненная мнемоника + адрес.
     mov     eax, ebp
     sub     eax, memory
     add     eax, 2
@@ -1694,7 +1680,6 @@ parse_reg_name:
     cmp     ecx, 2
     jne     .rd_err
 
-    ; поиск в таблице
     mov     ebx, reg_name_table
 .rt_loop:
     cmp     byte [ebx], 0
@@ -1717,126 +1702,42 @@ parse_reg_name:
     ret
 
 print_registers:
+    push    esi
+    push    edi
+    push    ebx
+    push    ecx
+
     mov     edi, line_buffer
+    mov     esi, reg_print_table
+    mov     ecx, REG_PRINT_COUNT
+    xor     ebx, ebx
 
-    mov     ax, 'AX'
+.pr_loop:
+    lodsw
     stosw
     mov     al, '='
     stosb
-    mov     ax, [reg_AX]
+
+    lodsd
+    mov     edx, eax
+    mov     ax, [edx]
     call    put_hex_word
+
     mov     al, SPACE
     stosb
 
-    mov     ax, 'BX'
-    stosw
-    mov     al, '='
-    stosb
-    mov     ax, [reg_BX]
-    call    put_hex_word
-    mov     al, SPACE
-    stosb
+    inc     ebx
+    cmp     ebx, 8
+    jne     .pr_next
 
-    mov     ax, 'CX'
-    stosw
-    mov     al, '='
-    stosb
-    mov     ax, [reg_CX]
-    call    put_hex_word
-    mov     al, SPACE
-    stosb
-
-    mov     ax, 'DX'
-    stosw
-    mov     al, '='
-    stosb
-    mov     ax, [reg_DX]
-    call    put_hex_word
-    mov     al, SPACE
-    stosb
-
-    mov     ax, 'SP'
-    stosw
-    mov     al, '='
-    stosb
-    mov     ax, [reg_SP]
-    call    put_hex_word
-    mov     al, SPACE
-    stosb
-
-    mov     ax, 'BP'
-    stosw
-    mov     al, '='
-    stosb
-    mov     ax, [reg_BP]
-    call    put_hex_word
-    mov     al, SPACE
-    stosb
-
-    mov     ax, 'SI'
-    stosw
-    mov     al, '='
-    stosb
-    mov     ax, [reg_SI]
-    call    put_hex_word
-    mov     al, SPACE
-    stosb
-
-    mov     ax, 'DI'
-    stosw
-    mov     al, '='
-    stosb
-    mov     ax, [reg_DI]
-    call    put_hex_word
+    dec     edi
     mov     al, CR
     stosb
     mov     al, LF
     stosb
 
-    mov     ax, 'DS'
-    stosw
-    mov     al, '='
-    stosb
-    mov     ax, [reg_DS]
-    call    put_hex_word
-    mov     al, SPACE
-    stosb
-
-    mov     ax, 'ES'
-    stosw
-    mov     al, '='
-    stosb
-    mov     ax, [reg_ES]
-    call    put_hex_word
-    mov     al, SPACE
-    stosb
-
-    mov     ax, 'SS'
-    stosw
-    mov     al, '='
-    stosb
-    mov     ax, [reg_SS]
-    call    put_hex_word
-    mov     al, SPACE
-    stosb
-
-    mov     ax, 'CS'
-    stosw
-    mov     al, '='
-    stosb
-    mov     ax, [reg_CS]
-    call    put_hex_word
-    mov     al, SPACE
-    stosb
-
-    mov     ax, 'IP'
-    stosw
-    mov     al, '='
-    stosb
-    mov     ax, [reg_IP]
-    call    put_hex_word
-    mov     al, SPACE
-    stosb
+.pr_next:
+    loop    .pr_loop
 
     call    append_flags
 
@@ -1848,8 +1749,12 @@ print_registers:
     mov     edx, edi
     sub     edx, line_buffer
     invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
-    ret
 
+    pop     ecx
+    pop     ebx
+    pop     edi
+    pop     esi
+    ret
 
 section '.idata' import data readable writeable
     library kernel32, 'KERNEL32.DLL'
