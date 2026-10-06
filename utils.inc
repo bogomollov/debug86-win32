@@ -6,6 +6,28 @@ print_buffer:
     pop     esi
     ret
 
+print_string:
+    push    eax
+    push    ecx
+    push    esi
+    push    edi
+
+    mov     edi, esi
+    xor     ecx, ecx
+    dec     ecx
+    xor     eax, eax
+    repne   scasb
+    not     ecx
+    dec     ecx
+
+    invoke  WriteConsoleA, [hStdOut], esi, ecx, chars_written, 0
+
+    pop     edi
+    pop     esi
+    pop     ecx
+    pop     eax
+    ret
+
 print_error_and_ret:
     call    print_error
     ret

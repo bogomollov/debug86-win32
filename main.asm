@@ -60,7 +60,8 @@ main_loop:
     jmp     main_loop
 
 cmd_help:
-    invoke  WriteConsoleA, [hStdOut], help_text, help_text_len, chars_written, 0
+    mov     esi, help_text
+    call    print_string
     ret
 
 cmd_register:
@@ -1648,15 +1649,18 @@ cmd_go:
     jmp     .run_loop
 
 .hit_breakpoint:
-    invoke  WriteConsoleA, [hStdOut], msg_breakpoint, msg_breakpoint_len, chars_written, 0
+    mov     esi, msg_breakpoint
+    call    print_string
     jmp     print_registers
 
 .program_end:
-    invoke  WriteConsoleA, [hStdOut], msg_prog_end, msg_prog_end_len, chars_written, 0
+    mov     esi, msg_prog_end
+    call    print_string
     ret
 
 .unknown_insn:
-    invoke  WriteConsoleA, [hStdOut], msg_unknown_insn, msg_unknown_insn_len, chars_written, 0
+    mov     esi, msg_unknown_insn
+    call    print_string
     jmp     print_registers
 
 .out_of_bounds:

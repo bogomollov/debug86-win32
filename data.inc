@@ -330,19 +330,19 @@ section '.data' data readable writeable
               db 'move                  M диапазон адрес',CR,LF
               db 'register              R [имя]',CR,LF
               db 'go                    G [=addr] [bp]',CR,LF
-              db 'quit                  Q',CR,LF
+              db 'quit                  Q',CR,LF,0
     help_text_len = $ - help_text
 
-    err_text db '^ Error',CR,LF
+    err_text db '^ Error',CR,LF,0
     err_text_len = $ - err_text
 
-    msg_prog_end db CR,LF,'Программа завершилась нормально',CR,LF
+    msg_prog_end db CR,LF,'Программа завершилась нормально',CR,LF,0
     msg_prog_end_len = $ - msg_prog_end
 
-    msg_breakpoint db 'Breakpoint reached',CR,LF
+    msg_breakpoint db 'Breakpoint reached',CR,LF,0
     msg_breakpoint_len = $ - msg_breakpoint
 
-    msg_unknown_insn db 'Unknown instruction',CR,LF
+    msg_unknown_insn db 'Unknown instruction',CR,LF,0
     msg_unknown_insn_len = $ - msg_unknown_insn
     
 COMTAB:
