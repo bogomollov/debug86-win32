@@ -15,10 +15,6 @@ REG_NAME_BUFFER_SIZE    equ 4
 REG_NAME_MAX_LEN        equ 3
 REG_PRINT_COUNT         equ 13
 
-COMTAB_RECORD_SIZE      equ 5
-REG_NAME_RECORD_SIZE    equ 7
-FLAG_MAP_RECORD_SIZE    equ 4
-
 FLAG_COUNT              equ 8
 MAX_BREAKPOINTS         equ 10
 FILL_PAT_MAX            equ 64
@@ -73,6 +69,56 @@ INSN_LEN_1              equ 1
 INSN_LEN_2              equ 2
 INSN_LEN_3              equ 3
 
+; ============================================================
+;  Записи таблиц через макросы + именованные смещения полей.
+;  Параметры макросов подставляются текстуально, поэтому
+;  строковые литералы ('ov', 'ax', ...) работают как надо.
+;  Смещения и размеры полей заданы константами ? единый
+;  источник правды и для сборки данных, и для доступа к ним.
+; ============================================================
+
+; --- Запись таблицы команд (COMTAB) ---
+CMD_ENTRY_CHAR_OFF       equ 0     ; db  ? символ команды
+CMD_ENTRY_HANDLER_OFF    equ 1     ; dd  ? указатель на обработчик
+CMD_ENTRY_CHAR_SIZE      equ 1
+CMD_ENTRY_HANDLER_SIZE   equ 4
+COMTAB_RECORD_SIZE       equ CMD_ENTRY_CHAR_SIZE + CMD_ENTRY_HANDLER_SIZE
+
+macro cmd_entry cmd_char, cmd_handler {
+    db  cmd_char                       ; +0: символ команды
+    dd  cmd_handler                    ; +1: обработчик
+}
+
+; --- Запись таблицы имён регистров (reg_name_table) ---
+REG_ENTRY_NAME_OFF       equ 0     ; 'ax' ? 2 символа
+REG_ENTRY_NUL_OFF        equ 2     ; терминатор
+REG_ENTRY_PTR_OFF        equ 3     ; dd ? указатель на регистр
+REG_ENTRY_NAME_SIZE      equ 2
+REG_ENTRY_NUL_SIZE       equ 1
+REG_ENTRY_PTR_SIZE       equ 4
+REG_NAME_RECORD_SIZE     equ REG_ENTRY_NAME_SIZE + REG_ENTRY_NUL_SIZE + REG_ENTRY_PTR_SIZE
+
+macro reg_entry reg_name, reg_ptr {
+    db  reg_name                       ; +0: имя (2 символа)
+    db  0                              ; +2: терминатор
+    dd  reg_ptr                        ; +3: указатель
+}
+
+; --- Запись таблицы флагов (flag_map) ---
+FLAG_ENTRY_NAME_OFF      equ 0     ; 'ov' ? 2 символа
+FLAG_ENTRY_INDEX_OFF     equ 2     ; db ? индекс флага
+FLAG_ENTRY_VALUE_OFF     equ 3     ; db ? значение
+FLAG_ENTRY_NAME_SIZE     equ 2
+FLAG_ENTRY_INDEX_SIZE    equ 1
+FLAG_ENTRY_VALUE_SIZE    equ 1
+FLAG_MAP_RECORD_SIZE     equ FLAG_ENTRY_NAME_SIZE + FLAG_ENTRY_INDEX_SIZE + FLAG_ENTRY_VALUE_SIZE
+
+macro flag_entry flag_name, flag_idx, flag_val {
+    db  flag_name                      ; +0: имя (2 символа)
+    db  flag_idx                       ; +2: индекс флага
+    db  flag_val                       ; +3: значение
+}
+
 section '.data' data readable writeable
     prompt          db '-',0
     hStdOut         dd 0
@@ -107,25 +153,25 @@ section '.data' data readable writeable
     flag_clr_codes   db 'NV','UP','DI','PL','NZ','NA','PO','NC'
 
     flag_map:
-        db 'ov', FLAG_OV, 1
-        db 'nv', FLAG_OV, 0
-        db 'dn', FLAG_DN, 1
-        db 'up', FLAG_DN, 0
-        db 'ei', FLAG_EI, 1
-        db 'di', FLAG_EI, 0
-        db 'ng', FLAG_NG, 1
-        db 'pl', FLAG_NG, 0
-        db 'sf', FLAG_NG, 1
-        db 'ns', FLAG_NG, 0
-        db 'zr', FLAG_ZR, 1
-        db 'nz', FLAG_ZR, 0
-        db 'ac', FLAG_AC, 1
-        db 'na', FLAG_AC, 0
-        db 'pe', FLAG_PE, 1
-        db 'po', FLAG_PE, 0
-        db 'cy', FLAG_CY, 1
-        db 'cf', FLAG_CY, 1
-        db 'nc', FLAG_CY, 0
+        flag_entry 'ov', FLAG_OV, 1
+        flag_entry 'nv', FLAG_OV, 0
+        flag_entry 'dn', FLAG_DN, 1
+        flag_entry 'up', FLAG_DN, 0
+        flag_entry 'ei', FLAG_EI, 1
+        flag_entry 'di', FLAG_EI, 0
+        flag_entry 'ng', FLAG_NG, 1
+        flag_entry 'pl', FLAG_NG, 0
+        flag_entry 'sf', FLAG_NG, 1
+        flag_entry 'ns', FLAG_NG, 0
+        flag_entry 'zr', FLAG_ZR, 1
+        flag_entry 'nz', FLAG_ZR, 0
+        flag_entry 'ac', FLAG_AC, 1
+        flag_entry 'na', FLAG_AC, 0
+        flag_entry 'pe', FLAG_PE, 1
+        flag_entry 'po', FLAG_PE, 0
+        flag_entry 'cy', FLAG_CY, 1
+        flag_entry 'cf', FLAG_CY, 1
+        flag_entry 'nc', FLAG_CY, 0
         db 0
 
     str_add_bxsi_al db 'ADD [BX+SI],AL',0
@@ -166,36 +212,23 @@ section '.data' data readable writeable
     unasm_seg       dw 0
     unasm_off       dw 0100h
     unasm_len       dw 32
-
-    reg_name_table:
-        db 'ax', 0
-        dd reg_AX
-        db 'bx', 0
-        dd reg_BX
-        db 'cx', 0
-        dd reg_CX
-        db 'dx', 0
-        dd reg_DX
-        db 'sp', 0
-        dd reg_SP
-        db 'bp', 0
-        dd reg_BP
-        db 'si', 0
-        dd reg_SI
-        db 'di', 0
-        dd reg_DI
-        db 'ds', 0
-        dd reg_DS
-        db 'es', 0
-        dd reg_ES
-        db 'ss', 0
-        dd reg_SS
-        db 'cs', 0
-        dd reg_CS
-        db 'ip', 0
-        dd reg_IP
-        db 0
     
+    reg_name_table:
+        reg_entry 'ax', reg_AX
+        reg_entry 'bx', reg_BX
+        reg_entry 'cx', reg_CX
+        reg_entry 'dx', reg_DX
+        reg_entry 'sp', reg_SP
+        reg_entry 'bp', reg_BP
+        reg_entry 'si', reg_SI
+        reg_entry 'di', reg_DI
+        reg_entry 'ds', reg_DS
+        reg_entry 'es', reg_ES
+        reg_entry 'ss', reg_SS
+        reg_entry 'cs', reg_CS
+        reg_entry 'ip', reg_IP
+        db 0
+
     reg_print_table:
         dw 'AX'
         dd reg_AX
@@ -280,26 +313,16 @@ section '.data' data readable writeable
     msg_unknown_insn_len = $ - msg_unknown_insn
     
 COMTAB:
-    db 'a'
-    dd cmd_assemble
-    db 'u'
-    dd cmd_unassemble
-    db 'q'
-    dd cmd_quit
-    db 'd'
-    dd cmd_dump
-    db 'f'
-    dd cmd_fill
-    db 'e'
-    dd cmd_edit
-    db 'm'
-    dd cmd_move
-    db 'g'
-    dd cmd_go
-    db 'r'
-    dd cmd_register
-    db '?'
-    dd cmd_help
+    cmd_entry 'a', cmd_assemble
+    cmd_entry 'u', cmd_unassemble
+    cmd_entry 'q', cmd_quit
+    cmd_entry 'd', cmd_dump
+    cmd_entry 'f', cmd_fill
+    cmd_entry 'e', cmd_edit
+    cmd_entry 'm', cmd_move
+    cmd_entry 'g', cmd_go
+    cmd_entry 'r', cmd_register
+    cmd_entry '?', cmd_help
     db 0
 
 section '.bss' readable writeable

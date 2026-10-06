@@ -42,7 +42,7 @@ main_loop:
 
     mov     esi, COMTAB
 .find_cmd:
-    mov     bl, [esi]
+    mov     bl, [esi + CMD_ENTRY_CHAR_OFF]
     test    bl, bl
     jz      .cmd_not_found
     cmp     bl, al
@@ -50,7 +50,7 @@ main_loop:
     add     esi, COMTAB_RECORD_SIZE
     jmp     .find_cmd
 .run_cmd:
-    mov     eax, [esi+1]
+    mov     eax, [esi + CMD_ENTRY_HANDLER_OFF]
     inc     dword [cmd_ptr]
     call    eax
     jmp     main_loop
@@ -241,14 +241,14 @@ cmd_rf:
 
     mov     edi, flag_map
 .rf_find:
-    cmp     byte [edi], 0
+    cmp     byte [edi + FLAG_ENTRY_NAME_OFF], 0
     je      .rf_next
-    cmp     ah, [edi]
+    cmp     ah,  [edi + FLAG_ENTRY_NAME_OFF]
     jne     .rf_skip
-    cmp     al, [edi+1]
+    cmp     al,  [edi + FLAG_ENTRY_NAME_OFF + 1]
     jne     .rf_skip
-    movzx   ebx, byte [edi+2]
-    mov     al, [edi+3]
+    movzx   ebx, byte [edi + FLAG_ENTRY_INDEX_OFF]
+    mov     al,       [edi + FLAG_ENTRY_VALUE_OFF]
     mov     [flag_states + ebx], al
     jmp     .rf_next
 .rf_skip:
@@ -1698,15 +1698,15 @@ parse_reg_name:
 
     mov     ebx, reg_name_table
 .rt_loop:
-    cmp     byte [ebx], 0
+    cmp     byte [ebx + REG_ENTRY_NAME_OFF], 0
     je      .rd_err
-    mov     cl, [ebx]
-    cmp     cl, [edit_reg_name]
+    mov     cl,  [ebx + REG_ENTRY_NAME_OFF]
+    cmp     cl,  [edit_reg_name]
     jne     .rt_next
-    mov     cl, [ebx+1]
-    cmp     cl, [edit_reg_name+1]
+    mov     cl,  [ebx + REG_ENTRY_NAME_OFF + 1]
+    cmp     cl,  [edit_reg_name+1]
     jne     .rt_next
-    mov     eax, [ebx+3]
+    mov     eax, [ebx + REG_ENTRY_PTR_OFF]
     clc
     ret
 .rt_next:
