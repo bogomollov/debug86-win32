@@ -1208,6 +1208,8 @@ mem_mnem_table:
     db 'xor', 0, 0, 6
     db 'cmp', 0, 0, 7
     db 'test',0, 2, 0
+    db 'mul', 0, 3, 4
+    db 'dec', 0, 4, 1
     db 0
 
 check_has_bracket:
@@ -1700,6 +1702,30 @@ parse_mem_instruction:
     call    .parse_bracket_content
     jc      .mem_err
 
+    cmp     dword [ebp-4], 3
+    jb      .not_unary_mem
+    cmp     dword [ebp-80], 0
+    jz      .mem_err
+    call    skip_whitespace
+    call    is_eol
+    jnc     .mem_err
+    cmp     dword [ebp-4], 3
+    jne     .unary_mem_dec
+    mov     dword [ebp-60], 0F6h
+    cmp     dword [ebp-12], 2
+    jne     .unary_mem_done
+    mov     dword [ebp-60], 0F7h
+    jmp     .unary_mem_done
+.unary_mem_dec:
+    mov     dword [ebp-60], 0FEh
+    cmp     dword [ebp-12], 2
+    jne     .unary_mem_done
+    mov     dword [ebp-60], 0FFh
+.unary_mem_done:
+    mov     dword [ebp-68], 0
+    jmp     .encode_instruction
+.not_unary_mem:
+
     call    skip_whitespace
 
     ; Check if Operand 2 is a register
@@ -1774,6 +1800,9 @@ parse_mem_instruction:
     mov     edx, [ebp-48]        ; var_rm
     or      al, dl
     mov     dword [ebp-64], eax  ; var_modrm
+
+    cmp     dword [ebp-4], 3
+    jae     .emit_bytes
 
     cmp     dword [ebp-76], 1
     je      .enc_reg_op
@@ -2214,8 +2243,14 @@ parse_instruction:
     mov     [asm_arg_size], ah
     
     test    ah, ah
-    jz      .ok
+    jnz     .has_args
+    call    skip_whitespace
+    call    is_eol
+    jnc     .err
+    clc
+    ret
 
+.has_args:
     cmp     ah, 2
     jbe     .has_immediate
 
@@ -2765,9 +2800,14 @@ step:
     jmp     .step_ok
 .not_pop_cx:
 
-    cmp     al, OP_DEC_CX
-    jne     .not_dec_cx
-    dec     word [reg_CX]
+    cmp     al, 48h
+    jb      .not_dec_r16
+    cmp     al, 4Fh
+    ja      .not_dec_r16
+    sub     al, 48h
+    movzx   eax, al
+    mov     edi, [reg16_ptrs + eax*4]
+    dec     word [edi]
     pushfd
     pop     edx
     mov     cl, [flag_states + FLAG_CY]
@@ -2775,7 +2815,7 @@ step:
     mov     [flag_states + FLAG_CY], cl
     add     word [reg_IP], 1
     jmp     .step_ok
-.not_dec_cx:
+.not_dec_r16:
 
     cmp     al, OP_JNZ_REL8
     jne     .not_jnz
@@ -3435,6 +3475,8 @@ step:
     je      .f67_test
     cmp     edx, 2
     je      .f67_not
+    cmp     edx, 4
+    je      .f67_mul
     jmp     .unknown_insn
 
 .f67_test:
@@ -3468,7 +3510,65 @@ step:
     not     byte [edi]
     add     [reg_IP], cx
     jmp     .step_ok
+
+.f67_mul:
+    test    bl, bl
+    jz      .f6_mul_b
+    mov     ax, word [reg_AX]
+    mul     word [edi]
+    mov     word [reg_AX], ax
+    mov     word [reg_DX], dx
+    pushfd
+    pop     edx
+    call    update_flags_from_eflags
+    add     [reg_IP], cx
+    jmp     .step_ok
+.f6_mul_b:
+    mov     al, byte [reg_AX]
+    mul     byte [edi]
+    mov     word [reg_AX], ax
+    pushfd
+    pop     edx
+    call    update_flags_from_eflags
+    add     [reg_IP], cx
+    jmp     .step_ok
+
 .not_f6_f7:
+
+    cmp     al, 0FEh
+    je      .is_fe_ff
+    cmp     al, 0FFh
+    je      .is_fe_ff
+    jmp     .not_fe_ff
+
+.is_fe_ff:
+    mov     ah, al
+    and     al, 1
+    mov     bl, al
+    call    decode_modrm
+    jc      .out_of_bounds
+    cmp     edx, 1
+    jne     .unknown_insn
+    test    bl, bl
+    jz      .fe_dec_b
+    dec     word [edi]
+    pushfd
+    pop     edx
+    mov     cl, [flag_states + FLAG_CY]
+    call    update_flags_from_eflags
+    mov     [flag_states + FLAG_CY], cl
+    add     [reg_IP], cx
+    jmp     .step_ok
+.fe_dec_b:
+    dec     byte [edi]
+    pushfd
+    pop     edx
+    mov     cl, [flag_states + FLAG_CY]
+    call    update_flags_from_eflags
+    mov     [flag_states + FLAG_CY], cl
+    add     [reg_IP], cx
+    jmp     .step_ok
+.not_fe_ff:
 
 .unknown_insn:
     pop     ebp

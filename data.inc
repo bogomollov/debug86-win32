@@ -336,6 +336,28 @@ macro gen_r16_unary prefix, op16, op8, modrm_base {
     db prefix, 'bh', 0, op8,  modrm_base + 7
 }
 
+macro gen_dec_16 {
+    db 'dec ax', 0, 48h, 0
+    db 'dec cx', 0, 49h, 0
+    db 'dec dx', 0, 4Ah, 0
+    db 'dec bx', 0, 4Bh, 0
+    db 'dec sp', 0, 4Ch, 0
+    db 'dec bp', 0, 4Dh, 0
+    db 'dec si', 0, 4Eh, 0
+    db 'dec di', 0, 4Fh, 0
+}
+
+macro gen_dec_8 {
+    db 'dec al', 0, 0FEh, 0C8h
+    db 'dec cl', 0, 0FEh, 0C9h
+    db 'dec dl', 0, 0FEh, 0CAh
+    db 'dec bl', 0, 0FEh, 0CBh
+    db 'dec ah', 0, 0FEh, 0CCh
+    db 'dec ch', 0, 0FEh, 0CDh
+    db 'dec dh', 0, 0FEh, 0CEh
+    db 'dec bh', 0, 0FEh, 0CFh
+}
+
 macro gen_shift_1 op, op16, op8, modrm_base {
     db op, ' ax 1', 0, op16, modrm_base + 0
     db op, ' ax 01', 0, op16, modrm_base + 0
@@ -462,7 +484,7 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
         db "ret",0,OP_RET,0
         db "push cx",0,OP_PUSH_CX,0
         db "pop cx",0,OP_POP_CX,0
-        db "dec cx",0,OP_DEC_CX,0
+        gen_dec_16
         db 0
 
     asm_2word_table db "mov ax",0,OP_MOV_AX,2
@@ -496,6 +518,9 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
         gen_r16_unary 'ror ', 0D1h, 0D0h, 0C8h
         gen_r16_unary 'rcl ', 0D1h, 0D0h, 0D0h
         gen_r16_unary 'rcr ', 0D1h, 0D0h, 0D8h
+        gen_r16_unary 'mul ', 0F7h, 0F6h, 0E0h
+        gen_dec_16
+        gen_dec_8
         db 0
 
     asm_3word_table db "mov bx ax",0,OP_MOV_BX_AX,OP_MOV_BX_AX_MODRM
@@ -535,6 +560,8 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
         gen_logic_all 'and', ',', 21h, 20h
         gen_logic_all 'or',  ',', 09h, 08h
         gen_logic_all 'test',',', 85h, 84h
+        gen_r16_unary 'mul ', 0F7h, 0F6h, 0E0h
+        gen_dec_8
         db 0
 
     help_text db 'assemble              A [адрес]',CR,LF
