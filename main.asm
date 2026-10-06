@@ -310,8 +310,24 @@ show_flags:
     push    edi
 
     mov     edi, line_buffer
-    xor     ebx, ebx
-    mov ecx, FLAG_COUNT
+    call    append_flags
+
+    mov     al, '-'
+    stosb
+    mov     al, SPACE
+    stosb
+
+    mov     edx, edi
+    sub     edx, line_buffer
+    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
+
+    pop     edi
+    pop     esi
+    pop     edx
+    pop     ecx
+    pop     ebx
+    pop     eax
+    ret
 .sf_loop:
     mov     al, [flag_states + ebx]
     test    al, al
