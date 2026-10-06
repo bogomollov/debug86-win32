@@ -1197,7 +1197,541 @@ find_opcode:
     stc
     ret
 
+mem_mnem_table:
+    db 'mov', 0, 1, 0
+    db 'add', 0, 0, 0
+    db 'or',  0, 0, 1
+    db 'adc', 0, 0, 2
+    db 'sbb', 0, 0, 3
+    db 'and', 0, 0, 4
+    db 'sub', 0, 0, 5
+    db 'xor', 0, 0, 6
+    db 'cmp', 0, 0, 7
+    db 'test',0, 2, 0
+    db 0
+
+check_has_bracket:
+.scan:
+    mov     al, [esi]
+    test    al, al
+    jz      .no
+    cmp     al, CR
+    je      .no
+    cmp     al, LF
+    je      .no
+    cmp     al, '['
+    je      .yes
+    inc     esi
+    jmp     .scan
+.yes:
+    stc
+    ret
+.no:
+    clc
+    ret
+
+parse_mem_instruction:
+    push    ebp
+    mov     ebp, esp
+    sub     esp, 96
+
+    mov     dword [ebp-4], 0      ; var_type
+    mov     dword [ebp-8], 0      ; var_reg
+    mov     dword [ebp-12], 2     ; var_size (default word = 2)
+    mov     dword [ebp-16], 0     ; var_has_bx
+    mov     dword [ebp-20], 0     ; var_has_bp
+    mov     dword [ebp-24], 0     ; var_has_si
+    mov     dword [ebp-28], 0     ; var_has_di
+    mov     dword [ebp-32], 0     ; var_has_disp
+    mov     dword [ebp-36], 1     ; var_sign = 1
+    mov     dword [ebp-40], 0     ; var_disp = 0
+    mov     dword [ebp-44], 0     ; var_mod = 0
+    mov     dword [ebp-48], 0     ; var_rm = 0
+    mov     dword [ebp-52], 0     ; var_disp_len = 0
+    mov     dword [ebp-56], 0     ; var_imm = 0
+    mov     dword [ebp-60], 0     ; var_opcode
+    mov     dword [ebp-64], 0     ; var_modrm
+    mov     dword [ebp-68], 2     ; var_imm_len = 2
+
+    call    skip_whitespace
+    lea     edi, [ebp-96]
+.read_mnem:
+    call    is_eol
+    jc      .mem_err
+    mov     al, [esi]
+    cmp     al, ' '
+    je      .mnem_done
+    cmp     al, 9
+    je      .mnem_done
+    cmp     al, '['
+    je      .mnem_done
+    cmp     al, 'A'
+    jb      .mnem_store
+    cmp     al, 'Z'
+    ja      .mnem_store
+    add     al, 20h
+.mnem_store:
+    stosb
+    inc     esi
+    lea     eax, [ebp-96+14]
+    cmp     edi, eax
+    jae     .mem_err
+    jmp     .read_mnem
+.mnem_done:
+    mov     byte [edi], 0
+
+    mov     ebx, mem_mnem_table
+.search_mnem:
+    cmp     byte [ebx], 0
+    je      .mem_err
+    lea     edi, [ebp-96]
+    mov     edx, ebx
+.cmp_mnem:
+    mov     al, [edi]
+    mov     ah, [edx]
+    cmp     al, ah
+    jne     .next_mnem
+    test    al, al
+    jz      .found_mnem
+    inc     edi
+    inc     edx
+    jmp     .cmp_mnem
+.next_mnem:
+    cmp     byte [ebx], 0
+    je      .skip_null
+    inc     ebx
+    jmp     .next_mnem
+.skip_null:
+    add     ebx, 3
+    jmp     .search_mnem
+
+.found_mnem:
+    mov     edx, ebx
+.find_mnem_null:
+    cmp     byte [edx], 0
+    je      .got_mnem_null
+    inc     edx
+    jmp     .find_mnem_null
+.got_mnem_null:
+    movzx   eax, byte [edx+1]
+    mov     dword [ebp-4], eax   ; var_type
+    movzx   eax, byte [edx+2]
+    mov     dword [ebp-8], eax   ; var_reg
+
+    call    skip_whitespace
+    cmp     byte [esi], '['
+    je      .parse_bracket
+
+    lea     edi, [ebp-96]
+.read_size:
+    call    is_eol
+    jc      .mem_err
+    mov     al, [esi]
+    cmp     al, ' '
+    je      .size_done
+    cmp     al, 9
+    je      .size_done
+    cmp     al, '['
+    je      .size_done
+    cmp     al, 'A'
+    jb      .size_store
+    cmp     al, 'Z'
+    ja      .size_store
+    add     al, 20h
+.size_store:
+    stosb
+    inc     esi
+    lea     eax, [ebp-96+14]
+    cmp     edi, eax
+    jae     .mem_err
+    jmp     .read_size
+.size_done:
+    mov     byte [edi], 0
+
+    cmp     byte [ebp-96], 'w'
+    jne     .check_byte
+    cmp     byte [ebp-96+1], 'o'
+    jne     .check_byte
+    cmp     byte [ebp-96+2], 'r'
+    jne     .check_byte
+    cmp     byte [ebp-96+3], 'd'
+    jne     .check_byte
+    cmp     byte [ebp-96+4], 0
+    jne     .check_byte
+    mov     dword [ebp-12], 2    ; var_size = 2
+    jmp     .check_ptr
+
+.check_byte:
+    cmp     byte [ebp-96], 'b'
+    jne     .mem_err
+    cmp     byte [ebp-96+1], 'y'
+    jne     .mem_err
+    cmp     byte [ebp-96+2], 't'
+    jne     .mem_err
+    cmp     byte [ebp-96+3], 'e'
+    jne     .mem_err
+    cmp     byte [ebp-96+4], 0
+    jne     .mem_err
+    mov     dword [ebp-12], 1    ; var_size = 1
+
+.check_ptr:
+    call    skip_whitespace
+    mov     al, [esi]
+    or      al, 20h
+    cmp     al, 'p'
+    jne     .parse_bracket
+    mov     ah, [esi+1]
+    or      ah, 20h
+    cmp     ah, 't'
+    jne     .parse_bracket
+    mov     al, [esi+2]
+    or      al, 20h
+    cmp     al, 'r'
+    jne     .parse_bracket
+    mov     al, [esi+3]
+    cmp     al, ' '
+    je      .skip_ptr
+    cmp     al, 9
+    je      .skip_ptr
+    cmp     al, '['
+    je      .skip_ptr
+    jmp     .parse_bracket
+.skip_ptr:
+    add     esi, 3
+    call    skip_whitespace
+
+.parse_bracket:
+    call    skip_whitespace
+    cmp     byte [esi], '['
+    jne     .mem_err
+    inc     esi
+
+.bracket_loop:
+    call    skip_whitespace
+    call    is_eol
+    jc      .mem_err
+    mov     al, [esi]
+    cmp     al, ']'
+    je      .bracket_done
+
+    cmp     al, '+'
+    jne     .not_plus
+    mov     dword [ebp-36], 1    ; var_sign = 1
+    inc     esi
+    jmp     .bracket_loop
+
+.not_plus:
+    cmp     al, '-'
+    jne     .not_minus
+    mov     dword [ebp-36], -1   ; var_sign = -1
+    inc     esi
+    jmp     .bracket_loop
+
+.not_minus:
+    mov     al, [esi]
+    mov     ah, [esi+1]
+    or      al, 20h
+    or      ah, 20h
+    mov     dl, [esi+2]
+    cmp     dl, ' '
+    je      .try_reg
+    cmp     dl, 9
+    je      .try_reg
+    cmp     dl, '+'
+    je      .try_reg
+    cmp     dl, '-'
+    je      .try_reg
+    cmp     dl, ']'
+    je      .try_reg
+    jmp     .parse_disp_num
+
+.try_reg:
+    cmp     al, 'b'
+    jne     .check_reg_bp
+    cmp     ah, 'x'
+    jne     .check_reg_bp
+    cmp     dword [ebp-16], 0
+    jne     .mem_err
+    mov     dword [ebp-16], 1    ; var_has_bx = 1
+    add     esi, 2
+    jmp     .bracket_loop
+
+.check_reg_bp:
+    cmp     al, 'b'
+    jne     .check_reg_si
+    cmp     ah, 'p'
+    jne     .check_reg_si
+    cmp     dword [ebp-20], 0
+    jne     .mem_err
+    mov     dword [ebp-20], 1    ; var_has_bp = 1
+    add     esi, 2
+    jmp     .bracket_loop
+
+.check_reg_si:
+    cmp     al, 's'
+    jne     .check_reg_di
+    cmp     ah, 'i'
+    jne     .check_reg_di
+    cmp     dword [ebp-24], 0
+    jne     .mem_err
+    mov     dword [ebp-24], 1    ; var_has_si = 1
+    add     esi, 2
+    jmp     .bracket_loop
+
+.check_reg_di:
+    cmp     al, 'd'
+    jne     .parse_disp_num
+    cmp     ah, 'i'
+    jne     .parse_disp_num
+    cmp     dword [ebp-28], 0
+    jne     .mem_err
+    mov     dword [ebp-28], 1    ; var_has_di = 1
+    add     esi, 2
+    jmp     .bracket_loop
+
+.parse_disp_num:
+    call    parse_hex
+    jc      .mem_err
+    movsx   eax, ax
+    cmp     dword [ebp-36], -1
+    jne     .disp_pos
+    neg     eax
+.disp_pos:
+    add     dword [ebp-40], eax  ; var_disp += eax
+    mov     dword [ebp-32], 1    ; var_has_disp = 1
+    mov     dword [ebp-36], 1    ; reset var_sign = 1
+    jmp     .bracket_loop
+
+.bracket_done:
+    inc     esi
+
+    mov     eax, [ebp-16]
+    add     eax, [ebp-20]
+    cmp     eax, 2
+    jae     .mem_err
+
+    mov     eax, [ebp-24]
+    add     eax, [ebp-28]
+    cmp     eax, 2
+    jae     .mem_err
+
+    cmp     dword [ebp-16], 1
+    jne     .check_bx_di
+    cmp     dword [ebp-24], 1
+    jne     .check_bx_di
+    mov     dword [ebp-48], 0    ; RM = 0
+    jmp     .got_rm
+
+.check_bx_di:
+    cmp     dword [ebp-16], 1
+    jne     .check_bp_si
+    cmp     dword [ebp-28], 1
+    jne     .check_bp_si
+    mov     dword [ebp-48], 1    ; RM = 1
+    jmp     .got_rm
+
+.check_bp_si:
+    cmp     dword [ebp-20], 1
+    jne     .check_bp_di
+    cmp     dword [ebp-24], 1
+    jne     .check_bp_di
+    mov     dword [ebp-48], 2    ; RM = 2
+    jmp     .got_rm
+
+.check_bp_di:
+    cmp     dword [ebp-20], 1
+    jne     .check_si_only
+    cmp     dword [ebp-28], 1
+    jne     .check_si_only
+    mov     dword [ebp-48], 3    ; RM = 3
+    jmp     .got_rm
+
+.check_si_only:
+    cmp     dword [ebp-24], 1
+    jne     .check_di_only
+    mov     dword [ebp-48], 4    ; RM = 4
+    jmp     .got_rm
+
+.check_di_only:
+    cmp     dword [ebp-28], 1
+    jne     .check_bp_only
+    mov     dword [ebp-48], 5    ; RM = 5
+    jmp     .got_rm
+
+.check_bp_only:
+    cmp     dword [ebp-20], 1
+    jne     .check_bx_only
+    mov     dword [ebp-48], 6    ; RM = 6
+    jmp     .got_rm
+
+.check_bx_only:
+    cmp     dword [ebp-16], 1
+    jne     .direct_addr
+    mov     dword [ebp-48], 7    ; RM = 7
+    jmp     .got_rm
+
+.direct_addr:
+    mov     dword [ebp-48], 6    ; RM = 6
+    mov     dword [ebp-44], 0    ; Mod = 00b
+    mov     dword [ebp-52], 2    ; disp_len = 2
+    jmp     .rm_done
+
+.got_rm:
+    cmp     dword [ebp-32], 0    ; has_disp?
+    jne     .has_some_disp
+    cmp     dword [ebp-48], 6    ; BP only?
+    jne     .no_disp_zero
+    mov     dword [ebp-44], 1    ; Mod = 01b
+    mov     dword [ebp-52], 1    ; disp_len = 1
+    mov     dword [ebp-40], 0
+    jmp     .rm_done
+
+.no_disp_zero:
+    mov     dword [ebp-44], 0    ; Mod = 00b
+    mov     dword [ebp-52], 0    ; disp_len = 0
+    jmp     .rm_done
+
+.has_some_disp:
+    cmp     dword [ebp-40], 0
+    jne     .check_disp_size
+    cmp     dword [ebp-48], 6    ; BP only?
+    je      .disp8_case
+    mov     dword [ebp-44], 0    ; Mod = 00b
+    mov     dword [ebp-52], 0    ; disp_len = 0
+    jmp     .rm_done
+
+.check_disp_size:
+    mov     al, byte [ebp-40]
+    movsx   eax, al
+    cmp     eax, dword [ebp-40]
+    jne     .disp16_case
+
+.disp8_case:
+    mov     dword [ebp-44], 1    ; Mod = 01b
+    mov     dword [ebp-52], 1    ; disp_len = 1
+    jmp     .rm_done
+
+.disp16_case:
+    mov     dword [ebp-44], 2    ; Mod = 10b
+    mov     dword [ebp-52], 2    ; disp_len = 2
+
+.rm_done:
+    call    skip_whitespace
+    cmp     byte [esi], ','
+    jne     .parse_imm_val
+    inc     esi
+    call    skip_whitespace
+
+.parse_imm_val:
+    call    parse_hex
+    jc      .mem_err
+    movzx   eax, ax
+    mov     dword [ebp-56], eax  ; var_imm = eax
+
+    call    skip_whitespace
+    call    is_eol
+    jnc     .mem_err
+
+    mov     eax, [ebp-44]        ; var_mod
+    shl     al, 6
+    mov     edx, [ebp-8]         ; var_reg
+    shl     dl, 3
+    or      al, dl
+    mov     edx, [ebp-48]        ; var_rm
+    or      al, dl
+    mov     dword [ebp-64], eax  ; var_modrm
+
+    cmp     dword [ebp-4], 1     ; MOV?
+    je      .enc_mov
+    cmp     dword [ebp-4], 2     ; TEST?
+    je      .enc_test
+
+    ; ALU
+    cmp     dword [ebp-12], 1    ; byte?
+    jne     .alu_word
+    mov     dword [ebp-60], 80h  ; opcode 80h
+    mov     dword [ebp-68], 1    ; imm_len = 1
+    jmp     .emit_bytes
+
+.alu_word:
+    mov     al, byte [ebp-56]
+    movsx   eax, al
+    cmp     eax, dword [ebp-56]
+    jne     .alu_imm16
+    mov     dword [ebp-60], 83h  ; opcode 83h
+    mov     dword [ebp-68], 1    ; imm_len = 1
+    jmp     .emit_bytes
+
+.alu_imm16:
+    mov     dword [ebp-60], 81h  ; opcode 81h
+    mov     dword [ebp-68], 2    ; imm_len = 2
+    jmp     .emit_bytes
+
+.enc_mov:
+    cmp     dword [ebp-12], 1    ; byte?
+    jne     .mov_word
+    mov     dword [ebp-60], 0C6h ; opcode C6h
+    mov     dword [ebp-68], 1
+    jmp     .emit_bytes
+.mov_word:
+    mov     dword [ebp-60], 0C7h ; opcode C7h
+    mov     dword [ebp-68], 2
+    jmp     .emit_bytes
+
+.enc_test:
+    cmp     dword [ebp-12], 1    ; byte?
+    jne     .test_word
+    mov     dword [ebp-60], 0F6h ; opcode F6h
+    mov     dword [ebp-68], 1
+    jmp     .emit_bytes
+.test_word:
+    mov     dword [ebp-60], 0F7h ; opcode F7h
+    mov     dword [ebp-68], 2
+
+.emit_bytes:
+    mov     edi, asm_bytes
+    mov     al, byte [ebp-60]    ; opcode
+    stosb
+    mov     al, byte [ebp-64]    ; modrm
+    stosb
+
+    mov     ecx, [ebp-52]        ; disp_len
+    test    ecx, ecx
+    jz      .emit_imm
+    mov     al, byte [ebp-40]
+    stosb
+    cmp     ecx, 2
+    jne     .emit_imm
+    mov     al, byte [ebp-40+1]
+    stosb
+
+.emit_imm:
+    mov     al, byte [ebp-56]
+    stosb
+    cmp     dword [ebp-68], 2
+    jne     .emit_done
+    mov     al, byte [ebp-56+1]
+    stosb
+
+.emit_done:
+    mov     eax, edi
+    sub     eax, asm_bytes
+    mov     word [asm_len], ax
+    clc
+    leave
+    ret
+
+.mem_err:
+    leave
+    stc
+    ret
+
 parse_instruction:
+    push    esi
+    call    check_has_bracket
+    pop     esi
+    jc      parse_mem_instruction
+
     mov     edi, asm_token
     call    get_token
     
