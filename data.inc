@@ -317,6 +317,145 @@ section '.data' data readable writeable
         dw 'IP'
         dd reg_IP
 
+macro gen_r16_unary prefix, op16, op8, modrm_base {
+    db prefix, 'ax', 0, op16, modrm_base + 0
+    db prefix, 'cx', 0, op16, modrm_base + 1
+    db prefix, 'dx', 0, op16, modrm_base + 2
+    db prefix, 'bx', 0, op16, modrm_base + 3
+    db prefix, 'sp', 0, op16, modrm_base + 4
+    db prefix, 'bp', 0, op16, modrm_base + 5
+    db prefix, 'si', 0, op16, modrm_base + 6
+    db prefix, 'di', 0, op16, modrm_base + 7
+    db prefix, 'al', 0, op8,  modrm_base + 0
+    db prefix, 'cl', 0, op8,  modrm_base + 1
+    db prefix, 'dl', 0, op8,  modrm_base + 2
+    db prefix, 'bl', 0, op8,  modrm_base + 3
+    db prefix, 'ah', 0, op8,  modrm_base + 4
+    db prefix, 'ch', 0, op8,  modrm_base + 5
+    db prefix, 'dh', 0, op8,  modrm_base + 6
+    db prefix, 'bh', 0, op8,  modrm_base + 7
+}
+
+macro gen_shift_1 op, op16, op8, modrm_base {
+    db op, ' ax 1', 0, op16, modrm_base + 0
+    db op, ' ax 01', 0, op16, modrm_base + 0
+    db op, ' cx 1', 0, op16, modrm_base + 1
+    db op, ' cx 01', 0, op16, modrm_base + 1
+    db op, ' dx 1', 0, op16, modrm_base + 2
+    db op, ' dx 01', 0, op16, modrm_base + 2
+    db op, ' bx 1', 0, op16, modrm_base + 3
+    db op, ' bx 01', 0, op16, modrm_base + 3
+    db op, ' sp 1', 0, op16, modrm_base + 4
+    db op, ' sp 01', 0, op16, modrm_base + 4
+    db op, ' bp 1', 0, op16, modrm_base + 5
+    db op, ' bp 01', 0, op16, modrm_base + 5
+    db op, ' si 1', 0, op16, modrm_base + 6
+    db op, ' si 01', 0, op16, modrm_base + 6
+    db op, ' di 1', 0, op16, modrm_base + 7
+    db op, ' di 01', 0, op16, modrm_base + 7
+    db op, ' al 1', 0, op8,  modrm_base + 0
+    db op, ' al 01', 0, op8,  modrm_base + 0
+    db op, ' cl 1', 0, op8,  modrm_base + 1
+    db op, ' cl 01', 0, op8,  modrm_base + 1
+    db op, ' dl 1', 0, op8,  modrm_base + 2
+    db op, ' dl 01', 0, op8,  modrm_base + 2
+    db op, ' bl 1', 0, op8,  modrm_base + 3
+    db op, ' bl 01', 0, op8,  modrm_base + 3
+    db op, ' ah 1', 0, op8,  modrm_base + 4
+    db op, ' ah 01', 0, op8,  modrm_base + 4
+    db op, ' ch 1', 0, op8,  modrm_base + 5
+    db op, ' ch 01', 0, op8,  modrm_base + 5
+    db op, ' dh 1', 0, op8,  modrm_base + 6
+    db op, ' dh 01', 0, op8,  modrm_base + 6
+    db op, ' bh 1', 0, op8,  modrm_base + 7
+    db op, ' bh 01', 0, op8,  modrm_base + 7
+}
+
+macro gen_shift_cl op, op16, op8, modrm_base {
+    db op, ' ax cl', 0, op16, modrm_base + 0
+    db op, ' cx cl', 0, op16, modrm_base + 1
+    db op, ' dx cl', 0, op16, modrm_base + 2
+    db op, ' bx cl', 0, op16, modrm_base + 3
+    db op, ' sp cl', 0, op16, modrm_base + 4
+    db op, ' bp cl', 0, op16, modrm_base + 5
+    db op, ' si cl', 0, op16, modrm_base + 6
+    db op, ' di cl', 0, op16, modrm_base + 7
+    db op, ' al cl', 0, op8,  modrm_base + 0
+    db op, ' cl cl', 0, op8,  modrm_base + 1
+    db op, ' dl cl', 0, op8,  modrm_base + 2
+    db op, ' bl cl', 0, op8,  modrm_base + 3
+    db op, ' ah cl', 0, op8,  modrm_base + 4
+    db op, ' ch cl', 0, op8,  modrm_base + 5
+    db op, ' dh cl', 0, op8,  modrm_base + 6
+    db op, ' bh cl', 0, op8,  modrm_base + 7
+}
+
+macro gen_logic_dst op, sep, opcode, d, d_idx, r0, r1, r2, r3, r4, r5, r6, r7 {
+    db op, ' ', d, sep, r0, 0, opcode, 0C0h + (0 shl 3) + d_idx
+    db op, ' ', d, sep, r1, 0, opcode, 0C0h + (1 shl 3) + d_idx
+    db op, ' ', d, sep, r2, 0, opcode, 0C0h + (2 shl 3) + d_idx
+    db op, ' ', d, sep, r3, 0, opcode, 0C0h + (3 shl 3) + d_idx
+    db op, ' ', d, sep, r4, 0, opcode, 0C0h + (4 shl 3) + d_idx
+    db op, ' ', d, sep, r5, 0, opcode, 0C0h + (5 shl 3) + d_idx
+    db op, ' ', d, sep, r6, 0, opcode, 0C0h + (6 shl 3) + d_idx
+    db op, ' ', d, sep, r7, 0, opcode, 0C0h + (7 shl 3) + d_idx
+}
+
+macro gen_logic_all op, sep, op16, op8 {
+    gen_logic_dst op, sep, op16, 'ax', 0, 'ax','cx','dx','bx','sp','bp','si','di'
+    gen_logic_dst op, sep, op16, 'cx', 1, 'ax','cx','dx','bx','sp','bp','si','di'
+    gen_logic_dst op, sep, op16, 'dx', 2, 'ax','cx','dx','bx','sp','bp','si','di'
+    gen_logic_dst op, sep, op16, 'bx', 3, 'ax','cx','dx','bx','sp','bp','si','di'
+    gen_logic_dst op, sep, op16, 'sp', 4, 'ax','cx','dx','bx','sp','bp','si','di'
+    gen_logic_dst op, sep, op16, 'bp', 5, 'ax','cx','dx','bx','sp','bp','si','di'
+    gen_logic_dst op, sep, op16, 'si', 6, 'ax','cx','dx','bx','sp','bp','si','di'
+    gen_logic_dst op, sep, op16, 'di', 7, 'ax','cx','dx','bx','sp','bp','si','di'
+
+    gen_logic_dst op, sep, op8, 'al', 0, 'al','cl','dl','bl','ah','ch','dh','bh'
+    gen_logic_dst op, sep, op8, 'cl', 1, 'al','cl','dl','bl','ah','ch','dh','bh'
+    gen_logic_dst op, sep, op8, 'dl', 2, 'al','cl','dl','bl','ah','ch','dh','bh'
+    gen_logic_dst op, sep, op8, 'bl', 3, 'al','cl','dl','bl','ah','ch','dh','bh'
+    gen_logic_dst op, sep, op8, 'ah', 4, 'al','cl','dl','bl','ah','ch','dh','bh'
+    gen_logic_dst op, sep, op8, 'ch', 5, 'al','cl','dl','bl','ah','ch','dh','bh'
+    gen_logic_dst op, sep, op8, 'dh', 6, 'al','cl','dl','bl','ah','ch','dh','bh'
+    gen_logic_dst op, sep, op8, 'bh', 7, 'al','cl','dl','bl','ah','ch','dh','bh'
+}
+
+macro gen_shift_2byte op, op16, op8, modrm_base {
+    db op, ' ax,1', 0, op16, modrm_base + 0
+    db op, ' cx,1', 0, op16, modrm_base + 1
+    db op, ' dx,1', 0, op16, modrm_base + 2
+    db op, ' bx,1', 0, op16, modrm_base + 3
+    db op, ' sp,1', 0, op16, modrm_base + 4
+    db op, ' bp,1', 0, op16, modrm_base + 5
+    db op, ' si,1', 0, op16, modrm_base + 6
+    db op, ' di,1', 0, op16, modrm_base + 7
+    db op, ' al,1', 0, op8,  modrm_base + 0
+    db op, ' cl,1', 0, op8,  modrm_base + 1
+    db op, ' dl,1', 0, op8,  modrm_base + 2
+    db op, ' bl,1', 0, op8,  modrm_base + 3
+    db op, ' ah,1', 0, op8,  modrm_base + 4
+    db op, ' ch,1', 0, op8,  modrm_base + 5
+    db op, ' dh,1', 0, op8,  modrm_base + 6
+    db op, ' bh,1', 0, op8,  modrm_base + 7
+    db op, ' ax,cl', 0, op16 + 2, modrm_base + 0
+    db op, ' cx,cl', 0, op16 + 2, modrm_base + 1
+    db op, ' dx,cl', 0, op16 + 2, modrm_base + 2
+    db op, ' bx,cl', 0, op16 + 2, modrm_base + 3
+    db op, ' sp,cl', 0, op16 + 2, modrm_base + 4
+    db op, ' bp,cl', 0, op16 + 2, modrm_base + 5
+    db op, ' si,cl', 0, op16 + 2, modrm_base + 6
+    db op, ' di,cl', 0, op16 + 2, modrm_base + 7
+    db op, ' al,cl', 0, op8  + 2, modrm_base + 0
+    db op, ' cl,cl', 0, op8  + 2, modrm_base + 1
+    db op, ' dl,cl', 0, op8  + 2, modrm_base + 2
+    db op, ' bl,cl', 0, op8  + 2, modrm_base + 3
+    db op, ' ah,cl', 0, op8  + 2, modrm_base + 4
+    db op, ' ch,cl', 0, op8  + 2, modrm_base + 5
+    db op, ' dh,cl', 0, op8  + 2, modrm_base + 6
+    db op, ' bh,cl', 0, op8  + 2, modrm_base + 7
+}
+
     asm_1word_table:
         db "nop",0,OP_NOP,0
         db "int",0,OP_INT,1
@@ -340,13 +479,62 @@ section '.data' data readable writeable
         db "mov bh",0,OP_MOV_BH,1
         db "add ax",0,OP_ADD_AX,2
         db "sub ax",0,OP_SUB_AX,2
+        db "xor ax",0,35h,2
+        db "xor al",0,34h,1
+        db "and ax",0,25h,2
+        db "and al",0,24h,1
+        db "or ax",0,0Dh,2
+        db "or al",0,0Ch,1
+        db "test ax",0,0A9h,2
+        db "test al",0,0A8h,1
+        gen_r16_unary 'not ', 0F7h, 0F6h, 0D0h
+        gen_r16_unary 'shl ', 0D1h, 0D0h, 0E0h
+        gen_r16_unary 'sal ', 0D1h, 0D0h, 0E0h
+        gen_r16_unary 'shr ', 0D1h, 0D0h, 0E8h
+        gen_r16_unary 'sar ', 0D1h, 0D0h, 0F8h
+        gen_r16_unary 'rol ', 0D1h, 0D0h, 0C0h
+        gen_r16_unary 'ror ', 0D1h, 0D0h, 0C8h
+        gen_r16_unary 'rcl ', 0D1h, 0D0h, 0D0h
+        gen_r16_unary 'rcr ', 0D1h, 0D0h, 0D8h
         db 0
 
     asm_3word_table db "mov bx ax",0,OP_MOV_BX_AX,OP_MOV_BX_AX_MODRM
+        gen_shift_1 'shl', 0D1h, 0D0h, 0E0h
+        gen_shift_1 'sal', 0D1h, 0D0h, 0E0h
+        gen_shift_1 'shr', 0D1h, 0D0h, 0E8h
+        gen_shift_1 'sar', 0D1h, 0D0h, 0F8h
+        gen_shift_1 'rol', 0D1h, 0D0h, 0C0h
+        gen_shift_1 'ror', 0D1h, 0D0h, 0C8h
+        gen_shift_1 'rcl', 0D1h, 0D0h, 0D0h
+        gen_shift_1 'rcr', 0D1h, 0D0h, 0D8h
+        gen_shift_cl 'shl', 0D3h, 0D2h, 0E0h
+        gen_shift_cl 'sal', 0D3h, 0D2h, 0E0h
+        gen_shift_cl 'shr', 0D3h, 0D2h, 0E8h
+        gen_shift_cl 'sar', 0D3h, 0D2h, 0F8h
+        gen_shift_cl 'rol', 0D3h, 0D2h, 0C0h
+        gen_shift_cl 'ror', 0D3h, 0D2h, 0C8h
+        gen_shift_cl 'rcl', 0D3h, 0D2h, 0D0h
+        gen_shift_cl 'rcr', 0D3h, 0D2h, 0D8h
+        gen_logic_all 'xor', ' ', 31h, 30h
+        gen_logic_all 'and', ' ', 21h, 20h
+        gen_logic_all 'or',  ' ', 09h, 08h
+        gen_logic_all 'test',' ', 85h, 84h
         db 0
 
     asm_2byte_table db "mov bx,ax",0,OP_MOV_BX_AX,OP_MOV_BX_AX_MODRM
         db "add [bx+si],al",0,00h,00h
+        gen_r16_unary 'not ', 0F7h, 0F6h, 0D0h
+        gen_shift_2byte 'shl', 0D1h, 0D0h, 0E0h
+        gen_shift_2byte 'shr', 0D1h, 0D0h, 0E8h
+        gen_shift_2byte 'sar', 0D1h, 0D0h, 0F8h
+        gen_shift_2byte 'rol', 0D1h, 0D0h, 0C0h
+        gen_shift_2byte 'ror', 0D1h, 0D0h, 0C8h
+        gen_shift_2byte 'rcl', 0D1h, 0D0h, 0D0h
+        gen_shift_2byte 'rcr', 0D1h, 0D0h, 0D8h
+        gen_logic_all 'xor', ',', 31h, 30h
+        gen_logic_all 'and', ',', 21h, 20h
+        gen_logic_all 'or',  ',', 09h, 08h
+        gen_logic_all 'test',',', 85h, 84h
         db 0
 
     help_text db 'assemble              A [адрес]',CR,LF

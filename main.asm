@@ -1180,6 +1180,8 @@ find_opcode:
     inc     ebx
     cmp     al, [ebx]
     jne     .next2
+    cmp     byte [ebx+1], 2
+    ja      .next2
     mov     esi, edi
     mov     dl, [ebx+1]
     mov     dh, 1
@@ -1264,7 +1266,20 @@ parse_instruction:
     
     test    ah, ah
     jz      .ok
-    
+
+    cmp     ah, 2
+    jbe     .has_immediate
+
+    call    skip_whitespace
+    call    is_eol
+    jnc     .err
+
+    mov     [asm_bytes+1], ah
+    mov     word [asm_len], INSN_LEN_2
+    clc
+    ret
+
+.has_immediate:
     call    skip_whitespace
     call    parse_hex
     jc      .err
