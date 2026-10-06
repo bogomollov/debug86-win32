@@ -64,6 +64,9 @@ OP_JNZ_REL8             equ 75h
 
 INT_VECTOR_20           equ 20h
 INT_VECTOR_21           equ 21h
+ENABLE_PROCESSED_INPUT  equ 0001h
+ENABLE_LINE_INPUT       equ 0002h
+ENABLE_ECHO_INPUT       equ 0004h
 INT21_AH_PRINT_STRING   equ 09h
 INT21_AH_EXIT           equ 4Ch
 
@@ -359,6 +362,56 @@ COMTAB:
     cmd_entry 'r', cmd_register
     cmd_entry '?', cmd_help
     db 0
+
+    jump_table:
+        repeat 256
+            dd cmd_go.unknown_insn
+        end repeat
+
+        org jump_table + 05h*4
+        dd cmd_go.exec_add_ax
+
+        org jump_table + 2Dh*4
+        dd cmd_go.exec_sub_ax
+
+        org jump_table + 8Bh*4
+        dd cmd_go.exec_mov_bx_ax
+
+        org jump_table + 90h*4
+        dd cmd_go.exec_nop
+
+        org jump_table + 0B0h*4
+        dd cmd_go.exec_mov_al
+        org jump_table + 0B1h*4
+        dd cmd_go.exec_mov_cl
+        org jump_table + 0B2h*4
+        dd cmd_go.exec_mov_dl
+        org jump_table + 0B3h*4
+        dd cmd_go.exec_mov_bl
+        org jump_table + 0B4h*4
+        dd cmd_go.exec_mov_ah
+        org jump_table + 0B5h*4
+        dd cmd_go.exec_mov_ch
+        org jump_table + 0B6h*4
+        dd cmd_go.exec_mov_dh
+        org jump_table + 0B7h*4
+        dd cmd_go.exec_mov_bh
+        org jump_table + 0B8h*4
+        dd cmd_go.exec_mov_ax
+        org jump_table + 0B9h*4
+        dd cmd_go.exec_mov_cx
+        org jump_table + 0BAh*4
+        dd cmd_go.exec_mov_dx
+        org jump_table + 0BBh*4
+        dd cmd_go.exec_mov_bx
+
+        org jump_table + 0C3h*4
+        dd cmd_go.exec_ret
+
+        org jump_table + 0CDh*4
+        dd cmd_go.exec_int
+
+        org jump_table + 256*4
 
 section '.bss' readable writeable
     input_buffer    rb INPUT_BUFFER_SIZE

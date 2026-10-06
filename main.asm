@@ -1466,49 +1466,8 @@ cmd_go:
     add     ebp, eax
     
     mov     al, [ebp]
-    
-    cmp     al, OP_NOP
-    je      .exec_nop
-    cmp     al, 0C3h
-    je      .exec_ret
-    cmp     al, OP_INT
-    je      .exec_int
-    
-    cmp     al, OP_MOV_AX
-    je      .exec_mov_ax
-    cmp     al, OP_MOV_BX
-    je      .exec_mov_bx
-    cmp     al, OP_MOV_CX
-    je      .exec_mov_cx
-    cmp     al, OP_MOV_DX
-    je      .exec_mov_dx
-    
-    cmp     al, OP_MOV_AL
-    je      .exec_mov_al
-    cmp     al, OP_MOV_CL
-    je      .exec_mov_cl
-    cmp     al, OP_MOV_DL
-    je      .exec_mov_dl
-    cmp     al, OP_MOV_BL
-    je      .exec_mov_bl
-    cmp     al, OP_MOV_AH
-    je      .exec_mov_ah
-    cmp     al, OP_MOV_CH
-    je      .exec_mov_ch
-    cmp     al, OP_MOV_DH
-    je      .exec_mov_dh
-    cmp     al, OP_MOV_BH
-    je      .exec_mov_bh
-    
-    cmp     al, OP_MOV_BX_AX
-    je      .exec_mov_bx_ax
-
-    cmp     al, OP_ADD_AX
-    je      .exec_add_ax
-    cmp     al, OP_SUB_AX
-    je      .exec_sub_ax
-
-    jmp     .unknown_insn
+    movzx   eax, al
+    jmp     dword [jump_table + eax*4]
 
 .exec_nop:
     add     word [reg_IP], INSN_LEN_1
