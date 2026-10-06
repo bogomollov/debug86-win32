@@ -1,39 +1,26 @@
 parse_hex:
     push    bx
     push    cx
-    xor     ax, ax
+    xor     bx, bx
     xor     cx, cx
-ph_loop:
-    mov     bl, [esi]
-    cmp     bl, '0'
-    jb      ph_done
-    cmp     bl, '9'
-    jbe     ph_digit
-
-    or      bl, 20h
-    cmp     bl, 'a'
-    jb      ph_done
-    cmp     bl, 'f'
-    ja      ph_done
-    sub     bl, 'a' - 10
-    jmp     ph_have
-ph_digit:
-    sub     bl, '0'
-ph_have:
-    shl     ax, 4
-    or      al, bl
+.loop:
+    mov     al, [esi]
+    call    hex_to_val
+    jc      .done
+    shl     bx, 4
+    or      bl, al
     inc     esi
     inc     cx
-    jmp     ph_loop
-
-ph_done:
+    jmp     .loop
+.done:
     test    cx, cx
-    jz      ph_err
+    jz      .err
+    mov     ax, bx
     clc
-    jmp     ph_out
-ph_err:
+    jmp     .out
+.err:
     stc
-ph_out:
+.out:
     pop     cx
     pop     bx
     ret
@@ -41,55 +28,33 @@ ph_out:
 parse_hex_byte:
     push    bx
     push    cx
-    xor     ax, ax
+    xor     bx, bx
     xor     cx, cx
-phb_loop:
-    mov     bl, [esi]
-    cmp     bl, '0'
-    jb      phb_done
-    cmp     bl, '9'
-    jbe     phb_digit
-    
-    or      bl, 20h
-    cmp     bl, 'a'
-    jb      phb_done
-    cmp     bl, 'f'
-    ja      phb_done
-    sub     bl, 'a' - 10
-    jmp     phb_have
-phb_digit:
-    sub     bl, '0'
-phb_have:
-    shl     al, 4
-    or      al, bl
+.loop:
+    mov     al, [esi]
+    call    hex_to_val
+    jc      .done
+    shl     bl, 4
+    or      bl, al
     inc     esi
     inc     cx
     cmp     cx, 2
-    jb      phb_loop
-
-phb_done:
+    jb      .loop
+.done:
     test    cx, cx
-    jz      phb_err
+    jz      .err
     cmp     cx, 2
-    jb      phb_ok
-
-    mov     bl, [esi]
-    cmp     bl, '0'
-    jb      phb_ok
-    cmp     bl, '9'
-    jbe     phb_err
-    or      bl, 20h
-    cmp     bl, 'a'
-    jb      phb_ok
-    cmp     bl, 'f'
-    jbe     phb_err
-
-phb_ok:
+    jb      .ok
+    mov     al, [esi]
+    call    hex_to_val
+    jnc     .err
+.ok:
+    mov     al, bl
     clc
-    jmp     phb_out
-phb_err:
+    jmp     .out
+.err:
     stc
-phb_out:
+.out:
     pop     cx
     pop     bx
     ret
