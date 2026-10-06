@@ -1523,67 +1523,22 @@ cmd_go:
     add     word [reg_IP], INSN_LEN_2
     jmp     .run_loop
 
-.exec_mov_ax:
-    mov     ax, [ebp+1]
-    mov     [reg_AX], ax
-    add     word [reg_IP], INSN_LEN_3
-    jmp     .run_loop
-.exec_mov_bx:
-    mov     ax, [ebp+1]
-    mov     [reg_BX], ax
-    add     word [reg_IP], INSN_LEN_3
-    jmp     .run_loop
-.exec_mov_cx:
-    mov     ax, [ebp+1]
-    mov     [reg_CX], ax
-    add     word [reg_IP], INSN_LEN_3
-    jmp     .run_loop
-.exec_mov_dx:
-    mov     ax, [ebp+1]
-    mov     [reg_DX], ax
-    add     word [reg_IP], INSN_LEN_3
-    jmp     .run_loop
-
-.exec_mov_al:
+.exec_mov_r8:
+    movzx   ebx, byte [ebp]
+    sub     bl, OP_MOV_AL
+    movzx   ebx, byte [mov8_reg_offsets + ebx]
     mov     al, [ebp+1]
-    mov     byte [reg_AX], al
-    add     word [reg_IP], INSN_LEN_2
-    jmp     .run_loop
-.exec_mov_cl:
-    mov     al, [ebp+1]
-    mov     byte [reg_CX], al
-    add     word [reg_IP], INSN_LEN_2
-    jmp     .run_loop
-.exec_mov_dl:
-    mov     al, [ebp+1]
-    mov     byte [reg_DX], al
-    add     word [reg_IP], INSN_LEN_2
-    jmp     .run_loop
-.exec_mov_bl:
-    mov     al, [ebp+1]
-    mov     byte [reg_BX], al
+    mov     [cpu_state + ebx], al
     add     word [reg_IP], INSN_LEN_2
     jmp     .run_loop
 
-.exec_mov_ah:
-    mov     al, [ebp+1]
-    mov     byte [reg_AX+1], al
-    add     word [reg_IP], INSN_LEN_2
-    jmp     .run_loop
-.exec_mov_ch:
-    mov     al, [ebp+1]
-    mov     byte [reg_CX+1], al
-    add     word [reg_IP], INSN_LEN_2
-    jmp     .run_loop
-.exec_mov_dh:
-    mov     al, [ebp+1]
-    mov     byte [reg_DX+1], al
-    add     word [reg_IP], INSN_LEN_2
-    jmp     .run_loop
-.exec_mov_bh:
-    mov     al, [ebp+1]
-    mov     byte [reg_BX+1], al
-    add     word [reg_IP], INSN_LEN_2
+.exec_mov_r16:
+    movzx   ebx, byte [ebp]
+    sub     bl, OP_MOV_AX
+    movzx   ebx, byte [mov16_reg_offsets + ebx]
+    mov     ax, [ebp+1]
+    mov     [cpu_state + ebx], ax
+    add     word [reg_IP], INSN_LEN_3
     jmp     .run_loop
     
 .exec_mov_bx_ax:

@@ -124,20 +124,27 @@ macro flag_entry flag_name, flag_idx, flag_val {
     db  flag_val                       ; +3: значение
 }
 
-CPU_STATE_DS    equ 0
-CPU_STATE_CS    equ 2
-CPU_STATE_ES    equ 4
-CPU_STATE_SS    equ 6
-CPU_STATE_IP    equ 8
-CPU_STATE_AX    equ 10
-CPU_STATE_BX    equ 12
-CPU_STATE_CX    equ 14
-CPU_STATE_DX    equ 16
-CPU_STATE_SP    equ 18
-CPU_STATE_BP    equ 20
-CPU_STATE_SI    equ 22
-CPU_STATE_DI    equ 24
+CPU_STATE_AX    equ 0
+CPU_STATE_BX    equ 2
+CPU_STATE_CX    equ 4
+CPU_STATE_DX    equ 6
+CPU_STATE_SP    equ 8
+CPU_STATE_BP    equ 10
+CPU_STATE_SI    equ 12
+CPU_STATE_DI    equ 14
+CPU_STATE_DS    equ 16
+CPU_STATE_ES    equ 18
+CPU_STATE_SS    equ 20
+CPU_STATE_CS    equ 22
+CPU_STATE_IP    equ 24
 CPU_STATE_SIZE  equ 26
+
+    mov8_reg_offsets:
+        db CPU_STATE_AX,   CPU_STATE_CX,   CPU_STATE_DX,   CPU_STATE_BX
+        db CPU_STATE_AX+1, CPU_STATE_CX+1, CPU_STATE_DX+1, CPU_STATE_BX+1
+
+    mov16_reg_offsets:
+        db CPU_STATE_AX, CPU_STATE_CX, CPU_STATE_DX, CPU_STATE_BX
 
 section '.data' data readable writeable
     prompt          db '-',0
@@ -155,11 +162,6 @@ section '.data' data readable writeable
     dd_line_bytes   dw 0
 
     cpu_state:
-        dw 0958h   ; DS
-        dw 0958h   ; CS
-        dw 0958h   ; ES
-        dw 0958h   ; SS
-        dw 0100h   ; IP
         dw 0000h   ; AX
         dw 0000h   ; BX
         dw 0000h   ; CX
@@ -168,6 +170,11 @@ section '.data' data readable writeable
         dw 0000h   ; BP
         dw 0000h   ; SI
         dw 0000h   ; DI
+        dw 0958h   ; DS
+        dw 0958h   ; ES
+        dw 0958h   ; SS
+        dw 0958h   ; CS
+        dw 0100h   ; IP
 
     reg_DS  equ     cpu_state + CPU_STATE_DS
     reg_CS  equ     cpu_state + CPU_STATE_CS
@@ -184,7 +191,7 @@ section '.data' data readable writeable
     reg_DI  equ     cpu_state + CPU_STATE_DI
 
     reg_names:
-        dw 'DS','CS','ES','SS','IP','AX','BX','CX','DX','SP','BP','SI','DI'
+        dw 'AX','BX','CX','DX','SP','BP','SI','DI','DS','ES','SS','CS','IP'
 
     flag_states     db 0, 0, 1, 0, 0, 0, 0, 0
     flag_set_codes   db 'OV','DN','EI','NG','ZR','AC','PE','CY'
@@ -381,29 +388,14 @@ COMTAB:
         dd cmd_go.exec_nop
 
         org jump_table + 0B0h*4
-        dd cmd_go.exec_mov_al
-        org jump_table + 0B1h*4
-        dd cmd_go.exec_mov_cl
-        org jump_table + 0B2h*4
-        dd cmd_go.exec_mov_dl
-        org jump_table + 0B3h*4
-        dd cmd_go.exec_mov_bl
-        org jump_table + 0B4h*4
-        dd cmd_go.exec_mov_ah
-        org jump_table + 0B5h*4
-        dd cmd_go.exec_mov_ch
-        org jump_table + 0B6h*4
-        dd cmd_go.exec_mov_dh
-        org jump_table + 0B7h*4
-        dd cmd_go.exec_mov_bh
+        repeat 8
+            dd cmd_go.exec_mov_r8
+        end repeat
+
         org jump_table + 0B8h*4
-        dd cmd_go.exec_mov_ax
-        org jump_table + 0B9h*4
-        dd cmd_go.exec_mov_cx
-        org jump_table + 0BAh*4
-        dd cmd_go.exec_mov_dx
-        org jump_table + 0BBh*4
-        dd cmd_go.exec_mov_bx
+        repeat 4
+            dd cmd_go.exec_mov_r16
+        end repeat
 
         org jump_table + 0C3h*4
         dd cmd_go.exec_ret
