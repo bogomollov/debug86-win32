@@ -388,14 +388,20 @@ COMTAB:
         dd cmd_go.exec_nop
 
         org jump_table + 0B0h*4
-        repeat 8
-            dd cmd_go.exec_mov_r8
-        end repeat
+        dd cmd_go.exec_mov_al
+        dd cmd_go.exec_mov_cl
+        dd cmd_go.exec_mov_dl
+        dd cmd_go.exec_mov_bl
+        dd cmd_go.exec_mov_ah
+        dd cmd_go.exec_mov_ch
+        dd cmd_go.exec_mov_dh
+        dd cmd_go.exec_mov_bh
 
         org jump_table + 0B8h*4
-        repeat 4
-            dd cmd_go.exec_mov_r16
-        end repeat
+        dd cmd_go.exec_mov_ax
+        dd cmd_go.exec_mov_cx
+        dd cmd_go.exec_mov_dx
+        dd cmd_go.exec_mov_bx
 
         org jump_table + 0C3h*4
         dd cmd_go.exec_ret

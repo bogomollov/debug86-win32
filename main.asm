@@ -7,6 +7,7 @@ include 'fasm/include/win32a.inc'
 include 'data.inc'
 include 'hex.inc'
 include 'dump.inc'
+include 'lexer.inc'
 include 'utils.inc'
 
 start:
@@ -311,40 +312,6 @@ show_flags:
 
     mov     edi, line_buffer
     call    append_flags
-
-    mov     al, '-'
-    stosb
-    mov     al, SPACE
-    stosb
-
-    mov     edx, edi
-    sub     edx, line_buffer
-    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
-
-    pop     edi
-    pop     esi
-    pop     edx
-    pop     ecx
-    pop     ebx
-    pop     eax
-    ret
-.sf_loop:
-    mov     al, [flag_states + ebx]
-    test    al, al
-    jz      .sf_use_clr
-    mov     esi, flag_set_codes
-    jmp     .sf_copy
-.sf_use_clr:
-    mov     esi, flag_clr_codes
-.sf_copy:
-    mov     eax, ebx
-    shl     eax, 1
-    add     esi, eax
-    movsw
-    mov     al, SPACE
-    stosb
-    inc     ebx
-    loop    .sf_loop
 
     mov     al, '-'
     stosb
