@@ -570,7 +570,7 @@ cmd_edit:
 .ce_interactive:
     invoke  GetConsoleMode, [hStdIn], old_console_mode
     mov     eax, [old_console_mode]
-    and     eax, not 6
+    and     eax, not (ENABLE_LINE_INPUT or ENABLE_ECHO_INPUT)
     invoke  SetConsoleMode, [hStdIn], eax
 
     mov     byte [edit_have_nibble], 0
