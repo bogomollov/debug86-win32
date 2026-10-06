@@ -1968,199 +1968,14 @@ cmd_go:
     jmp     .bp_check
 
 .no_bp:
-    mov     ax, [reg_CS]
-    mov     bx, [reg_IP]
-    call    calc_linear_addr
-    
-    mov     ecx, 3
-    call    check_mem_range
-    jc      .out_of_bounds
-    
-    mov     ebp, memory
-    add     ebp, eax
-    
-    mov     al, [ebp]
-    
-    cmp     al, OP_NOP
-    je      .exec_nop
-    cmp     al, 0C3h
-    je      .exec_ret
-    cmp     al, OP_INT
-    je      .exec_int
-    
-    cmp     al, OP_MOV_AX
-    je      .exec_mov_ax
-    cmp     al, OP_MOV_BX
-    je      .exec_mov_bx
-    cmp     al, OP_MOV_CX
-    je      .exec_mov_cx
-    cmp     al, OP_MOV_DX
-    je      .exec_mov_dx
-    
-    cmp     al, OP_MOV_AL
-    je      .exec_mov_al
-    cmp     al, OP_MOV_CL
-    je      .exec_mov_cl
-    cmp     al, OP_MOV_DL
-    je      .exec_mov_dl
-    cmp     al, OP_MOV_BL
-    je      .exec_mov_bl
-    cmp     al, OP_MOV_AH
-    je      .exec_mov_ah
-    cmp     al, OP_MOV_CH
-    je      .exec_mov_ch
-    cmp     al, OP_MOV_DH
-    je      .exec_mov_dh
-    cmp     al, OP_MOV_BH
-    je      .exec_mov_bh
-    
-    cmp     al, OP_MOV_BX_AX
-    je      .exec_mov_bx_ax
-
-    cmp     al, OP_ADD_AX
-    je      .exec_add_ax
-    cmp     al, OP_SUB_AX
-    je      .exec_sub_ax
-
-    jmp     .unknown_insn
-
-.exec_nop:
-    add     word [reg_IP], INSN_LEN_1
-    jmp     .run_loop
-
-.exec_ret:
-    jmp     .program_end
-
-.exec_int:
-    mov     al, [ebp+1]
-    cmp     al, INT_VECTOR_20
+    call    step
+    cmp     eax, STEP_OK
+    je      .run_loop
+    cmp     eax, STEP_PROGRAM_END
     je      .program_end
-    cmp     al, INT_VECTOR_21
-    je      .int21
-    add     word [reg_IP], INSN_LEN_2
-    jmp     .run_loop
-
-.int21:
-    mov     ah, byte [reg_AX+1]
-    cmp     ah, 09h
-    je      .int21_ah09
-    cmp     ah, 4Ch
-    je      .program_end
-    add     word [reg_IP], INSN_LEN_2
-    jmp     .run_loop
-
-.int21_ah09:
-    mov     ax, [reg_DS]
-    mov     bx, [reg_DX]
-    call    calc_linear_addr
-    
-    mov     ecx, MEM_SIZE
-    sub     ecx, eax
-    jbe     .int21_09_skip
-    
-    mov     esi, memory
-    add     esi, eax
-    mov     edi, esi
-    push    ecx
-    mov     al, '$'
-    repne   scasb
-    pop     ecx
-    jne     .int21_09_skip
-    
-    mov     edx, edi
-    sub     edx, esi
-    dec     edx
-    jz      .int21_09_skip
-    
-    invoke  WriteConsoleA, [hStdOut], esi, edx, chars_written, 0
-
-.int21_09_skip:
-    add     word [reg_IP], INSN_LEN_2
-    jmp     .run_loop
-
-.exec_mov_ax:
-    mov     ax, [ebp+1]
-    mov     [reg_AX], ax
-    add     word [reg_IP], INSN_LEN_3
-    jmp     .run_loop
-.exec_mov_bx:
-    mov     ax, [ebp+1]
-    mov     [reg_BX], ax
-    add     word [reg_IP], INSN_LEN_3
-    jmp     .run_loop
-.exec_mov_cx:
-    mov     ax, [ebp+1]
-    mov     [reg_CX], ax
-    add     word [reg_IP], INSN_LEN_3
-    jmp     .run_loop
-.exec_mov_dx:
-    mov     ax, [ebp+1]
-    mov     [reg_DX], ax
-    add     word [reg_IP], INSN_LEN_3
-    jmp     .run_loop
-
-.exec_mov_al:
-    mov     al, [ebp+1]
-    mov     byte [reg_AX], al
-    add     word [reg_IP], INSN_LEN_2
-    jmp     .run_loop
-.exec_mov_cl:
-    mov     al, [ebp+1]
-    mov     byte [reg_CX], al
-    add     word [reg_IP], INSN_LEN_2
-    jmp     .run_loop
-.exec_mov_dl:
-    mov     al, [ebp+1]
-    mov     byte [reg_DX], al
-    add     word [reg_IP], INSN_LEN_2
-    jmp     .run_loop
-.exec_mov_bl:
-    mov     al, [ebp+1]
-    mov     byte [reg_BX], al
-    add     word [reg_IP], INSN_LEN_2
-    jmp     .run_loop
-
-.exec_mov_ah:
-    mov     al, [ebp+1]
-    mov     byte [reg_AX+1], al
-    add     word [reg_IP], INSN_LEN_2
-    jmp     .run_loop
-.exec_mov_ch:
-    mov     al, [ebp+1]
-    mov     byte [reg_CX+1], al
-    add     word [reg_IP], INSN_LEN_2
-    jmp     .run_loop
-.exec_mov_dh:
-    mov     al, [ebp+1]
-    mov     byte [reg_DX+1], al
-    add     word [reg_IP], INSN_LEN_2
-    jmp     .run_loop
-.exec_mov_bh:
-    mov     al, [ebp+1]
-    mov     byte [reg_BX+1], al
-    add     word [reg_IP], INSN_LEN_2
-    jmp     .run_loop
-    
-.exec_mov_bx_ax:
-    mov     al, [ebp+1]
-    cmp     al, OP_MOV_BX_AX_MODRM
-    jne     .unknown_insn
-    mov     ax, [reg_AX]
-    mov     [reg_BX], ax
-    add     word [reg_IP], INSN_LEN_2
-    jmp     .run_loop
-
-.exec_add_ax:
-    mov     ax, [ebp+1]
-    add     [reg_AX], ax
-    add     word [reg_IP], INSN_LEN_3
-    jmp     .run_loop
-
-.exec_sub_ax:
-    mov     ax, [ebp+1]
-    sub     [reg_AX], ax
-    add     word [reg_IP], INSN_LEN_3
-    jmp     .run_loop
+    cmp     eax, STEP_UNKNOWN
+    je      .unknown_insn
+    jmp     .out_of_bounds
 
 .hit_breakpoint:
     invoke  WriteConsoleA, [hStdOut], msg_breakpoint, msg_breakpoint_len, chars_written, 0
@@ -2237,102 +2052,248 @@ cmd_trace:
     jnz     .trace_loop
     ret
 
+update_flags_from_eflags:
+    push    eax
+    mov     eax, edx
+    shr     eax, 11
+    and     al, 1
+    mov     [flag_states + FLAG_OV], al
+
+    mov     eax, edx
+    shr     eax, 7
+    and     al, 1
+    mov     [flag_states + FLAG_NG], al
+
+    mov     eax, edx
+    shr     eax, 6
+    and     al, 1
+    mov     [flag_states + FLAG_ZR], al
+
+    mov     eax, edx
+    shr     eax, 4
+    and     al, 1
+    mov     [flag_states + FLAG_AC], al
+
+    mov     eax, edx
+    shr     eax, 2
+    and     al, 1
+    mov     [flag_states + FLAG_PE], al
+
+    mov     eax, edx
+    and     al, 1
+    mov     [flag_states + FLAG_CY], al
+
+    pop     eax
+    ret
+
+decode_modrm:
+    push    ebp
+    mov     ebp, esp
+    sub     esp, 16
+
+    movzx   eax, bl
+    mov     [ebp-4], eax
+    mov     eax, [ebp]
+    mov     [ebp-16], eax
+
+    mov     eax, [ebp-16]
+    movzx   eax, byte [eax+1]
+
+    mov     edx, eax
+    shr     edx, 3
+    and     edx, 7
+    mov     [ebp-8], edx
+
+    cmp     dword [ebp-4], 0
+    jz      .reg_byte
+    mov     esi, [reg16_ptrs + edx*4]
+    jmp     .check_mod
+.reg_byte:
+    mov     esi, [reg8_ptrs + edx*4]
+
+.check_mod:
+    mov     ecx, eax
+    shr     ecx, 6
+    and     ecx, 3
+    cmp     ecx, 3
+    jne     .is_mem
+
+    and     eax, 7
+    cmp     dword [ebp-4], 0
+    jz      .rm_reg_byte
+    mov     edi, [reg16_ptrs + eax*4]
+    jmp     .rm_reg_done
+.rm_reg_byte:
+    mov     edi, [reg8_ptrs + eax*4]
+.rm_reg_done:
+    mov     ecx, 2
+    mov     edx, [ebp-8]
+    leave
+    clc
+    ret
+
+.is_mem:
+    and     eax, 7
+    mov     dword [ebp-12], 0
+
+    cmp     eax, 0
+    jne     .not_rm0
+    movzx   ebx, word [reg_BX]
+    add     bx, word [reg_SI]
+    mov     dx, word [reg_DS]
+    jmp     .got_base
+.not_rm0:
+    cmp     eax, 1
+    jne     .not_rm1
+    movzx   ebx, word [reg_BX]
+    add     bx, word [reg_DI]
+    mov     dx, word [reg_DS]
+    jmp     .got_base
+.not_rm1:
+    cmp     eax, 2
+    jne     .not_rm2
+    movzx   ebx, word [reg_BP]
+    add     bx, word [reg_SI]
+    mov     dx, word [reg_SS]
+    jmp     .got_base
+.not_rm2:
+    cmp     eax, 3
+    jne     .not_rm3
+    movzx   ebx, word [reg_BP]
+    add     bx, word [reg_DI]
+    mov     dx, word [reg_SS]
+    jmp     .got_base
+.not_rm3:
+    cmp     eax, 4
+    jne     .not_rm4
+    movzx   ebx, word [reg_SI]
+    mov     dx, word [reg_DS]
+    jmp     .got_base
+.not_rm4:
+    cmp     eax, 5
+    jne     .not_rm5
+    movzx   ebx, word [reg_DI]
+    mov     dx, word [reg_DS]
+    jmp     .got_base
+.not_rm5:
+    cmp     eax, 6
+    jne     .not_rm6
+    test    ecx, ecx
+    jnz     .bp_base
+    mov     eax, [ebp-16]
+    mov     bx, word [eax+2]
+    mov     dx, word [reg_DS]
+    mov     dword [ebp-12], 2
+    jmp     .disp_done
+.bp_base:
+    movzx   ebx, word [reg_BP]
+    mov     dx, word [reg_SS]
+    jmp     .got_base
+.not_rm6:
+    movzx   ebx, word [reg_BX]
+    mov     dx, word [reg_DS]
+
+.got_base:
+    test    ecx, ecx
+    jz      .disp_zero
+    cmp     ecx, 1
+    je      .disp_byte
+    mov     eax, [ebp-16]
+    add     bx, word [eax+2]
+    mov     dword [ebp-12], 2
+    jmp     .disp_done
+.disp_byte:
+    mov     eax, [ebp-16]
+    movsx   ax, byte [eax+2]
+    add     bx, ax
+    mov     dword [ebp-12], 1
+    jmp     .disp_done
+.disp_zero:
+    mov     dword [ebp-12], 0
+
+.disp_done:
+    mov     ax, dx
+    call    calc_linear_addr
+
+    mov     edx, [ebp-4]
+    inc     edx
+    lea     edi, [eax + edx]
+    cmp     edi, MEM_SIZE
+    ja      .modrm_err
+
+    lea     edi, [memory + eax]
+    mov     ecx, [ebp-12]
+    add     ecx, 2
+    mov     edx, [ebp-8]
+    leave
+    clc
+    ret
+
+.modrm_err:
+    leave
+    stc
+    ret
+
 step:
+    push    ebx
+    push    ecx
+    push    edx
+    push    esi
+    push    edi
+    push    ebp
+
     mov     ax, [reg_CS]
     mov     bx, [reg_IP]
     call    calc_linear_addr
 
-    mov     ecx, 3
+    mov     ecx, 1
     call    check_mem_range
     jc      .out_of_bounds
 
     mov     ebp, memory
     add     ebp, eax
 
-    mov     al, [ebp]
+    movzx   eax, byte [ebp]
 
     cmp     al, OP_NOP
-    je      .exec_nop
+    jne     .not_nop
+    add     word [reg_IP], 1
+    jmp     .step_ok
+.not_nop:
+
     cmp     al, 0C3h
-    je      .exec_ret
+    jne     .not_ret
+    jmp     .step_prog_end
+.not_ret:
+
     cmp     al, OP_INT
-    je      .exec_int
-
-    cmp     al, OP_MOV_AX
-    je      .exec_mov_ax
-    cmp     al, OP_MOV_BX
-    je      .exec_mov_bx
-    cmp     al, OP_MOV_CX
-    je      .exec_mov_cx
-    cmp     al, OP_MOV_DX
-    je      .exec_mov_dx
-
-    cmp     al, OP_MOV_AL
-    je      .exec_mov_al
-    cmp     al, OP_MOV_CL
-    je      .exec_mov_cl
-    cmp     al, OP_MOV_DL
-    je      .exec_mov_dl
-    cmp     al, OP_MOV_BL
-    je      .exec_mov_bl
-    cmp     al, OP_MOV_AH
-    je      .exec_mov_ah
-    cmp     al, OP_MOV_CH
-    je      .exec_mov_ch
-    cmp     al, OP_MOV_DH
-    je      .exec_mov_dh
-    cmp     al, OP_MOV_BH
-    je      .exec_mov_bh
-
-    cmp     al, OP_MOV_BX_AX
-    je      .exec_mov_bx_ax
-
-    cmp     al, OP_ADD_AX
-    je      .exec_add_ax
-    cmp     al, OP_SUB_AX
-    je      .exec_sub_ax
-
-    mov     eax, STEP_UNKNOWN
-    ret
-
-.exec_nop:
-    add     word [reg_IP], INSN_LEN_1
-    mov     eax, STEP_OK
-    ret
-
-.exec_ret:
-    mov     eax, STEP_PROGRAM_END
-    ret
-
-.exec_int:
+    jne     .not_int
     mov     al, [ebp+1]
     cmp     al, INT_VECTOR_20
-    je      .exec_ret
+    je      .step_prog_end
     cmp     al, INT_VECTOR_21
     je      .int21
-    add     word [reg_IP], INSN_LEN_2
-    mov     eax, STEP_OK
-    ret
+    add     word [reg_IP], 2
+    jmp     .step_ok
 
 .int21:
     mov     ah, byte [reg_AX+1]
     cmp     ah, 09h
     je      .int21_ah09
     cmp     ah, 4Ch
-    je      .exec_ret
-    add     word [reg_IP], INSN_LEN_2
-    mov     eax, STEP_OK
-    ret
+    je      .step_prog_end
+    add     word [reg_IP], 2
+    jmp     .step_ok
 
 .int21_ah09:
     mov     ax, [reg_DS]
     mov     bx, [reg_DX]
     call    calc_linear_addr
-
+    
     mov     ecx, MEM_SIZE
     sub     ecx, eax
     jbe     .int21_09_skip
-
+    
     mov     esi, memory
     add     esi, eax
     mov     edi, esi
@@ -2341,125 +2302,749 @@ step:
     repne   scasb
     pop     ecx
     jne     .int21_09_skip
-
+    
     mov     edx, edi
     sub     edx, esi
     dec     edx
     jz      .int21_09_skip
-
+    
     invoke  WriteConsoleA, [hStdOut], esi, edx, chars_written, 0
 
 .int21_09_skip:
-    add     word [reg_IP], INSN_LEN_2
-    mov     eax, STEP_OK
-    ret
+    add     word [reg_IP], 2
+    jmp     .step_ok
+.not_int:
 
-.exec_mov_ax:
-    mov     ax, [ebp+1]
-    mov     [reg_AX], ax
-    add     word [reg_IP], INSN_LEN_3
-    mov     eax, STEP_OK
-    ret
-.exec_mov_bx:
-    mov     ax, [ebp+1]
-    mov     [reg_BX], ax
-    add     word [reg_IP], INSN_LEN_3
-    mov     eax, STEP_OK
-    ret
-.exec_mov_cx:
-    mov     ax, [ebp+1]
-    mov     [reg_CX], ax
-    add     word [reg_IP], INSN_LEN_3
-    mov     eax, STEP_OK
-    ret
-.exec_mov_dx:
-    mov     ax, [ebp+1]
-    mov     [reg_DX], ax
-    add     word [reg_IP], INSN_LEN_3
-    mov     eax, STEP_OK
-    ret
+    cmp     al, OP_PUSH_CX
+    jne     .not_push_cx
+    sub     word [reg_SP], 2
+    mov     ax, [reg_SS]
+    mov     bx, [reg_SP]
+    call    calc_linear_addr
+    mov     ecx, 2
+    call    check_mem_range
+    jc      .out_of_bounds
+    mov     cx, [reg_CX]
+    mov     word [memory + eax], cx
+    add     word [reg_IP], 1
+    jmp     .step_ok
+.not_push_cx:
 
-.exec_mov_al:
-    mov     al, [ebp+1]
-    mov     byte [reg_AX], al
-    add     word [reg_IP], INSN_LEN_2
-    mov     eax, STEP_OK
-    ret
-.exec_mov_cl:
-    mov     al, [ebp+1]
-    mov     byte [reg_CX], al
-    add     word [reg_IP], INSN_LEN_2
-    mov     eax, STEP_OK
-    ret
-.exec_mov_dl:
-    mov     al, [ebp+1]
-    mov     byte [reg_DX], al
-    add     word [reg_IP], INSN_LEN_2
-    mov     eax, STEP_OK
-    ret
-.exec_mov_bl:
-    mov     al, [ebp+1]
-    mov     byte [reg_BX], al
-    add     word [reg_IP], INSN_LEN_2
-    mov     eax, STEP_OK
-    ret
+    cmp     al, OP_POP_CX
+    jne     .not_pop_cx
+    mov     ax, [reg_SS]
+    mov     bx, [reg_SP]
+    call    calc_linear_addr
+    mov     ecx, 2
+    call    check_mem_range
+    jc      .out_of_bounds
+    mov     cx, word [memory + eax]
+    mov     [reg_CX], cx
+    add     word [reg_SP], 2
+    add     word [reg_IP], 1
+    jmp     .step_ok
+.not_pop_cx:
 
-.exec_mov_ah:
-    mov     al, [ebp+1]
-    mov     byte [reg_AX+1], al
-    add     word [reg_IP], INSN_LEN_2
-    mov     eax, STEP_OK
-    ret
-.exec_mov_ch:
-    mov     al, [ebp+1]
-    mov     byte [reg_CX+1], al
-    add     word [reg_IP], INSN_LEN_2
-    mov     eax, STEP_OK
-    ret
-.exec_mov_dh:
-    mov     al, [ebp+1]
-    mov     byte [reg_DX+1], al
-    add     word [reg_IP], INSN_LEN_2
-    mov     eax, STEP_OK
-    ret
-.exec_mov_bh:
-    mov     al, [ebp+1]
-    mov     byte [reg_BX+1], al
-    add     word [reg_IP], INSN_LEN_2
-    mov     eax, STEP_OK
-    ret
+    cmp     al, OP_DEC_CX
+    jne     .not_dec_cx
+    dec     word [reg_CX]
+    pushfd
+    pop     edx
+    mov     cl, [flag_states + FLAG_CY]
+    call    update_flags_from_eflags
+    mov     [flag_states + FLAG_CY], cl
+    add     word [reg_IP], 1
+    jmp     .step_ok
+.not_dec_cx:
 
-.exec_mov_bx_ax:
-    mov     al, [ebp+1]
-    cmp     al, OP_MOV_BX_AX_MODRM
-    jne     .unknown_insn
-    mov     ax, [reg_AX]
-    mov     [reg_BX], ax
-    add     word [reg_IP], INSN_LEN_2
-    mov     eax, STEP_OK
-    ret
+    cmp     al, OP_JNZ_REL8
+    jne     .not_jnz
+    movsx   cx, byte [ebp+1]
+    add     word [reg_IP], 2
+    cmp     byte [flag_states + FLAG_ZR], 0
+    jne     .step_ok
+    add     word [reg_IP], cx
+    jmp     .step_ok
+.not_jnz:
 
-.exec_add_ax:
-    mov     ax, [ebp+1]
-    add     [reg_AX], ax
-    add     word [reg_IP], INSN_LEN_3
-    mov     eax, STEP_OK
-    ret
+    cmp     al, 0B0h
+    jb      .not_mov_r8_imm
+    cmp     al, 0B7h
+    ja      .not_mov_r8_imm
+    sub     al, 0B0h
+    movzx   eax, al
+    mov     edi, [reg8_ptrs + eax*4]
+    mov     dl, [ebp+1]
+    mov     [edi], dl
+    add     word [reg_IP], 2
+    jmp     .step_ok
+.not_mov_r8_imm:
 
-.exec_sub_ax:
-    mov     ax, [ebp+1]
-    sub     [reg_AX], ax
-    add     word [reg_IP], INSN_LEN_3
-    mov     eax, STEP_OK
-    ret
+    cmp     al, 0B8h
+    jb      .not_mov_r16_imm
+    cmp     al, 0BFh
+    ja      .not_mov_r16_imm
+    sub     al, 0B8h
+    movzx   eax, al
+    mov     edi, [reg16_ptrs + eax*4]
+    mov     dx, word [ebp+1]
+    mov     [edi], dx
+    add     word [reg_IP], 3
+    jmp     .step_ok
+.not_mov_r16_imm:
+
+    cmp     al, 88h
+    jne     .not_mov_rm8_r8
+    xor     bl, bl
+    call    decode_modrm
+    jc      .out_of_bounds
+    mov     al, [esi]
+    mov     [edi], al
+    add     [reg_IP], cx
+    jmp     .step_ok
+.not_mov_rm8_r8:
+
+    cmp     al, 89h
+    jne     .not_mov_rm16_r16
+    mov     bl, 1
+    call    decode_modrm
+    jc      .out_of_bounds
+    mov     ax, [esi]
+    mov     [edi], ax
+    add     [reg_IP], cx
+    jmp     .step_ok
+.not_mov_rm16_r16:
+
+    cmp     al, 8Ah
+    jne     .not_mov_r8_rm8
+    xor     bl, bl
+    call    decode_modrm
+    jc      .out_of_bounds
+    mov     al, [edi]
+    mov     [esi], al
+    add     [reg_IP], cx
+    jmp     .step_ok
+.not_mov_r8_rm8:
+
+    cmp     al, 8Bh
+    jne     .not_mov_r16_rm16
+    mov     bl, 1
+    call    decode_modrm
+    jc      .out_of_bounds
+    mov     ax, [edi]
+    mov     [esi], ax
+    add     [reg_IP], cx
+    jmp     .step_ok
+.not_mov_r16_rm16:
+
+    cmp     al, 0C6h
+    jne     .not_mov_rm8_imm8
+    xor     bl, bl
+    call    decode_modrm
+    jc      .out_of_bounds
+    test    edx, edx
+    jnz     .unknown_insn
+    mov     al, [ebp + ecx]
+    mov     [edi], al
+    inc     ecx
+    add     [reg_IP], cx
+    jmp     .step_ok
+.not_mov_rm8_imm8:
+
+    cmp     al, 0C7h
+    jne     .not_mov_rm16_imm16
+    mov     bl, 1
+    call    decode_modrm
+    jc      .out_of_bounds
+    test    edx, edx
+    jnz     .unknown_insn
+    mov     ax, word [ebp + ecx]
+    mov     [edi], ax
+    add     ecx, 2
+    add     [reg_IP], cx
+    jmp     .step_ok
+.not_mov_rm16_imm16:
+
+    cmp     al, 0D0h
+    jb      .not_shift
+    cmp     al, 0D3h
+    ja      .not_shift
+
+    mov     bl, byte [ebp]
+    and     bl, 1
+    call    decode_modrm
+    jc      .out_of_bounds
+
+    push    ecx
+
+    test    byte [ebp], 2
+    jnz     .shift_cl
+    mov     cl, 1
+    jmp     .shift_count_ok
+.shift_cl:
+    mov     cl, byte [reg_CX]
+    and     cl, 1Fh
+.shift_count_ok:
+
+    bt      word [flag_states + FLAG_CY], 0
+
+    test    bl, bl
+    jz      .shift_byte
+
+    cmp     edx, 0
+    je      .sh16_rol
+    cmp     edx, 1
+    je      .sh16_ror
+    cmp     edx, 2
+    je      .sh16_rcl
+    cmp     edx, 3
+    je      .sh16_rcr
+    cmp     edx, 4
+    je      .sh16_shl
+    cmp     edx, 5
+    je      .sh16_shr
+    cmp     edx, 7
+    je      .sh16_sar
+    pop     ecx
+    jmp     .unknown_insn
+
+.sh16_rol:
+    rol     word [edi], cl
+    jmp     .shift_flags
+.sh16_ror:
+    ror     word [edi], cl
+    jmp     .shift_flags
+.sh16_rcl:
+    rcl     word [edi], cl
+    jmp     .shift_flags
+.sh16_rcr:
+    rcr     word [edi], cl
+    jmp     .shift_flags
+.sh16_shl:
+    shl     word [edi], cl
+    jmp     .shift_flags
+.sh16_shr:
+    shr     word [edi], cl
+    jmp     .shift_flags
+.sh16_sar:
+    sar     word [edi], cl
+    jmp     .shift_flags
+
+.shift_byte:
+    cmp     edx, 0
+    je      .sh8_rol
+    cmp     edx, 1
+    je      .sh8_ror
+    cmp     edx, 2
+    je      .sh8_rcl
+    cmp     edx, 3
+    je      .sh8_rcr
+    cmp     edx, 4
+    je      .sh8_shl
+    cmp     edx, 5
+    je      .sh8_shr
+    cmp     edx, 7
+    je      .sh8_sar
+    pop     ecx
+    jmp     .unknown_insn
+
+.sh8_rol:
+    rol     byte [edi], cl
+    jmp     .shift_flags
+.sh8_ror:
+    ror     byte [edi], cl
+    jmp     .shift_flags
+.sh8_rcl:
+    rcl     byte [edi], cl
+    jmp     .shift_flags
+.sh8_rcr:
+    rcr     byte [edi], cl
+    jmp     .shift_flags
+.sh8_shl:
+    shl     byte [edi], cl
+    jmp     .shift_flags
+.sh8_shr:
+    shr     byte [edi], cl
+    jmp     .shift_flags
+.sh8_sar:
+    sar     byte [edi], cl
+    jmp     .shift_flags
+
+.shift_flags:
+    pushfd
+    pop     edx
+    call    update_flags_from_eflags
+    pop     ecx
+    add     [reg_IP], cx
+    jmp     .step_ok
+.not_shift:
+
+    cmp     al, 80h
+    je      .is_alu_imm
+    cmp     al, 81h
+    je      .is_alu_imm
+    cmp     al, 82h
+    je      .is_alu_imm
+    cmp     al, 83h
+    je      .is_alu_imm
+    jmp     .not_alu_imm
+
+.is_alu_imm:
+    cmp     byte [ebp], 81h
+    je      .alu_imm_w
+    cmp     byte [ebp], 83h
+    je      .alu_imm_w
+    xor     bl, bl
+    jmp     .alu_imm_modrm
+.alu_imm_w:
+    mov     bl, 1
+.alu_imm_modrm:
+    call    decode_modrm
+    jc      .out_of_bounds
+
+    test    bl, bl
+    jz      .alu_imm_read_b
+
+    cmp     byte [ebp], 83h
+    je      .alu_imm_sign_ext
+    mov     ax, word [ebp + ecx]
+    add     ecx, 2
+    jmp     .alu_imm_exec_w
+.alu_imm_sign_ext:
+    movsx   ax, byte [ebp + ecx]
+    inc     ecx
+
+.alu_imm_exec_w:
+    push    ecx
+    bt      word [flag_states + FLAG_CY], 0
+    cmp     edx, 0
+    je      .alu_w_add
+    cmp     edx, 1
+    je      .alu_w_or
+    cmp     edx, 2
+    je      .alu_w_adc
+    cmp     edx, 3
+    je      .alu_w_sbb
+    cmp     edx, 4
+    je      .alu_w_and
+    cmp     edx, 5
+    je      .alu_w_sub
+    cmp     edx, 6
+    je      .alu_w_xor
+    cmp     edx, 7
+    je      .alu_w_cmp
+    pop     ecx
+    jmp     .unknown_insn
+
+.alu_w_add:
+    add     word [edi], ax
+    jmp     .alu_imm_w_done
+.alu_w_or:
+    or      word [edi], ax
+    jmp     .alu_imm_w_done
+.alu_w_adc:
+    adc     word [edi], ax
+    jmp     .alu_imm_w_done
+.alu_w_sbb:
+    sbb     word [edi], ax
+    jmp     .alu_imm_w_done
+.alu_w_and:
+    and     word [edi], ax
+    jmp     .alu_imm_w_done
+.alu_w_sub:
+    sub     word [edi], ax
+    jmp     .alu_imm_w_done
+.alu_w_xor:
+    xor     word [edi], ax
+    jmp     .alu_imm_w_done
+.alu_w_cmp:
+    cmp     word [edi], ax
+    jmp     .alu_imm_w_done
+
+.alu_imm_w_done:
+    pushfd
+    pop     edx
+    call    update_flags_from_eflags
+    pop     ecx
+    add     [reg_IP], cx
+    jmp     .step_ok
+
+.alu_imm_read_b:
+    mov     al, byte [ebp + ecx]
+    inc     ecx
+    push    ecx
+    bt      word [flag_states + FLAG_CY], 0
+    cmp     edx, 0
+    je      .alu_b_add
+    cmp     edx, 1
+    je      .alu_b_or
+    cmp     edx, 2
+    je      .alu_b_adc
+    cmp     edx, 3
+    je      .alu_b_sbb
+    cmp     edx, 4
+    je      .alu_b_and
+    cmp     edx, 5
+    je      .alu_b_sub
+    cmp     edx, 6
+    je      .alu_b_xor
+    cmp     edx, 7
+    je      .alu_b_cmp
+    pop     ecx
+    jmp     .unknown_insn
+
+.alu_b_add:
+    add     byte [edi], al
+    jmp     .alu_imm_b_done
+.alu_b_or:
+    or      byte [edi], al
+    jmp     .alu_imm_b_done
+.alu_b_adc:
+    adc     byte [edi], al
+    jmp     .alu_imm_b_done
+.alu_b_sbb:
+    sbb     byte [edi], al
+    jmp     .alu_imm_b_done
+.alu_b_and:
+    and     byte [edi], al
+    jmp     .alu_imm_b_done
+.alu_b_sub:
+    sub     byte [edi], al
+    jmp     .alu_imm_b_done
+.alu_b_xor:
+    xor     byte [edi], al
+    jmp     .alu_imm_b_done
+.alu_b_cmp:
+    cmp     byte [edi], al
+    jmp     .alu_imm_b_done
+
+.alu_imm_b_done:
+    pushfd
+    pop     edx
+    call    update_flags_from_eflags
+    pop     ecx
+    add     [reg_IP], cx
+    jmp     .step_ok
+.not_alu_imm:
+
+    cmp     al, 3Bh
+    jbe     .is_reg_alu
+    cmp     al, 84h
+    je      .is_test_reg
+    cmp     al, 85h
+    je      .is_test_reg
+    jmp     .not_reg_alu
+
+.is_test_reg:
+    and     al, 1
+    mov     bl, al
+    call    decode_modrm
+    jc      .out_of_bounds
+    test    bl, bl
+    jz      .test_b
+    mov     ax, word [esi]
+    test    word [edi], ax
+    jmp     .test_flags
+.test_b:
+    mov     al, byte [esi]
+    test    byte [edi], al
+.test_flags:
+    pushfd
+    pop     edx
+    call    update_flags_from_eflags
+    add     [reg_IP], cx
+    jmp     .step_ok
+
+.is_reg_alu:
+    mov     al, byte [ebp]
+    and     al, 7
+    cmp     al, 3
+    ja      .not_reg_alu
+
+    mov     bl, byte [ebp]
+    and     bl, 1
+    call    decode_modrm
+    jc      .out_of_bounds
+
+    mov     dl, byte [ebp]
+    shr     dl, 3
+    test    byte [ebp], 2
+    jz      .dir_rm_dst
+    xchg    esi, edi
+
+.dir_rm_dst:
+    push    ecx
+    bt      word [flag_states + FLAG_CY], 0
+    movzx   edx, dl
+    test    bl, bl
+    jz      .reg_alu_byte
+
+    mov     ax, word [esi]
+    cmp     edx, 0
+    je      .alu_w_add
+    cmp     edx, 1
+    je      .alu_w_or
+    cmp     edx, 2
+    je      .alu_w_adc
+    cmp     edx, 3
+    je      .alu_w_sbb
+    cmp     edx, 4
+    je      .alu_w_and
+    cmp     edx, 5
+    je      .alu_w_sub
+    cmp     edx, 6
+    je      .alu_w_xor
+    cmp     edx, 7
+    je      .alu_w_cmp
+    pop     ecx
+    jmp     .unknown_insn
+
+.reg_alu_byte:
+    mov     al, byte [esi]
+    cmp     edx, 0
+    je      .alu_b_add
+    cmp     edx, 1
+    je      .alu_b_or
+    cmp     edx, 2
+    je      .alu_b_adc
+    cmp     edx, 3
+    je      .alu_b_sbb
+    cmp     edx, 4
+    je      .alu_b_and
+    cmp     edx, 5
+    je      .alu_b_sub
+    cmp     edx, 6
+    je      .alu_b_xor
+    cmp     edx, 7
+    je      .alu_b_cmp
+    pop     ecx
+    jmp     .unknown_insn
+.not_reg_alu:
+
+    cmp     al, 05h
+    je      .ax_imm_add
+    cmp     al, 0Dh
+    je      .ax_imm_or
+    cmp     al, 15h
+    je      .ax_imm_adc
+    cmp     al, 1Dh
+    je      .ax_imm_sbb
+    cmp     al, 25h
+    je      .ax_imm_and
+    cmp     al, 2Dh
+    je      .ax_imm_sub
+    cmp     al, 35h
+    je      .ax_imm_xor
+    cmp     al, 3Dh
+    je      .ax_imm_cmp
+    cmp     al, 0A9h
+    je      .ax_imm_test
+
+    cmp     al, 04h
+    je      .al_imm_add
+    cmp     al, 0Ch
+    je      .al_imm_or
+    cmp     al, 14h
+    je      .al_imm_adc
+    cmp     al, 1Ch
+    je      .al_imm_sbb
+    cmp     al, 24h
+    je      .al_imm_and
+    cmp     al, 2Ch
+    je      .al_imm_sub
+    cmp     al, 34h
+    je      .al_imm_xor
+    cmp     al, 3Ch
+    je      .al_imm_cmp
+    cmp     al, 0A8h
+    je      .al_imm_test
+    jmp     .not_ax_imm
+
+.ax_imm_add:
+    mov     ax, word [ebp+1]
+    add     word [reg_AX], ax
+    jmp     .ax_imm_flags
+.ax_imm_or:
+    mov     ax, word [ebp+1]
+    or      word [reg_AX], ax
+    jmp     .ax_imm_flags
+.ax_imm_adc:
+    bt      word [flag_states + FLAG_CY], 0
+    mov     ax, word [ebp+1]
+    adc     word [reg_AX], ax
+    jmp     .ax_imm_flags
+.ax_imm_sbb:
+    bt      word [flag_states + FLAG_CY], 0
+    mov     ax, word [ebp+1]
+    sbb     word [reg_AX], ax
+    jmp     .ax_imm_flags
+.ax_imm_and:
+    mov     ax, word [ebp+1]
+    and     word [reg_AX], ax
+    jmp     .ax_imm_flags
+.ax_imm_sub:
+    mov     ax, word [ebp+1]
+    sub     word [reg_AX], ax
+    jmp     .ax_imm_flags
+.ax_imm_xor:
+    mov     ax, word [ebp+1]
+    xor     word [reg_AX], ax
+    jmp     .ax_imm_flags
+.ax_imm_cmp:
+    mov     ax, word [ebp+1]
+    cmp     word [reg_AX], ax
+    jmp     .ax_imm_flags
+.ax_imm_test:
+    mov     ax, word [ebp+1]
+    test    word [reg_AX], ax
+    jmp     .ax_imm_flags
+
+.ax_imm_flags:
+    pushfd
+    pop     edx
+    call    update_flags_from_eflags
+    add     word [reg_IP], 3
+    jmp     .step_ok
+
+.al_imm_add:
+    mov     al, byte [ebp+1]
+    add     byte [reg_AX], al
+    jmp     .al_imm_flags
+.al_imm_or:
+    mov     al, byte [ebp+1]
+    or      byte [reg_AX], al
+    jmp     .al_imm_flags
+.al_imm_adc:
+    bt      word [flag_states + FLAG_CY], 0
+    mov     al, byte [ebp+1]
+    adc     byte [reg_AX], al
+    jmp     .al_imm_flags
+.al_imm_sbb:
+    bt      word [flag_states + FLAG_CY], 0
+    mov     al, byte [ebp+1]
+    sbb     byte [reg_AX], al
+    jmp     .al_imm_flags
+.al_imm_and:
+    mov     al, byte [ebp+1]
+    and     byte [reg_AX], al
+    jmp     .al_imm_flags
+.al_imm_sub:
+    mov     al, byte [ebp+1]
+    sub     byte [reg_AX], al
+    jmp     .al_imm_flags
+.al_imm_xor:
+    mov     al, byte [ebp+1]
+    xor     byte [reg_AX], al
+    jmp     .al_imm_flags
+.al_imm_cmp:
+    mov     al, byte [ebp+1]
+    cmp     byte [reg_AX], al
+    jmp     .al_imm_flags
+.al_imm_test:
+    mov     al, byte [ebp+1]
+    test    byte [reg_AX], al
+    jmp     .al_imm_flags
+
+.al_imm_flags:
+    pushfd
+    pop     edx
+    call    update_flags_from_eflags
+    add     word [reg_IP], 2
+    jmp     .step_ok
+.not_ax_imm:
+
+    cmp     al, 0F6h
+    je      .is_f6_f7
+    cmp     al, 0F7h
+    je      .is_f6_f7
+    jmp     .not_f6_f7
+
+.is_f6_f7:
+    mov     ah, al
+    and     al, 1
+    mov     bl, al
+    call    decode_modrm
+    jc      .out_of_bounds
+
+    cmp     edx, 0
+    je      .f67_test
+    cmp     edx, 2
+    je      .f67_not
+    jmp     .unknown_insn
+
+.f67_test:
+    test    bl, bl
+    jz      .f6_test_b
+    mov     ax, word [ebp + ecx]
+    add     ecx, 2
+    test    word [edi], ax
+    pushfd
+    pop     edx
+    call    update_flags_from_eflags
+    add     [reg_IP], cx
+    jmp     .step_ok
+.f6_test_b:
+    mov     al, byte [ebp + ecx]
+    inc     ecx
+    test    byte [edi], al
+    pushfd
+    pop     edx
+    call    update_flags_from_eflags
+    add     [reg_IP], cx
+    jmp     .step_ok
+
+.f67_not:
+    test    bl, bl
+    jz      .f6_not_b
+    not     word [edi]
+    add     [reg_IP], cx
+    jmp     .step_ok
+.f6_not_b:
+    not     byte [edi]
+    add     [reg_IP], cx
+    jmp     .step_ok
+.not_f6_f7:
 
 .unknown_insn:
+    pop     ebp
+    pop     edi
+    pop     esi
+    pop     edx
+    pop     ecx
+    pop     ebx
     mov     eax, STEP_UNKNOWN
     ret
 
 .out_of_bounds:
+    pop     ebp
+    pop     edi
+    pop     esi
+    pop     edx
+    pop     ecx
+    pop     ebx
     mov     eax, STEP_ERROR
     ret
+
+.step_prog_end:
+    pop     ebp
+    pop     edi
+    pop     esi
+    pop     edx
+    pop     ecx
+    pop     ebx
+    mov     eax, STEP_PROGRAM_END
+    ret
+
+.step_ok:
+    pop     ebp
+    pop     edi
+    pop     esi
+    pop     edx
+    pop     ecx
+    pop     ebx
+    mov     eax, STEP_OK
+    ret
+
 
 parse_reg_name:
     mov     edi, edit_reg_name

@@ -574,46 +574,14 @@ COMTAB:
     cmd_entry '?', cmd_help
     db 0
 
-    jump_table:
-        repeat 256
-            dd cmd_go.unknown_insn
-        end repeat
+    reg16_ptrs:
+        dd reg_AX, reg_CX, reg_DX, reg_BX
+        dd reg_SP, reg_BP, reg_SI, reg_DI
 
-        org jump_table + 05h*4
-        dd cmd_go.exec_add_ax
+    reg8_ptrs:
+        dd reg_AX,   reg_CX,   reg_DX,   reg_BX
+        dd reg_AX+1, reg_CX+1, reg_DX+1, reg_BX+1
 
-        org jump_table + 2Dh*4
-        dd cmd_go.exec_sub_ax
-
-        org jump_table + 8Bh*4
-        dd cmd_go.exec_mov_bx_ax
-
-        org jump_table + 90h*4
-        dd cmd_go.exec_nop
-
-        org jump_table + 0B0h*4
-        dd cmd_go.exec_mov_al
-        dd cmd_go.exec_mov_cl
-        dd cmd_go.exec_mov_dl
-        dd cmd_go.exec_mov_bl
-        dd cmd_go.exec_mov_ah
-        dd cmd_go.exec_mov_ch
-        dd cmd_go.exec_mov_dh
-        dd cmd_go.exec_mov_bh
-
-        org jump_table + 0B8h*4
-        dd cmd_go.exec_mov_ax
-        dd cmd_go.exec_mov_cx
-        dd cmd_go.exec_mov_dx
-        dd cmd_go.exec_mov_bx
-
-        org jump_table + 0C3h*4
-        dd cmd_go.exec_ret
-
-        org jump_table + 0CDh*4
-        dd cmd_go.exec_int
-
-        org jump_table + 256*4
 
 section '.bss' readable writeable
     input_buffer    rb INPUT_BUFFER_SIZE
