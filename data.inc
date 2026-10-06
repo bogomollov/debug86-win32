@@ -199,28 +199,36 @@ section '.data' data readable writeable
         dw 'AX','BX','CX','DX','SP','BP','SI','DI','DS','ES','SS','CS','IP'
 
     flag_states     db 0, 0, 1, 0, 0, 0, 0, 0
-    flag_set_codes   db 'OV','DN','EI','NG','ZR','AC','PE','CY'
-    flag_clr_codes   db 'NV','UP','DI','PL','NZ','NA','PO','NC'
+    flag_set_codes   db 'OF','DF','EI','SF','ZF','AF','PF','CF'
+    flag_clr_codes   db 'NO','ND','DI','NS','NZ','NA','NP','NC'
 
     flag_map:
+        flag_entry 'of', FLAG_OV, 1
         flag_entry 'ov', FLAG_OV, 1
+        flag_entry 'no', FLAG_OV, 0
         flag_entry 'nv', FLAG_OV, 0
+        flag_entry 'df', FLAG_DN, 1
         flag_entry 'dn', FLAG_DN, 1
+        flag_entry 'nd', FLAG_DN, 0
         flag_entry 'up', FLAG_DN, 0
         flag_entry 'ei', FLAG_EI, 1
         flag_entry 'di', FLAG_EI, 0
-        flag_entry 'ng', FLAG_NG, 1
-        flag_entry 'pl', FLAG_NG, 0
         flag_entry 'sf', FLAG_NG, 1
+        flag_entry 'ng', FLAG_NG, 1
         flag_entry 'ns', FLAG_NG, 0
+        flag_entry 'pl', FLAG_NG, 0
+        flag_entry 'zf', FLAG_ZR, 1
         flag_entry 'zr', FLAG_ZR, 1
         flag_entry 'nz', FLAG_ZR, 0
+        flag_entry 'af', FLAG_AC, 1
         flag_entry 'ac', FLAG_AC, 1
         flag_entry 'na', FLAG_AC, 0
+        flag_entry 'pf', FLAG_PE, 1
         flag_entry 'pe', FLAG_PE, 1
+        flag_entry 'np', FLAG_PE, 0
         flag_entry 'po', FLAG_PE, 0
-        flag_entry 'cy', FLAG_CY, 1
         flag_entry 'cf', FLAG_CY, 1
+        flag_entry 'cy', FLAG_CY, 1
         flag_entry 'nc', FLAG_CY, 0
         db 0
 
