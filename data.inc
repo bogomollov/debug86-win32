@@ -1,3 +1,78 @@
+; ===== Именованные константы =====
+MEM_SIZE                equ 110000h
+
+CR                      equ 13
+LF                      equ 10
+SPACE                   equ 20h
+COLON                   equ 3Ah
+COMMA                   equ 2Ch
+
+INPUT_BUFFER_MAX        equ 255
+INPUT_BUFFER_SIZE       equ 256
+LINE_BUFFER_SIZE        equ 256
+ASM_TOKEN_SIZE          equ 32
+ASM_BYTES_SIZE          equ 16
+REG_NAME_BUFFER_SIZE    equ 4
+REG_NAME_MAX_LEN        equ 3
+
+COMTAB_RECORD_SIZE      equ 5
+REG_NAME_RECORD_SIZE    equ 7
+FLAG_MAP_RECORD_SIZE    equ 4
+
+FLAG_COUNT              equ 8
+MAX_BREAKPOINTS         equ 10
+FILL_PAT_MAX            equ 64
+
+DUMP_DEFAULT_LEN        equ 128
+DUMP_LINE_BYTES         equ 16
+UNASM_DEFAULT_LEN       equ 32
+
+FLAG_OV                 equ 0
+FLAG_DN                 equ 1
+FLAG_EI                 equ 2
+FLAG_NG                 equ 3
+FLAG_ZR                 equ 4
+FLAG_AC                 equ 5
+FLAG_PE                 equ 6
+FLAG_CY                 equ 7
+
+OP_NOP                  equ 90h
+OP_RET                  equ 0C3h
+OP_INT                  equ 0CDh
+
+OP_MOV_AX               equ 0B8h
+OP_MOV_BX               equ 0BBh
+OP_MOV_CX               equ 0B9h
+OP_MOV_DX               equ 0BAh
+OP_MOV_AL               equ 0B0h
+OP_MOV_CL               equ 0B1h
+OP_MOV_DL               equ 0B2h
+OP_MOV_BL               equ 0B3h
+OP_MOV_AH               equ 0B4h
+OP_MOV_CH               equ 0B5h
+OP_MOV_DH               equ 0B6h
+OP_MOV_BH               equ 0B7h
+
+OP_MOV_BX_AX            equ 8Bh
+OP_MOV_BX_AX_MODRM      equ 0D8h
+OP_ADD_AX               equ 05h
+OP_SUB_AX               equ 2Dh
+
+OP_PUSH_CX              equ 51h
+OP_POP_CX               equ 59h
+OP_DEC_CX               equ 49h
+
+OP_JNZ_REL8             equ 75h
+
+INT_VECTOR_20           equ 20h
+INT_VECTOR_21           equ 21h
+INT21_AH_PRINT_STRING   equ 09h
+INT21_AH_EXIT           equ 4Ch
+
+INSN_LEN_1              equ 1
+INSN_LEN_2              equ 2
+INSN_LEN_3              equ 3
+
 section '.data' data readable writeable
     prompt          db '-',0
     hStdOut         dd 0
@@ -32,38 +107,38 @@ section '.data' data readable writeable
     flag_clr_codes   db 'NV','UP','DI','PL','NZ','NA','PO','NC'
 
     flag_map:
-        db 'ov', 0, 1
-        db 'nv', 0, 0
-        db 'dn', 1, 1
-        db 'up', 1, 0
-        db 'ei', 2, 1
-        db 'di', 2, 0
-        db 'ng', 3, 1
-        db 'pl', 3, 0
-        db 'sf', 3, 1
-        db 'ns', 3, 0
-        db 'zr', 4, 1
-        db 'nz', 4, 0
-        db 'ac', 5, 1
-        db 'na', 5, 0
-        db 'pe', 6, 1
-        db 'po', 6, 0
-        db 'cy', 7, 1
-        db 'cf', 7, 1
-        db 'nc', 7, 0
+        db 'ov', FLAG_OV, 1
+        db 'nv', FLAG_OV, 0
+        db 'dn', FLAG_DN, 1
+        db 'up', FLAG_DN, 0
+        db 'ei', FLAG_EI, 1
+        db 'di', FLAG_EI, 0
+        db 'ng', FLAG_NG, 1
+        db 'pl', FLAG_NG, 0
+        db 'sf', FLAG_NG, 1
+        db 'ns', FLAG_NG, 0
+        db 'zr', FLAG_ZR, 1
+        db 'nz', FLAG_ZR, 0
+        db 'ac', FLAG_AC, 1
+        db 'na', FLAG_AC, 0
+        db 'pe', FLAG_PE, 1
+        db 'po', FLAG_PE, 0
+        db 'cy', FLAG_CY, 1
+        db 'cf', FLAG_CY, 1
+        db 'nc', FLAG_CY, 0
         db 0
 
     str_add_bxsi_al db 'ADD [BX+SI],AL',0
 
     num_breakpoints dw 0
-    breakpoints_seg rw 10
-    breakpoints_off rw 10
+    breakpoints_seg rw MAX_BREAKPOINTS
+    breakpoints_off rw MAX_BREAKPOINTS
 
     fill_seg        dw 0
     fill_off        dw 0
     fill_len        dw 0
     fill_patlen     dw 0
-    fill_pat        rb 64
+    fill_pat        rb FILL_PAT_MAX
 
     move_src_seg    dw 0
     move_src_off    dw 0
@@ -80,9 +155,8 @@ section '.data' data readable writeable
     edit_have_nibble db 0
     edit_cell_done   db 0
     edit_orig_byte   db 0
-    edit_wrapped     db 0
     edit_reg_ptr    dd 0
-    edit_reg_name   rb 4
+    edit_reg_name   rb REG_NAME_BUFFER_SIZE
 
     asm_seg         dw 0
     asm_off         dw 0
@@ -123,61 +197,59 @@ section '.data' data readable writeable
         db 0
 
     asm_1word_table:
-        db "nop",0,90h,0
-        db "int",0,0CDh,1
-        db "ret",0,0C3h,0
-        db "push cx",0,51h,0
-        db "pop cx",0,59h,0
-        db "dec cx",0,49h,0
+        db "nop",0,OP_NOP,0
+        db "int",0,OP_INT,1
+        db "ret",0,OP_RET,0
+        db "push cx",0,OP_PUSH_CX,0
+        db "pop cx",0,OP_POP_CX,0
+        db "dec cx",0,OP_DEC_CX,0
         db 0
 
-    asm_2word_table db "mov ax", 0, 0B8h, 2
-                    db "mov bx", 0, 0BBh, 2
-                    db "mov cx", 0, 0B9h, 2
-                    db "mov dx", 0, 0BAh, 2
-                    db "mov al", 0, 0B0h, 1
-                    db "mov cl", 0, 0B1h, 1
-                    db "mov dl", 0, 0B2h, 1
-                    db "mov bl", 0, 0B3h, 1
-                    db "mov ah", 0, 0B4h, 1
-                    db "mov ch", 0, 0B5h, 1
-                    db "mov dh", 0, 0B6h, 1
-                    db "mov bh", 0, 0B7h, 1
-                    db "add ax", 0, 05h, 2
-                    db "sub ax", 0, 2Dh, 2
-                    db 0
+    asm_2word_table db "mov ax",0,OP_MOV_AX,2
+        db "mov bx",0,OP_MOV_BX,2
+        db "mov cx",0,OP_MOV_CX,2
+        db "mov dx",0,OP_MOV_DX,2
+        db "mov al",0,OP_MOV_AL,1
+        db "mov cl",0,OP_MOV_CL,1
+        db "mov dl",0,OP_MOV_DL,1
+        db "mov bl",0,OP_MOV_BL,1
+        db "mov ah",0,OP_MOV_AH,1
+        db "mov ch",0,OP_MOV_CH,1
+        db "mov dh",0,OP_MOV_DH,1
+        db "mov bh",0,OP_MOV_BH,1
+        db "add ax",0,OP_ADD_AX,2
+        db "sub ax",0,OP_SUB_AX,2
+        db 0
 
-    asm_3word_table db "mov bx ax", 0, 8Bh, 0D8h
-                    db 0
+    asm_3word_table db "mov bx ax",0,OP_MOV_BX_AX,OP_MOV_BX_AX_MODRM
+        db 0
 
-    asm_2byte_table db "mov bx,ax", 0, 8Bh, 0D8h
-                    db "add [bx+si],al", 0, 00h, 00h
-                    db 0
+    asm_2byte_table db "mov bx,ax",0,OP_MOV_BX_AX,OP_MOV_BX_AX_MODRM
+        db "add [bx+si],al",0,00h,00h
+        db 0
 
-    help_text db 'assemble              A [адрес]',13,10
-              db 'unassemble            U [адрес]',13,10
-              db 'dump                  D [диапазон]',13,10
-              db 'enter                 E адрес [список]',13,10
-              db 'fill                  F диапазон список',13,10
-              db 'move                  M диапазон адрес',13,10
-              db 'register              R [имя]',13,10
-              db 'go                    G [=addr] [bp]',13,10
-              db 'quit                  Q',13,10
+    help_text db 'assemble              A [адрес]',CR,LF
+              db 'unassemble            U [адрес]',CR,LF
+              db 'dump                  D [диапазон]',CR,LF
+              db 'enter                 E адрес [список]',CR,LF
+              db 'fill                  F диапазон список',CR,LF
+              db 'move                  M диапазон адрес',CR,LF
+              db 'register              R [имя]',CR,LF
+              db 'go                    G [=addr] [bp]',CR,LF
+              db 'quit                  Q',CR,LF
     help_text_len = $ - help_text
 
-    err_text db '^ Error',13,10
+    err_text db '^ Error',CR,LF
     err_text_len = $ - err_text
 
-    msg_prog_end db 13,10,'Программа завершилась нормально',13,10
+    msg_prog_end db CR,LF,'Программа завершилась нормально',CR,LF
     msg_prog_end_len = $ - msg_prog_end
 
-    msg_breakpoint db 'Breakpoint reached',13,10
+    msg_breakpoint db 'Breakpoint reached',CR,LF
     msg_breakpoint_len = $ - msg_breakpoint
 
-    msg_unknown_insn db 'Unknown instruction',13,10
+    msg_unknown_insn db 'Unknown instruction',CR,LF
     msg_unknown_insn_len = $ - msg_unknown_insn
-
-    MEM_SIZE = 110000h
     
 COMTAB:
     db 'a'
@@ -203,8 +275,8 @@ COMTAB:
     db 0
 
 section '.bss' readable writeable
-    input_buffer    rb 256
-    line_buffer     rb 256
+    input_buffer    rb INPUT_BUFFER_SIZE
+    line_buffer     rb LINE_BUFFER_SIZE
+    asm_token       rb ASM_TOKEN_SIZE
+    asm_bytes       rb ASM_BYTES_SIZE
     memory          rb MEM_SIZE
-    asm_token       rb 32
-    asm_bytes       rb 16

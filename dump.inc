@@ -1,8 +1,5 @@
 section '.text' code readable executable
 
-DUMP_ASCII_OFFSET = 34
-DUMP_LINE_LENGTH  = 58
-
 do_dump:
     push    eax
     push    ebx
@@ -28,12 +25,12 @@ dd_line_loop:
 
     mov     ax, [dump_seg]
     call    put_hex_word
-    mov     al, ':'
+    mov     al, COLON
     stosb
     mov     ax, [dump_off]
     call    put_hex_word
 
-    mov     al, ' '
+    mov     al, SPACE
     stosb
     stosb
 
@@ -47,7 +44,7 @@ dd_line_loop:
     add     esi, eax
 
     movzx   ecx, word [dd_skip]
-    mov     edx, 16
+    mov     edx, DUMP_LINE_BYTES
     sub     edx, ecx
     movzx   eax, word [dump_len]
     cmp     eax, edx
@@ -61,11 +58,11 @@ dd_line_loop:
     xor     ecx, ecx
 
 .dd_hex_slot:
-    cmp     ecx, 16
+    cmp     ecx, DUMP_LINE_BYTES
     jae     .dd_hex_done
     cmp     edx, 0
     je      .dd_hex_try_byte
-    mov     al, ' '
+    mov     al, SPACE
     stosb
     stosb
     dec     edx
@@ -78,25 +75,23 @@ dd_line_loop:
     dec     ebx
     jmp     .dd_hex_sep
 .dd_hex_blank:
-    mov     al, ' '
+    mov     al, SPACE
     stosb
     stosb
 .dd_hex_sep:
     inc     ecx
-    cmp     ecx, 16
-    jae     .dd_hex_done
     cmp     ecx, 8
     jne     .dd_hex_sep_space
     mov     al, '-'
     stosb
     jmp     .dd_hex_slot
 .dd_hex_sep_space:
-    mov     al, ' '
+    mov     al, SPACE
     stosb
     jmp     .dd_hex_slot
 
 .dd_hex_done:
-    mov     al, ' '
+    mov     al, SPACE
     stosb
     stosb
 
@@ -109,7 +104,7 @@ dd_line_loop:
 .dd_ascii_loop:
     test    edx, edx
     jz      .dd_ascii_char
-    mov     al, ' '
+    mov     al, SPACE
     stosb
     dec     edx
     jmp     .dd_ascii_loop
@@ -141,7 +136,7 @@ dd_line_loop:
     movzx   ecx, word [dd_line_bytes]
     sub     word [dump_len], cx
     jz      dd_done
-    add     word [dump_off], 16
+    add     word [dump_off], DUMP_LINE_BYTES
     mov     word [dd_skip], 0
     jmp     dd_line_loop
 

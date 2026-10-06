@@ -30,11 +30,11 @@ exit_program:
 
 skip_whitespace:
     mov     al, [esi]
-    cmp     al, ' '
+    cmp     al, SPACE
     je      .adv
     cmp     al, 9
     je      .adv
-    cmp     al, ','
+    cmp     al, COMMA
     je      .adv
     ret
 .adv:
@@ -43,9 +43,9 @@ skip_whitespace:
 
 is_eol:
     mov     al, [esi]
-    cmp     al, 13
+    cmp     al, CR
     je      .yes
-    cmp     al, 10
+    cmp     al, LF
     je      .yes
     test    al, al
     jz      .yes
@@ -90,7 +90,7 @@ parse_address:
     or      bl, 20h
     cmp     bl, 's'
     jne     .parse_num
-    cmp     byte [esi+2], ':'
+    cmp     byte [esi+2], COLON
     jne     .parse_num
 
     mov     ax, cx
@@ -110,7 +110,7 @@ parse_address:
     mov     bx, ax
 
     call    skip_whitespace
-    cmp     al, ':'
+    cmp     al, COLON
     jne     .no_colon
 
     inc     esi
@@ -148,7 +148,7 @@ parse_length:
     mov     bx, ax
 
     call    skip_whitespace
-    cmp     al, ':'
+    cmp     al, COLON
     je      .full_end
 
     mov     ax, bp

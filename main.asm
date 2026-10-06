@@ -28,7 +28,7 @@ start:
 
 main_loop:
     invoke  WriteConsoleA, [hStdOut], prompt, 1, chars_written, 0
-    invoke  ReadConsoleA,  [hStdIn], input_buffer, 255, chars_read, 0
+    invoke ReadConsoleA, [hStdIn], input_buffer, INPUT_BUFFER_MAX, chars_read, 0
 
     mov     esi, input_buffer
     call    skip_whitespace
@@ -47,7 +47,7 @@ main_loop:
     jz      .cmd_not_found
     cmp     bl, al
     je      .run_cmd
-    add     esi, 5
+    add     esi, COMTAB_RECORD_SIZE
     jmp     .find_cmd
 .run_cmd:
     mov     eax, [esi+1]
@@ -83,18 +83,18 @@ cmd_register:
     stosb
     mov     al, [edit_reg_name+1]
     stosb
-    mov     al, ' '
+    mov     al, SPACE
     stosb
 
     mov     eax, [edit_reg_ptr]
     mov     ax, [eax]
     call    put_hex_word
 
-    mov     al, 13
+    mov     al, CR
     stosb
-    mov     al, 10
+    mov     al, LF
     stosb
-    mov     al, ':'
+    mov     al, COLON
     stosb
 
     mov     edx, edi
@@ -127,11 +127,11 @@ cmd_register:
 
     mov     ax, [reg_CS]
     call    put_hex_word
-    mov     al, ':'
+    mov     al, COLON
     stosb
     mov     ax, [reg_IP]
     call    put_hex_word
-    mov     al, ' '
+    mov     al, SPACE
     stosb
 
     mov     ax, [reg_CS]
@@ -145,13 +145,13 @@ cmd_register:
     je      .cr_add_bxsi
 
     call    put_hex_byte
-    mov     al, ' '
+    mov     al, SPACE
     stosb
     mov     al, 'D'
     stosb
     mov     al, 'B'
     stosb
-    mov     al, ' '
+    mov     al, SPACE
     stosb
     mov     al, [ebp]
     call    put_hex_byte
@@ -162,7 +162,7 @@ cmd_register:
     call    put_hex_byte
     mov     al, [ebp+1]
     call    put_hex_byte
-    mov     al, ' '
+    mov     al, SPACE
     stosb
 
     mov     esi, str_add_bxsi_al
@@ -194,13 +194,13 @@ cmd_register:
 
     pop     ecx
 
-    mov     al, ' '
+    mov     al, SPACE
     stosb
     mov     al, 'D'
     stosb
     mov     al, 'S'
     stosb
-    mov     al, ':'
+    mov     al, COLON
     stosb
     mov     ax, cx
     call    put_hex_word
@@ -210,9 +210,9 @@ cmd_register:
     call    put_hex_byte
 
 .cr_done:
-    mov     al, 13
+    mov     al, CR
     stosb
-    mov     al, 10
+    mov     al, LF
     stosb
 
     mov     edx, edi
@@ -253,7 +253,7 @@ cmd_rf:
     mov     [flag_states + ebx], al
     jmp     .rf_next
 .rf_skip:
-    add     edi, 4
+    add     edi, FLAG_MAP_RECORD_SIZE
     jmp     .rf_find
 
 .rf_next:
@@ -277,7 +277,7 @@ append_flags:
     push    esi
 
     xor     ebx, ebx
-    mov     ecx, 8
+    mov ecx, FLAG_COUNT
 .af_loop:
     mov     al, [flag_states + ebx]
     test    al, al
@@ -291,7 +291,7 @@ append_flags:
     shl     eax, 1
     add     esi, eax
     movsw                    ; 2 байта кода
-    mov     al, ' '
+    mov     al, SPACE
     stosb
     inc     ebx
     loop    .af_loop
@@ -314,7 +314,7 @@ show_flags:
 
     mov     edi, line_buffer
     xor     ebx, ebx
-    mov     ecx, 8
+    mov ecx, FLAG_COUNT
 .sf_loop:
     mov     al, [flag_states + ebx]
     test    al, al
@@ -328,14 +328,14 @@ show_flags:
     shl     eax, 1
     add     esi, eax
     movsw
-    mov     al, ' '
+    mov     al, SPACE
     stosb
     inc     ebx
     loop    .sf_loop
 
     mov     al, '-'
     stosb
-    mov     al, ' '
+    mov     al, SPACE
     stosb
 
     mov     edx, edi
@@ -358,7 +358,7 @@ cmd_quit:
     ret
 
 cmd_dump:
-    mov     word [dump_len], 128
+    mov     word [dump_len], DUMP_DEFAULT_LEN
     mov     esi, [cmd_ptr]
 
     call    skip_whitespace
@@ -371,7 +371,7 @@ cmd_dump:
     mov     [dump_off], bx
     mov     bp, ax
 
-    mov     word [dump_len], 16
+    mov     word [dump_len], DUMP_LINE_BYTES
 
     mov     dx, bx
     call    skip_whitespace
@@ -414,7 +414,7 @@ cmd_fill:
     call    is_eol
     jc      .cf_pat_done
 
-    cmp     ecx, 64
+    cmp     ecx, FILL_PAT_MAX
     jae     .cf_pat_done
 
     cmp     al, 22h
@@ -438,7 +438,7 @@ cmd_fill:
     cmp     al, dl
     je      .cf_str_end
 
-    cmp     ecx, 64
+    cmp     ecx, FILL_PAT_MAX
     jae     .cf_pat_done
 
     stosb
@@ -710,22 +710,22 @@ ce_show_byte:
     test    dl, dl
     jz      .csb_normal
 
-    mov     al, 13
+    mov     al, CR
     stosb
-    mov     al, 10
+    mov     al, LF
     stosb
     mov     ax, [edit_seg]
     call    put_hex_word
-    mov     al, ':'
+    mov     al, COLON
     stosb
     mov     ax, [edit_off]
     call    put_hex_word
-    mov     al, ' '
+    mov     al, SPACE
     stosb
     jmp     .csb_byte
 
 .csb_normal:
-    mov     al, ' '
+    mov     al, SPACE
     stosb
     stosb
 
@@ -836,11 +836,11 @@ cmd_assemble:
     mov     edi, line_buffer
     mov     ax, [asm_seg]
     call    put_hex_word
-    mov     al, ':'
+    mov     al, COLON
     stosb
     mov     ax, [asm_off]
     call    put_hex_word
-    mov     al, ' '
+    mov     al, SPACE
     stosb
     stosb
     
@@ -883,7 +883,7 @@ cmd_assemble:
 
 cmd_unassemble:
     mov     esi, [cmd_ptr]
-    mov     word [unasm_len], 32
+    mov     word [unasm_len], UNASM_DEFAULT_LEN
 
     call    skip_whitespace
     call    is_eol
@@ -920,11 +920,11 @@ cmd_unassemble:
     mov     edi, line_buffer
     mov     ax, [unasm_seg]
     call    put_hex_word
-    mov     al, ':'
+    mov     al, COLON
     stosb
     mov     ax, [unasm_off]
     call    put_hex_word
-    mov     al, ' '
+    mov     al, SPACE
     stosb
     stosb
 
@@ -935,7 +935,7 @@ cmd_unassemble:
     add     ebp, eax
 
     mov     al, [ebp]
-    cmp     al, 75h
+    cmp     al, OP_JNZ_REL8
     je      .rel_jump
     call    find_opcode
     jc      .not_found
@@ -954,7 +954,7 @@ cmd_unassemble:
     call    put_hex_byte
 
     mov     ecx, 12
-    mov     al, ' '
+    mov     al, SPACE
     rep     stosb
 
     mov     al, 'D'
@@ -963,7 +963,7 @@ cmd_unassemble:
     stosb
 
     mov     ecx, 6
-    mov     al, ' '
+    mov     al, SPACE
     rep     stosb
 
     mov     al, [ebp]
@@ -992,7 +992,7 @@ cmd_unassemble:
     sub     eax, ebx
     sub     eax, ebx        ; eax = 14 - 2*len
     mov     ecx, eax
-    mov     al, ' '
+    mov     al, SPACE
     rep     stosb
 
     pop     ecx
@@ -1007,7 +1007,7 @@ cmd_unassemble:
     lodsb
     test    al, al
     jz      .str_pad_only
-    cmp     al, ' '
+    cmp     al, SPACE
     je      .str_have_ops
     cmp     al, 'a'
     jb      .str_store_m
@@ -1025,7 +1025,7 @@ cmd_unassemble:
     sub     eax, ecx
     jle     .str_ops
     mov     ecx, eax
-    mov     al, ' '
+    mov     al, SPACE
     rep     stosb
 .str_ops:
     lodsb
@@ -1046,7 +1046,7 @@ cmd_unassemble:
     sub     eax, ecx
     jle     .str_done
     mov     ecx, eax
-    mov     al, ' '
+    mov     al, SPACE
     rep     stosb
 .str_done:
 
@@ -1059,10 +1059,10 @@ cmd_unassemble:
 
     cmp     dh, 1
     je      .use_comma
-    mov     al, ' '
+    mov     al, SPACE
     jmp     .put_sep
 .use_comma:
-    mov     al, ','
+    mov     al, COMMA
 .put_sep:
     stosb
 
@@ -1080,9 +1080,9 @@ cmd_unassemble:
     call    put_hex_byte
 
 .line_done:
-    mov     al, 13
+    mov     al, CR
     stosb
-    mov     al, 10
+    mov     al, LF
     stosb
 
     mov     edx, edi
@@ -1117,7 +1117,7 @@ cmd_unassemble:
     call    put_hex_byte
 
     mov     ecx, 10
-    mov     al, ' '
+    mov     al, SPACE
     rep     stosb
 
     mov     al, 'J'
@@ -1128,7 +1128,7 @@ cmd_unassemble:
     stosb
 
     mov     ecx, 5
-    mov     al, ' '
+    mov     al, SPACE
     rep     stosb
 
     movsx   eax, byte [ebp+1]
@@ -1290,7 +1290,7 @@ parse_instruction:
 
 .found:
     mov     [asm_bytes], al
-    mov     word [asm_len], 1
+    mov     word [asm_len], INSN_LEN_1
     mov     [asm_arg_size], ah
     
     test    ah, ah
@@ -1410,7 +1410,7 @@ cmd_go:
     jc      .start_run
     
     mov     cx, [num_breakpoints]
-    cmp     cx, 10
+    cmp     cx, MAX_BREAKPOINTS
     jae     print_error_and_ret
 
     push    cx
@@ -1463,51 +1463,51 @@ cmd_go:
     
     mov     al, [ebp]
     
-    cmp     al, 90h
+    cmp     al, OP_NOP
     je      .exec_nop
     cmp     al, 0C3h
     je      .exec_ret
-    cmp     al, 0CDh
+    cmp     al, OP_INT
     je      .exec_int
     
-    cmp     al, 0B8h
+    cmp     al, OP_MOV_AX
     je      .exec_mov_ax
-    cmp     al, 0BBh
+    cmp     al, OP_MOV_BX
     je      .exec_mov_bx
-    cmp     al, 0B9h
+    cmp     al, OP_MOV_CX
     je      .exec_mov_cx
-    cmp     al, 0BAh
+    cmp     al, OP_MOV_DX
     je      .exec_mov_dx
     
-    cmp     al, 0B0h
+    cmp     al, OP_MOV_AL
     je      .exec_mov_al
-    cmp     al, 0B1h
+    cmp     al, OP_MOV_CL
     je      .exec_mov_cl
-    cmp     al, 0B2h
+    cmp     al, OP_MOV_DL
     je      .exec_mov_dl
-    cmp     al, 0B3h
+    cmp     al, OP_MOV_BL
     je      .exec_mov_bl
-    cmp     al, 0B4h
+    cmp     al, OP_MOV_AH
     je      .exec_mov_ah
-    cmp     al, 0B5h
+    cmp     al, OP_MOV_CH
     je      .exec_mov_ch
-    cmp     al, 0B6h
+    cmp     al, OP_MOV_DH
     je      .exec_mov_dh
-    cmp     al, 0B7h
+    cmp     al, OP_MOV_BH
     je      .exec_mov_bh
     
-    cmp     al, 8Bh
+    cmp     al, OP_MOV_BX_AX
     je      .exec_mov_bx_ax
 
-    cmp     al, 05h
+    cmp     al, OP_ADD_AX
     je      .exec_add_ax
-    cmp     al, 2Dh
+    cmp     al, OP_SUB_AX
     je      .exec_sub_ax
 
     jmp     .unknown_insn
 
 .exec_nop:
-    add     word [reg_IP], 1
+    add     word [reg_IP], INSN_LEN_1
     jmp     .run_loop
 
 .exec_ret:
@@ -1515,11 +1515,11 @@ cmd_go:
 
 .exec_int:
     mov     al, [ebp+1]
-    cmp     al, 20h
+    cmp     al, INT_VECTOR_20
     je      .program_end
-    cmp     al, 21h
+    cmp     al, INT_VECTOR_21
     je      .int21
-    add     word [reg_IP], 2
+    add     word [reg_IP], INSN_LEN_2
     jmp     .run_loop
 
 .int21:
@@ -1528,7 +1528,7 @@ cmd_go:
     je      .int21_ah09
     cmp     ah, 4Ch
     je      .program_end
-    add     word [reg_IP], 2
+    add     word [reg_IP], INSN_LEN_2
     jmp     .run_loop
 
 .int21_ah09:
@@ -1557,91 +1557,91 @@ cmd_go:
     invoke  WriteConsoleA, [hStdOut], esi, edx, chars_written, 0
 
 .int21_09_skip:
-    add     word [reg_IP], 2
+    add     word [reg_IP], INSN_LEN_2
     jmp     .run_loop
 
 .exec_mov_ax:
     mov     ax, [ebp+1]
     mov     [reg_AX], ax
-    add     word [reg_IP], 3
+    add     word [reg_IP], INSN_LEN_3
     jmp     .run_loop
 .exec_mov_bx:
     mov     ax, [ebp+1]
     mov     [reg_BX], ax
-    add     word [reg_IP], 3
+    add     word [reg_IP], INSN_LEN_3
     jmp     .run_loop
 .exec_mov_cx:
     mov     ax, [ebp+1]
     mov     [reg_CX], ax
-    add     word [reg_IP], 3
+    add     word [reg_IP], INSN_LEN_3
     jmp     .run_loop
 .exec_mov_dx:
     mov     ax, [ebp+1]
     mov     [reg_DX], ax
-    add     word [reg_IP], 3
+    add     word [reg_IP], INSN_LEN_3
     jmp     .run_loop
 
 .exec_mov_al:
     mov     al, [ebp+1]
     mov     byte [reg_AX], al
-    add     word [reg_IP], 2
+    add     word [reg_IP], INSN_LEN_2
     jmp     .run_loop
 .exec_mov_cl:
     mov     al, [ebp+1]
     mov     byte [reg_CX], al
-    add     word [reg_IP], 2
+    add     word [reg_IP], INSN_LEN_2
     jmp     .run_loop
 .exec_mov_dl:
     mov     al, [ebp+1]
     mov     byte [reg_DX], al
-    add     word [reg_IP], 2
+    add     word [reg_IP], INSN_LEN_2
     jmp     .run_loop
 .exec_mov_bl:
     mov     al, [ebp+1]
     mov     byte [reg_BX], al
-    add     word [reg_IP], 2
+    add     word [reg_IP], INSN_LEN_2
     jmp     .run_loop
 
 .exec_mov_ah:
     mov     al, [ebp+1]
     mov     byte [reg_AX+1], al
-    add     word [reg_IP], 2
+    add     word [reg_IP], INSN_LEN_2
     jmp     .run_loop
 .exec_mov_ch:
     mov     al, [ebp+1]
     mov     byte [reg_CX+1], al
-    add     word [reg_IP], 2
+    add     word [reg_IP], INSN_LEN_2
     jmp     .run_loop
 .exec_mov_dh:
     mov     al, [ebp+1]
     mov     byte [reg_DX+1], al
-    add     word [reg_IP], 2
+    add     word [reg_IP], INSN_LEN_2
     jmp     .run_loop
 .exec_mov_bh:
     mov     al, [ebp+1]
     mov     byte [reg_BX+1], al
-    add     word [reg_IP], 2
+    add     word [reg_IP], INSN_LEN_2
     jmp     .run_loop
     
 .exec_mov_bx_ax:
     mov     al, [ebp+1]
-    cmp     al, 0D8h
+    cmp     al, OP_MOV_BX_AX_MODRM
     jne     .unknown_insn
     mov     ax, [reg_AX]
     mov     [reg_BX], ax
-    add     word [reg_IP], 2
+    add     word [reg_IP], INSN_LEN_2
     jmp     .run_loop
 
 .exec_add_ax:
     mov     ax, [ebp+1]
     add     [reg_AX], ax
-    add     word [reg_IP], 3
+    add     word [reg_IP], INSN_LEN_3
     jmp     .run_loop
 
 .exec_sub_ax:
     mov     ax, [ebp+1]
     sub     [reg_AX], ax
-    add     word [reg_IP], 3
+    add     word [reg_IP], INSN_LEN_3
     jmp     .run_loop
 
 .hit_breakpoint:
@@ -1667,7 +1667,7 @@ parse_reg_name:
     mov     al, [esi]
     test    al, al
     jz      .rd_name_done
-    cmp     al, 13
+    cmp     al, CR
     je      .rd_name_done
     cmp     al, 10
     je      .rd_name_done
@@ -1709,7 +1709,7 @@ parse_reg_name:
     clc
     ret
 .rt_next:
-    add     ebx, 7
+    add     ebx, REG_NAME_RECORD_SIZE
     jmp     .rt_loop
 
 .rd_err:
@@ -1725,7 +1725,7 @@ print_registers:
     stosb
     mov     ax, [reg_AX]
     call    put_hex_word
-    mov     al, ' '
+    mov     al, SPACE
     stosb
 
     mov     ax, 'BX'
@@ -1734,7 +1734,7 @@ print_registers:
     stosb
     mov     ax, [reg_BX]
     call    put_hex_word
-    mov     al, ' '
+    mov     al, SPACE
     stosb
 
     mov     ax, 'CX'
@@ -1743,7 +1743,7 @@ print_registers:
     stosb
     mov     ax, [reg_CX]
     call    put_hex_word
-    mov     al, ' '
+    mov     al, SPACE
     stosb
 
     mov     ax, 'DX'
@@ -1752,7 +1752,7 @@ print_registers:
     stosb
     mov     ax, [reg_DX]
     call    put_hex_word
-    mov     al, ' '
+    mov     al, SPACE
     stosb
 
     mov     ax, 'SP'
@@ -1761,7 +1761,7 @@ print_registers:
     stosb
     mov     ax, [reg_SP]
     call    put_hex_word
-    mov     al, ' '
+    mov     al, SPACE
     stosb
 
     mov     ax, 'BP'
@@ -1770,7 +1770,7 @@ print_registers:
     stosb
     mov     ax, [reg_BP]
     call    put_hex_word
-    mov     al, ' '
+    mov     al, SPACE
     stosb
 
     mov     ax, 'SI'
@@ -1779,7 +1779,7 @@ print_registers:
     stosb
     mov     ax, [reg_SI]
     call    put_hex_word
-    mov     al, ' '
+    mov     al, SPACE
     stosb
 
     mov     ax, 'DI'
@@ -1788,9 +1788,9 @@ print_registers:
     stosb
     mov     ax, [reg_DI]
     call    put_hex_word
-    mov     al, 13
+    mov     al, CR
     stosb
-    mov     al, 10
+    mov     al, LF
     stosb
 
     mov     ax, 'DS'
@@ -1799,7 +1799,7 @@ print_registers:
     stosb
     mov     ax, [reg_DS]
     call    put_hex_word
-    mov     al, ' '
+    mov     al, SPACE
     stosb
 
     mov     ax, 'ES'
@@ -1808,7 +1808,7 @@ print_registers:
     stosb
     mov     ax, [reg_ES]
     call    put_hex_word
-    mov     al, ' '
+    mov     al, SPACE
     stosb
 
     mov     ax, 'SS'
@@ -1817,7 +1817,7 @@ print_registers:
     stosb
     mov     ax, [reg_SS]
     call    put_hex_word
-    mov     al, ' '
+    mov     al, SPACE
     stosb
 
     mov     ax, 'CS'
@@ -1826,7 +1826,7 @@ print_registers:
     stosb
     mov     ax, [reg_CS]
     call    put_hex_word
-    mov     al, ' '
+    mov     al, SPACE
     stosb
 
     mov     ax, 'IP'
@@ -1835,14 +1835,14 @@ print_registers:
     stosb
     mov     ax, [reg_IP]
     call    put_hex_word
-    mov     al, ' '
+    mov     al, SPACE
     stosb
 
     call    append_flags
 
-    mov     al, 13
+    mov     al, CR
     stosb
-    mov     al, 10
+    mov     al, LF
     stosb
 
     mov     edx, edi
