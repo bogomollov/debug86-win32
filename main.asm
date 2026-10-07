@@ -637,69 +637,104 @@ ce_show_byte:
     ret
 
 cmd_move:
+    push    ebx
+    push    esi
+    push    edi
+    push    ebp
+
     mov     esi, [cmd_ptr]
 
     call    parse_address
-    jc      print_error_and_ret
+    jc      .cm_err
     mov     [move_src_seg], ax
     mov     [move_src_off], bx
     mov     bp, ax
 
     mov     dx, bx
     call    parse_length
-    jc      print_error_and_ret
+    jc      .cm_err
     mov     [move_len], cx
+    push    ecx
 
     call    parse_address
-    jc      print_error_and_ret
+    jnc     .cm_dst_ok
+    pop     ecx
+    jmp     .cm_err
+
+.cm_dst_ok:
     mov     [move_dst_seg], ax
     mov     [move_dst_off], bx
+    pop     ecx
 
-    mov     ax, [move_src_seg]
-    mov     bx, [move_src_off]
-    call    calc_linear_addr
-    movzx   ecx, word [move_len]
-    call    check_mem_range
-    jc      print_error_and_ret
-    mov     edx, memory
+    test    ecx, ecx
+    jz      .cm_done
+
+    movzx   eax, word [move_src_seg]
+    shl     eax, 4
+    movzx   edx, word [move_src_off]
     add     edx, eax
 
-    mov     ax, [move_dst_seg]
-    mov     bx, [move_dst_off]
-    call    calc_linear_addr
-    movzx   ecx, word [move_len]
-    call    check_mem_range
-    jc      print_error_and_ret
-    mov     edi, memory
+    movzx   eax, word [move_dst_seg]
+    shl     eax, 4
+    movzx   edi, word [move_dst_off]
     add     edi, eax
-    
-    mov     esi, edx
-    test    ecx, ecx
-    jz      .cm_ret
 
-    cmp     esi, edi
-    je      .cm_ret
-    ja      .cm_forward
+    cmp     edi, edx
+    je      .cm_done
 
-    mov     eax, esi
-    add     eax, ecx
-    cmp     eax, edi
-    jbe     .cm_forward
+    movzx   eax, word [move_src_seg]
+    shl     eax, 4
+    lea     esi, [memory + eax]
 
-    add     esi, ecx
-    dec     esi
-    add     edi, ecx
-    dec     edi
-    std
-    rep movsb
-    cld
-    ret
+    movzx   eax, word [move_dst_seg]
+    shl     eax, 4
+    lea     edi, [memory + eax]
+
+    mov     bx, [move_src_off]
+    mov     dx, [move_dst_off]
+
+    jb      .cm_forward
+
+    mov     eax, ecx
+    dec     eax
+    add     bx, ax
+    add     dx, ax
+
+.cm_rev_loop:
+    movzx   eax, bx
+    mov     al, [esi + eax]
+    movzx   ebp, dx
+    mov     [edi + ebp], al
+    dec     bx
+    dec     dx
+    dec     ecx
+    jnz     .cm_rev_loop
+    jmp     .cm_done
 
 .cm_forward:
-    cld
-    rep movsb
-.cm_ret:
+.cm_fwd_loop:
+    movzx   eax, bx
+    mov     al, [esi + eax]
+    movzx   ebp, dx
+    mov     [edi + ebp], al
+    inc     bx
+    inc     dx
+    dec     ecx
+    jnz     .cm_fwd_loop
+
+.cm_done:
+    pop     ebp
+    pop     edi
+    pop     esi
+    pop     ebx
     ret
+
+.cm_err:
+    pop     ebp
+    pop     edi
+    pop     esi
+    pop     ebx
+    jmp     print_error_and_ret
 
 cmd_assemble:
     mov     esi, [cmd_ptr]

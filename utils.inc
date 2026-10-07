@@ -211,7 +211,8 @@ parse_length:
     sub     edx, ecx
     inc     edx
     cmp     edx, 10000h
-    jae     .err
+    ja      .err
+    mov     ecx, edx
     mov     cx, dx
     clc
     ret
@@ -228,7 +229,13 @@ parse_length:
     call    parse_hex
     jc      .err
     test    ax, ax
-    jz      .err
+    jnz     .l_nonzero
+    mov     ecx, 10000h
+    xor     cx, cx
+    clc
+    ret
+.l_nonzero:
+    movzx   ecx, ax
     mov     cx, ax
     clc
     ret
