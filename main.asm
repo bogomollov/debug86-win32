@@ -261,7 +261,7 @@ cmd_dump:
     mov     [dump_off], bx
     mov     bp, ax
 
-    mov     word [dump_len], DUMP_LINE_BYTES
+    mov     word [dump_len], DUMP_DEFAULT_LEN
 
     mov     dx, bx
     call    skip_whitespace
