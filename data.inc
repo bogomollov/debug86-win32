@@ -50,6 +50,10 @@ OP_MOV_AH               equ 0B4h
 OP_MOV_CH               equ 0B5h
 OP_MOV_DH               equ 0B6h
 OP_MOV_BH               equ 0B7h
+OP_MOV_SP               equ 0BCh
+OP_MOV_BP               equ 0BDh
+OP_MOV_SI               equ 0BEh
+OP_MOV_DI               equ 0BFh
 
 OP_MOV_BX_AX            equ 8Bh
 OP_MOV_BX_AX_MODRM      equ 0D8h
@@ -347,6 +351,57 @@ macro gen_r16_unary prefix, op16, op8, modrm_base {
     db prefix, 'bh', 0, op8,  modrm_base + 7
 }
 
+macro gen_inc_16 {
+    db 'inc ax', 0, 40h, 0
+    db 'inc cx', 0, 41h, 0
+    db 'inc dx', 0, 42h, 0
+    db 'inc bx', 0, 43h, 0
+    db 'inc sp', 0, 44h, 0
+    db 'inc bp', 0, 45h, 0
+    db 'inc si', 0, 46h, 0
+    db 'inc di', 0, 47h, 0
+}
+
+macro gen_inc_8 {
+    db 'inc al', 0, 0FEh, 0C0h
+    db 'inc cl', 0, 0FEh, 0C1h
+    db 'inc dl', 0, 0FEh, 0C2h
+    db 'inc bl', 0, 0FEh, 0C3h
+    db 'inc ah', 0, 0FEh, 0C4h
+    db 'inc ch', 0, 0FEh, 0C5h
+    db 'inc dh', 0, 0FEh, 0C6h
+    db 'inc bh', 0, 0FEh, 0C7h
+}
+
+macro gen_push_16 {
+    db 'push ax', 0, 50h, 0
+    db 'push cx', 0, 51h, 0
+    db 'push dx', 0, 52h, 0
+    db 'push bx', 0, 53h, 0
+    db 'push sp', 0, 54h, 0
+    db 'push bp', 0, 55h, 0
+    db 'push si', 0, 56h, 0
+    db 'push di', 0, 57h, 0
+    db 'push es', 0, 06h, 0
+    db 'push cs', 0, 0Eh, 0
+    db 'push ss', 0, 16h, 0
+    db 'push ds', 0, 1Eh, 0
+}
+
+macro gen_pop_16 {
+    db 'pop ax', 0, 58h, 0
+    db 'pop cx', 0, 59h, 0
+    db 'pop dx', 0, 5Ah, 0
+    db 'pop bx', 0, 5Bh, 0
+    db 'pop sp', 0, 5Ch, 0
+    db 'pop bp', 0, 5Dh, 0
+    db 'pop si', 0, 5Eh, 0
+    db 'pop di', 0, 5Fh, 0
+    db 'pop es', 0, 07h, 0
+    db 'pop ss', 0, 17h, 0
+    db 'pop ds', 0, 1Fh, 0
+}
+
 macro gen_dec_16 {
     db 'dec ax', 0, 48h, 0
     db 'dec cx', 0, 49h, 0
@@ -495,6 +550,8 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
         db "ret",0,OP_RET,0
         db "push cx",0,OP_PUSH_CX,0
         db "pop cx",0,OP_POP_CX,0
+        db "lodsb",0,0ACh,0
+        db "stosb",0,0AAh,0
         gen_dec_16
         db 0
 
@@ -502,6 +559,10 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
         db "mov bx",0,OP_MOV_BX,2
         db "mov cx",0,OP_MOV_CX,2
         db "mov dx",0,OP_MOV_DX,2
+        db "mov sp",0,OP_MOV_SP,2
+        db "mov bp",0,OP_MOV_BP,2
+        db "mov si",0,OP_MOV_SI,2
+        db "mov di",0,OP_MOV_DI,2
         db "mov al",0,OP_MOV_AL,1
         db "mov cl",0,OP_MOV_CL,1
         db "mov dl",0,OP_MOV_DL,1
@@ -510,6 +571,13 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
         db "mov ch",0,OP_MOV_CH,1
         db "mov dh",0,OP_MOV_DH,1
         db "mov bh",0,OP_MOV_BH,1
+        db "cmp ax",0,3Dh,2
+        db "cmp al",0,3Ch,1
+        db "rep stosb",0,0F3h,0AAh
+        gen_push_16
+        gen_pop_16
+        gen_inc_16
+        gen_inc_8
         db "add ax",0,OP_ADD_AX,2
         db "sub ax",0,OP_SUB_AX,2
         db "xor ax",0,35h,2
@@ -559,6 +627,8 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
 
     asm_2byte_table db "mov bx,ax",0,OP_MOV_BX_AX,OP_MOV_BX_AX_MODRM
         db "add [bx+si],al",0,00h,00h
+        db "rep stosb",0,0F3h,0AAh
+        gen_inc_8
         gen_r16_unary 'not ', 0F7h, 0F6h, 0D0h
         gen_shift_2byte 'shl', 0D1h, 0D0h, 0E0h
         gen_shift_2byte 'shr', 0D1h, 0D0h, 0E8h
@@ -573,6 +643,46 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
         gen_logic_all 'test',',', 85h, 84h
         gen_r16_unary 'mul ', 0F7h, 0F6h, 0E0h
         gen_dec_8
+        db 0
+
+    asm_rel8_table:
+        db "jne",0,75h,0
+        db "jnz",0,75h,0
+        db "je",0,74h,0
+        db "jz",0,74h,0
+        db "loop",0,0E2h,0
+        db "loope",0,0E1h,0
+        db "loopz",0,0E1h,0
+        db "loopne",0,0E0h,0
+        db "loopnz",0,0E0h,0
+        db "jcxz",0,0E3h,0
+        db "jmp",0,0EBh,0
+        db "ja",0,77h,0
+        db "jnbe",0,77h,0
+        db "jae",0,73h,0
+        db "jnb",0,73h,0
+        db "jnc",0,73h,0
+        db "jb",0,72h,0
+        db "jnae",0,72h,0
+        db "jc",0,72h,0
+        db "jbe",0,76h,0
+        db "jna",0,76h,0
+        db "jg",0,7Fh,0
+        db "jnle",0,7Fh,0
+        db "jge",0,7Dh,0
+        db "jnl",0,7Dh,0
+        db "jl",0,7Ch,0
+        db "jnge",0,7Ch,0
+        db "jle",0,7Eh,0
+        db "jng",0,7Eh,0
+        db "js",0,78h,0
+        db "jns",0,79h,0
+        db "jo",0,70h,0
+        db "jno",0,71h,0
+        db "jp",0,7Ah,0
+        db "jpe",0,7Ah,0
+        db "jnp",0,7Bh,0
+        db "jpo",0,7Bh,0
         db 0
 
     help_text db 'assemble              A [адрес]',CR,LF

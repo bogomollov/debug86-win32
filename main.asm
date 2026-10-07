@@ -2714,6 +2714,10 @@ parse_instruction:
     mov     ebx, asm_1word_table
     call    search_table
     jnc     .found
+
+    mov     ebx, asm_rel8_table
+    call    search_table
+    jnc     .found_rel8
     
     mov     edi, asm_token
 .find_end:
@@ -2762,6 +2766,28 @@ parse_instruction:
     pop     esi
     mov     [asm_bytes], al
     mov     [asm_bytes+1], ah
+    mov     word [asm_len], 2
+    clc
+    ret
+
+.found_rel8:
+    mov     [asm_bytes], al
+    call    skip_whitespace
+    call    is_eol
+    jc      .err
+    call    parse_hex
+    jc      .err
+    push    ax
+    call    skip_whitespace
+    call    is_eol
+    pop     ax
+    jnc     .err
+    sub     ax, [asm_off]
+    sub     ax, 2
+    movsx   dx, al
+    cmp     dx, ax
+    jne     .err
+    mov     [asm_bytes+1], al
     mov     word [asm_len], 2
     clc
     ret
@@ -3890,6 +3916,166 @@ step:
     add     word [reg_IP], 1
     jmp     .step_ok
 .not_pop_r16:
+
+    ; --- PUSH segment register (06h, 0Eh, 16h, 1Eh) ---
+    cmp     al, 06h
+    je      .push_es
+    cmp     al, 0Eh
+    je      .push_cs
+    cmp     al, 16h
+    je      .push_ss
+    cmp     al, 1Eh
+    je      .push_ds
+    jmp     .not_push_seg
+.push_es:
+    mov     dx, [reg_ES]
+    jmp     .do_push_seg
+.push_cs:
+    mov     dx, [reg_CS]
+    jmp     .do_push_seg
+.push_ss:
+    mov     dx, [reg_SS]
+    jmp     .do_push_seg
+.push_ds:
+    mov     dx, [reg_DS]
+.do_push_seg:
+    sub     word [reg_SP], 2
+    mov     ax, [reg_SS]
+    mov     bx, [reg_SP]
+    call    calc_linear_addr
+    mov     ecx, 2
+    call    check_mem_range
+    jc      .out_of_bounds
+    mov     word [memory + eax], dx
+    add     word [reg_IP], 1
+    jmp     .step_ok
+.not_push_seg:
+
+    ; --- POP segment register (07h, 17h, 1Fh) ---
+    cmp     al, 07h
+    je      .pop_es
+    cmp     al, 17h
+    je      .pop_ss
+    cmp     al, 1Fh
+    je      .pop_ds
+    jmp     .not_pop_seg
+.pop_es:
+    mov     ax, [reg_SS]
+    mov     bx, [reg_SP]
+    call    calc_linear_addr
+    mov     ecx, 2
+    call    check_mem_range
+    jc      .out_of_bounds
+    mov     dx, word [memory + eax]
+    mov     [reg_ES], dx
+    add     word [reg_SP], 2
+    add     word [reg_IP], 1
+    jmp     .step_ok
+.pop_ss:
+    mov     ax, [reg_SS]
+    mov     bx, [reg_SP]
+    call    calc_linear_addr
+    mov     ecx, 2
+    call    check_mem_range
+    jc      .out_of_bounds
+    mov     dx, word [memory + eax]
+    mov     [reg_SS], dx
+    add     word [reg_SP], 2
+    add     word [reg_IP], 1
+    jmp     .step_ok
+.pop_ds:
+    mov     ax, [reg_SS]
+    mov     bx, [reg_SP]
+    call    calc_linear_addr
+    mov     ecx, 2
+    call    check_mem_range
+    jc      .out_of_bounds
+    mov     dx, word [memory + eax]
+    mov     [reg_DS], dx
+    add     word [reg_SP], 2
+    add     word [reg_IP], 1
+    jmp     .step_ok
+.not_pop_seg:
+
+    ; --- REP STOSB (F3 AA) ---
+    cmp     al, 0F3h
+    jne     .not_rep_stosb
+    mov     ax, [reg_CS]
+    mov     bx, [reg_IP]
+    call    calc_linear_addr
+    mov     ecx, 2
+    call    check_mem_range
+    jc      .out_of_bounds
+    cmp     byte [ebp+1], 0AAh
+    jne     .unknown_insn
+.rep_stosb_loop:
+    cmp     word [reg_CX], 0
+    je      .rep_stosb_done
+    mov     ax, [reg_ES]
+    mov     bx, [reg_DI]
+    call    calc_linear_addr
+    mov     ecx, 1
+    call    check_mem_range
+    jc      .out_of_bounds
+    mov     dl, byte [reg_AX]
+    mov     byte [memory + eax], dl
+    cmp     byte [flag_states + FLAG_DN], 0
+    jne     .rep_stosb_dec
+    inc     word [reg_DI]
+    jmp     .rep_stosb_next
+.rep_stosb_dec:
+    dec     word [reg_DI]
+.rep_stosb_next:
+    dec     word [reg_CX]
+    jmp     .rep_stosb_loop
+.rep_stosb_done:
+    add     word [reg_IP], 2
+    jmp     .step_ok
+.not_rep_stosb:
+
+    ; --- STOSB (AAh) ---
+    cmp     al, 0AAh
+    jne     .not_stosb
+    mov     ax, [reg_ES]
+    mov     bx, [reg_DI]
+    call    calc_linear_addr
+    mov     ecx, 1
+    call    check_mem_range
+    jc      .out_of_bounds
+    mov     dl, byte [reg_AX]
+    mov     byte [memory + eax], dl
+    cmp     byte [flag_states + FLAG_DN], 0
+    jne     .stosb_dec
+    inc     word [reg_DI]
+    jmp     .stosb_done
+.stosb_dec:
+    dec     word [reg_DI]
+.stosb_done:
+    add     word [reg_IP], 1
+    jmp     .step_ok
+.not_stosb:
+
+    ; --- LODSB (ACh) ---
+    cmp     al, 0ACh
+    jne     .not_lodsb
+    mov     ax, [reg_DS]
+    mov     bx, [reg_SI]
+    call    calc_linear_addr
+    mov     ecx, 1
+    call    check_mem_range
+    jc      .out_of_bounds
+    mov     dl, byte [memory + eax]
+    mov     byte [reg_AX], dl
+    cmp     byte [flag_states + FLAG_DN], 0
+    jne     .lodsb_dec
+    inc     word [reg_SI]
+    jmp     .lodsb_done
+.lodsb_dec:
+    dec     word [reg_SI]
+.lodsb_done:
+    add     word [reg_IP], 1
+    jmp     .step_ok
+.not_lodsb:
 
     cmp     al, 40h
     jb      .not_inc_r16
