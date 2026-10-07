@@ -10,6 +10,20 @@ include 'dump.inc'
 include 'lexer.inc'
 include 'utils.inc'
 
+ctrl_handler:
+    mov     eax, [esp+4]
+    cmp     eax, 0
+    je      .handled
+    cmp     eax, 1
+    je      .handled
+    xor     eax, eax
+    ret     4
+
+.handled:
+    mov     byte [ctrl_c_flag], 1
+    mov     eax, 1
+    ret     4
+
 start:
     invoke  GetStdHandle, STD_OUTPUT_HANDLE
     mov     [hStdOut], eax
@@ -17,7 +31,9 @@ start:
     invoke  GetStdHandle, STD_INPUT_HANDLE
     mov     [hStdIn], eax
 
-    invoke SetConsoleOutputCP, 866
+    invoke  SetConsoleOutputCP, 866
+
+    invoke  SetConsoleCtrlHandler, ctrl_handler, 1
 
     mov     ecx, MEM_SIZE
     mov     edi, memory
@@ -28,9 +44,17 @@ start:
     loop    .init_mem
 
 main_loop:
+    mov     byte [ctrl_c_flag], 0
     invoke  WriteConsoleA, [hStdOut], prompt, 1, chars_written, 0
+    mov     byte [input_buffer], 0
     invoke  ReadConsoleA, [hStdIn], input_buffer, INPUT_BUFFER_MAX, chars_read, 0
 
+    test    eax, eax
+    jz      .read_failed
+    cmp     dword [chars_read], 0
+    jz      .read_failed
+
+    mov     byte [ctrl_c_flag], 0
     mov     esi, input_buffer
     call    skip_whitespace
 
@@ -58,6 +82,18 @@ main_loop:
 
 .cmd_not_found:
     call    print_error
+    jmp     main_loop
+
+.read_failed:
+    cmp     byte [ctrl_c_flag], 0
+    jnz     .prompt_crlf
+    jmp     main_loop
+
+.prompt_crlf:
+    mov     byte [ctrl_c_flag], 0
+    mov     byte [line_buffer], CR
+    mov     byte [line_buffer+1], LF
+    invoke  WriteConsoleA, [hStdOut], line_buffer, 2, chars_written, 0
     jmp     main_loop
 
 cmd_help:
@@ -2748,6 +2784,7 @@ cmd_go:
     jmp     .parse_bp_loop
 
 .start_run:
+    mov     byte [ctrl_c_flag], 0
     call    step
     cmp     eax, STEP_OK
     je      .run_loop
@@ -2758,6 +2795,9 @@ cmd_go:
     jmp     .out_of_bounds
 
 .run_loop:
+    cmp     byte [ctrl_c_flag], 0
+    jne     .interrupted
+
     mov     cx, [num_breakpoints]
     test    cx, cx
     jz      .no_bp
@@ -2781,6 +2821,9 @@ cmd_go:
     jmp     .bp_check
 
 .no_bp:
+    cmp     byte [ctrl_c_flag], 0
+    jne     .interrupted
+
     call    step
     cmp     eax, STEP_OK
     je      .run_loop
@@ -2789,6 +2832,13 @@ cmd_go:
     cmp     eax, STEP_UNKNOWN
     je      .unknown_insn
     jmp     .out_of_bounds
+
+.interrupted:
+    mov     byte [ctrl_c_flag], 0
+    mov     byte [line_buffer], CR
+    mov     byte [line_buffer+1], LF
+    invoke  WriteConsoleA, [hStdOut], line_buffer, 2, chars_written, 0
+    jmp     cmd_register.show_all
 
 .hit_breakpoint:
     invoke  WriteConsoleA, [hStdOut], msg_breakpoint, msg_breakpoint_len, chars_written, 0
@@ -2811,7 +2861,7 @@ cmd_trace:
     mov     esi, [cmd_ptr]
     call    skip_whitespace
     call    is_eol
-    jc      .trace_loop
+    jc      .start_trace
 
     mov     al, [esi]
     cmp     al, '='
@@ -2825,7 +2875,7 @@ cmd_trace:
 
     call    skip_whitespace
     call    is_eol
-    jc      .trace_loop
+    jc      .start_trace
 
 .parse_count:
     call    parse_hex
@@ -2838,7 +2888,13 @@ cmd_trace:
     call    is_eol
     jnc     print_error_and_ret
 
+.start_trace:
+    mov     byte [ctrl_c_flag], 0
+
 .trace_loop:
+    cmp     byte [ctrl_c_flag], 0
+    jne     .trace_interrupted
+
     call    step
     cmp     eax, STEP_OK
     je      .step_ok
@@ -2857,6 +2913,13 @@ cmd_trace:
 
 .step_unknown:
     invoke  WriteConsoleA, [hStdOut], msg_unknown_insn, msg_unknown_insn_len, chars_written, 0
+    jmp     cmd_register.show_all
+
+.trace_interrupted:
+    mov     byte [ctrl_c_flag], 0
+    mov     byte [line_buffer], CR
+    mov     byte [line_buffer+1], LF
+    invoke  WriteConsoleA, [hStdOut], line_buffer, 2, chars_written, 0
     jmp     cmd_register.show_all
 
 .step_ok:
@@ -3085,10 +3148,74 @@ step:
     call    check_mem_range
     jc      .out_of_bounds
     mov     cx, word [memory + eax]
+    test    cx, cx
+    jz      .step_prog_end
     mov     [reg_IP], cx
     add     word [reg_SP], 2
     jmp     .step_ok
 .not_ret:
+
+    cmp     al, 0C2h
+    jne     .not_ret_imm16
+    cmp     word [reg_SP], 0FFEEh
+    jae     .step_prog_end
+    mov     ax, [reg_SS]
+    mov     bx, [reg_SP]
+    call    calc_linear_addr
+    mov     ecx, 2
+    call    check_mem_range
+    jc      .out_of_bounds
+    mov     cx, word [memory + eax]
+    test    cx, cx
+    jz      .step_prog_end
+    mov     [reg_IP], cx
+    add     word [reg_SP], 2
+    mov     dx, word [ebp+1]
+    add     [reg_SP], dx
+    jmp     .step_ok
+.not_ret_imm16:
+
+    cmp     al, 0CBh
+    jne     .not_retf
+    cmp     word [reg_SP], 0FFEEh
+    jae     .step_prog_end
+    mov     ax, [reg_SS]
+    mov     bx, [reg_SP]
+    call    calc_linear_addr
+    mov     ecx, 4
+    call    check_mem_range
+    jc      .out_of_bounds
+    mov     cx, word [memory + eax]
+    mov     dx, word [memory + eax + 2]
+    test    cx, cx
+    jz      .step_prog_end
+    mov     [reg_IP], cx
+    mov     [reg_CS], dx
+    add     word [reg_SP], 4
+    jmp     .step_ok
+.not_retf:
+
+    cmp     al, 0CAh
+    jne     .not_retf_imm16
+    cmp     word [reg_SP], 0FFEEh
+    jae     .step_prog_end
+    mov     ax, [reg_SS]
+    mov     bx, [reg_SP]
+    call    calc_linear_addr
+    mov     ecx, 4
+    call    check_mem_range
+    jc      .out_of_bounds
+    mov     cx, word [memory + eax]
+    mov     dx, word [memory + eax + 2]
+    test    cx, cx
+    jz      .step_prog_end
+    mov     [reg_IP], cx
+    mov     [reg_CS], dx
+    add     word [reg_SP], 4
+    mov     si, word [ebp+1]
+    add     [reg_SP], si
+    jmp     .step_ok
+.not_retf_imm16:
 
     cmp     al, 0E8h
     jne     .not_call_near
@@ -3107,6 +3234,27 @@ step:
     add     word [reg_IP], 3
     jmp     .step_ok
 .not_call_near:
+
+    cmp     al, 9Ah
+    jne     .not_call_far
+    sub     word [reg_SP], 4
+    mov     ax, [reg_SS]
+    mov     bx, [reg_SP]
+    call    calc_linear_addr
+    mov     ecx, 4
+    call    check_mem_range
+    jc      .out_of_bounds
+    mov     dx, [reg_IP]
+    add     dx, 5
+    mov     word [memory + eax], dx
+    mov     dx, [reg_CS]
+    mov     word [memory + eax + 2], dx
+    mov     cx, word [ebp+1]
+    mov     dx, word [ebp+3]
+    mov     [reg_IP], cx
+    mov     [reg_CS], dx
+    jmp     .step_ok
+.not_call_far:
 
     cmp     al, 0E9h
     jne     .not_jmp_near
@@ -4062,7 +4210,20 @@ step:
     test    edx, edx
     jz      .fe_ff_inc
     cmp     edx, 1
-    jne     .unknown_insn
+    je      .fe_ff_dec
+    cmp     edx, 2
+    je      .ff_call_near
+    cmp     edx, 3
+    je      .ff_call_far
+    cmp     edx, 4
+    je      .ff_jmp_near
+    cmp     edx, 5
+    je      .ff_jmp_far
+    cmp     edx, 6
+    je      .ff_push
+    jmp     .unknown_insn
+
+.fe_ff_dec:
     test    byte [ebp], 1
     jz      .fe_dec_b
     dec     word [edi]
@@ -4101,6 +4262,85 @@ step:
     mov     cl, [flag_states + FLAG_CY]
     call    update_flags_from_eflags
     mov     [flag_states + FLAG_CY], cl
+    add     [reg_IP], cx
+    jmp     .step_ok
+
+.ff_call_near:
+    test    byte [ebp], 1
+    jz      .unknown_insn
+    mov     si, word [edi]
+    mov     dx, [reg_IP]
+    add     dx, cx
+    sub     word [reg_SP], 2
+    mov     ax, [reg_SS]
+    mov     bx, [reg_SP]
+    call    calc_linear_addr
+    push    ecx
+    mov     ecx, 2
+    call    check_mem_range
+    pop     ecx
+    jc      .out_of_bounds
+    mov     word [memory + eax], dx
+    mov     [reg_IP], si
+    jmp     .step_ok
+
+.ff_call_far:
+    test    byte [ebp], 1
+    jz      .unknown_insn
+    cmp     byte [ebp+1], 0C0h
+    jae     .unknown_insn
+    mov     si, word [edi]
+    mov     dx, [reg_IP]
+    add     dx, cx
+    sub     word [reg_SP], 4
+    mov     ax, [reg_SS]
+    mov     bx, [reg_SP]
+    call    calc_linear_addr
+    push    ecx
+    mov     ecx, 4
+    call    check_mem_range
+    pop     ecx
+    jc      .out_of_bounds
+    mov     word [memory + eax], dx
+    mov     dx, [reg_CS]
+    mov     word [memory + eax+2], dx
+    mov     dx, word [edi+2]
+    mov     [reg_IP], si
+    mov     [reg_CS], dx
+    jmp     .step_ok
+
+.ff_jmp_near:
+    test    byte [ebp], 1
+    jz      .unknown_insn
+    mov     si, word [edi]
+    mov     [reg_IP], si
+    jmp     .step_ok
+
+.ff_jmp_far:
+    test    byte [ebp], 1
+    jz      .unknown_insn
+    cmp     byte [ebp+1], 0C0h
+    jae     .unknown_insn
+    mov     si, word [edi]
+    mov     dx, word [edi+2]
+    mov     [reg_IP], si
+    mov     [reg_CS], dx
+    jmp     .step_ok
+
+.ff_push:
+    test    byte [ebp], 1
+    jz      .unknown_insn
+    mov     si, word [edi]
+    sub     word [reg_SP], 2
+    mov     ax, [reg_SS]
+    mov     bx, [reg_SP]
+    call    calc_linear_addr
+    push    ecx
+    mov     ecx, 2
+    call    check_mem_range
+    pop     ecx
+    jc      .out_of_bounds
+    mov     word [memory + eax], si
     add     [reg_IP], cx
     jmp     .step_ok
 .not_fe_ff:
@@ -4252,14 +4492,18 @@ print_registers:
     pop     esi
     ret
 
+section '.data' data readable writeable
+    ctrl_c_flag     db 0
+
 section '.idata' import data readable writeable
     library kernel32, 'KERNEL32.DLL'
 
     import kernel32,\
-           ExitProcess,        'ExitProcess',\
-           GetStdHandle,       'GetStdHandle',\
-           WriteConsoleA,      'WriteConsoleA',\
-           ReadConsoleA,       'ReadConsoleA',\
-           SetConsoleOutputCP, 'SetConsoleOutputCP',\
-           GetConsoleMode,     'GetConsoleMode',\
-           SetConsoleMode,     'SetConsoleMode'
+           ExitProcess,           'ExitProcess',\
+           GetStdHandle,          'GetStdHandle',\
+           WriteConsoleA,         'WriteConsoleA',\
+           ReadConsoleA,          'ReadConsoleA',\
+           SetConsoleOutputCP,    'SetConsoleOutputCP',\
+           GetConsoleMode,        'GetConsoleMode',\
+           SetConsoleMode,        'SetConsoleMode',\
+           SetConsoleCtrlHandler, 'SetConsoleCtrlHandler'
