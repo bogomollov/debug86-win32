@@ -859,10 +859,45 @@ disasm_line:
     add     ebp, eax
 
     mov     al, [ebp]
-    cmp     al, OP_JNZ_REL8
-    je      .rel_jump
+
+    cmp     al, 70h
+    jb      .not_dis_jcc
+    cmp     al, 7Fh
+    jbe     .dis_jcc
+.not_dis_jcc:
+
+    cmp     al, 0EBh
+    je      .dis_jmp_short
+    cmp     al, 0E9h
+    je      .dis_jmp_near
+    cmp     al, 0E8h
+    je      .dis_call_near
+    cmp     al, 0E2h
+    je      .dis_loop
+    cmp     al, 0E3h
+    je      .dis_jcxz
+
+    cmp     al, 40h
+    jb      .not_dis_inc
+    cmp     al, 47h
+    jbe     .dis_inc_r16
+.not_dis_inc:
+
+    cmp     al, 50h
+    jb      .not_dis_push
+    cmp     al, 57h
+    jbe     .dis_push_r16
+.not_dis_push:
+
+    cmp     al, 58h
+    jb      .not_dis_pop
+    cmp     al, 5Fh
+    jbe     .dis_pop_r16
+.not_dis_pop:
+
     call    find_opcode
     jc      .not_found
+
 
     movzx   ebx, dl
     inc     ebx
@@ -1068,7 +1103,50 @@ disasm_line:
     pop     ecx
     ret
 
-.rel_jump:
+.dis_jcc:
+    mov     dword [esp+12], 2
+    mov     eax, ebp
+    sub     eax, memory
+    add     eax, 2
+    cmp     eax, MEM_SIZE
+    ja      .not_found
+
+    mov     al, [ebp]
+    call    put_hex_byte
+    mov     al, [ebp+1]
+    call    put_hex_byte
+
+    mov     ecx, 10
+    mov     al, SPACE
+    rep     stosb
+
+    movzx   eax, byte [ebp]
+    sub     eax, 70h
+    shl     eax, 2
+    lea     esi, [jcc_names + eax]
+    mov     al, [esi]
+    stosb
+    mov     al, [esi+1]
+    stosb
+    mov     al, [esi+2]
+    cmp     al, ' '
+    je      .jcc_skip_sp
+    stosb
+    mov     ecx, 5
+    jmp     .jcc_pad
+.jcc_skip_sp:
+    mov     ecx, 6
+.jcc_pad:
+    mov     al, SPACE
+    rep     stosb
+
+    movsx   eax, byte [ebp+1]
+    add     ax, [esp+4]
+    add     ax, 2
+    call    put_hex_word
+    jmp     .line_done
+
+.dis_jmp_short:
     mov     dword [esp+12], 2
     mov     eax, ebp
     sub     eax, memory
@@ -1087,9 +1165,9 @@ disasm_line:
 
     mov     al, 'J'
     stosb
-    mov     al, 'N'
+    mov     al, 'M'
     stosb
-    mov     al, 'Z'
+    mov     al, 'P'
     stosb
 
     mov     ecx, 5
@@ -1101,6 +1179,247 @@ disasm_line:
     add     ax, 2
     call    put_hex_word
     jmp     .line_done
+
+.dis_loop:
+    mov     dword [esp+12], 2
+    mov     eax, ebp
+    sub     eax, memory
+    add     eax, 2
+    cmp     eax, MEM_SIZE
+    ja      .not_found
+
+    mov     al, [ebp]
+    call    put_hex_byte
+    mov     al, [ebp+1]
+    call    put_hex_byte
+
+    mov     ecx, 10
+    mov     al, SPACE
+    rep     stosb
+
+    mov     al, 'L'
+    stosb
+    mov     al, 'O'
+    stosb
+    mov     al, 'O'
+    stosb
+    mov     al, 'P'
+    stosb
+
+    mov     ecx, 4
+    mov     al, SPACE
+    rep     stosb
+
+    movsx   eax, byte [ebp+1]
+    add     ax, [esp+4]
+    add     ax, 2
+    call    put_hex_word
+    jmp     .line_done
+
+.dis_jcxz:
+    mov     dword [esp+12], 2
+    mov     eax, ebp
+    sub     eax, memory
+    add     eax, 2
+    cmp     eax, MEM_SIZE
+    ja      .not_found
+
+    mov     al, [ebp]
+    call    put_hex_byte
+    mov     al, [ebp+1]
+    call    put_hex_byte
+
+    mov     ecx, 10
+    mov     al, SPACE
+    rep     stosb
+
+    mov     al, 'J'
+    stosb
+    mov     al, 'C'
+    stosb
+    mov     al, 'X'
+    stosb
+    mov     al, 'Z'
+    stosb
+
+    mov     ecx, 4
+    mov     al, SPACE
+    rep     stosb
+
+    movsx   eax, byte [ebp+1]
+    add     ax, [esp+4]
+    add     ax, 2
+    call    put_hex_word
+    jmp     .line_done
+
+.dis_jmp_near:
+    mov     dword [esp+12], 3
+    mov     eax, ebp
+    sub     eax, memory
+    add     eax, 3
+    cmp     eax, MEM_SIZE
+    ja      .not_found
+
+    mov     al, [ebp]
+    call    put_hex_byte
+    mov     al, [ebp+1]
+    call    put_hex_byte
+    mov     al, [ebp+2]
+    call    put_hex_byte
+
+    mov     ecx, 8
+    mov     al, SPACE
+    rep     stosb
+
+    mov     al, 'J'
+    stosb
+    mov     al, 'M'
+    stosb
+    mov     al, 'P'
+    stosb
+
+    mov     ecx, 5
+    mov     al, SPACE
+    rep     stosb
+
+    mov     ax, word [ebp+1]
+    add     ax, [esp+4]
+    add     ax, 3
+    call    put_hex_word
+    jmp     .line_done
+
+.dis_call_near:
+    mov     dword [esp+12], 3
+    mov     eax, ebp
+    sub     eax, memory
+    add     eax, 3
+    cmp     eax, MEM_SIZE
+    ja      .not_found
+
+    mov     al, [ebp]
+    call    put_hex_byte
+    mov     al, [ebp+1]
+    call    put_hex_byte
+    mov     al, [ebp+2]
+    call    put_hex_byte
+
+    mov     ecx, 8
+    mov     al, SPACE
+    rep     stosb
+
+    mov     al, 'C'
+    stosb
+    mov     al, 'A'
+    stosb
+    mov     al, 'L'
+    stosb
+    mov     al, 'L'
+    stosb
+
+    mov     ecx, 4
+    mov     al, SPACE
+    rep     stosb
+
+    mov     ax, word [ebp+1]
+    add     ax, [esp+4]
+    add     ax, 3
+    call    put_hex_word
+    jmp     .line_done
+
+.dis_inc_r16:
+    mov     dword [esp+12], 1
+    mov     al, [ebp]
+    call    put_hex_byte
+
+    mov     ecx, 12
+    mov     al, SPACE
+    rep     stosb
+
+    mov     al, 'I'
+    stosb
+    mov     al, 'N'
+    stosb
+    mov     al, 'C'
+    stosb
+
+    mov     ecx, 5
+    mov     al, SPACE
+    rep     stosb
+
+    movzx   eax, byte [ebp]
+    sub     eax, 40h
+    shl     eax, 1
+    lea     esi, [op_reg16_names + eax]
+    lodsw
+    stosw
+    jmp     .line_done
+
+.dis_push_r16:
+    mov     dword [esp+12], 1
+    mov     al, [ebp]
+    call    put_hex_byte
+
+    mov     ecx, 12
+    mov     al, SPACE
+    rep     stosb
+
+    mov     al, 'P'
+    stosb
+    mov     al, 'U'
+    stosb
+    mov     al, 'S'
+    stosb
+    mov     al, 'H'
+    stosb
+
+    mov     ecx, 4
+    mov     al, SPACE
+    rep     stosb
+
+    movzx   eax, byte [ebp]
+    sub     eax, 50h
+    shl     eax, 1
+    lea     esi, [op_reg16_names + eax]
+    lodsw
+    stosw
+    jmp     .line_done
+
+.dis_pop_r16:
+    mov     dword [esp+12], 1
+    mov     al, [ebp]
+    call    put_hex_byte
+
+    mov     ecx, 12
+    mov     al, SPACE
+    rep     stosb
+
+    mov     al, 'P'
+    stosb
+    mov     al, 'O'
+    stosb
+    mov     al, 'P'
+    stosb
+
+    mov     ecx, 5
+    mov     al, SPACE
+    rep     stosb
+
+    movzx   eax, byte [ebp]
+    sub     eax, 58h
+    shl     eax, 1
+    lea     esi, [op_reg16_names + eax]
+    lodsw
+    stosw
+    jmp     .line_done
+
+op_reg16_names:
+    dw 'AX', 'CX', 'DX', 'BX', 'SP', 'BP', 'SI', 'DI'
+
+jcc_names:
+    db 'JO ', 0, 'JNO', 0, 'JB ', 0, 'JAE', 0
+    db 'JZ ', 0, 'JNZ', 0, 'JBE', 0, 'JA ', 0
+    db 'JS ', 0, 'JNS', 0, 'JP ', 0, 'JNP', 0
+    db 'JL ', 0, 'JGE', 0, 'JLE', 0, 'JG ', 0
 
 
 find_opcode:
@@ -2394,6 +2713,15 @@ cmd_go:
     jmp     .parse_bp_loop
 
 .start_run:
+    call    step
+    cmp     eax, STEP_OK
+    je      .run_loop
+    cmp     eax, STEP_PROGRAM_END
+    je      .program_end
+    cmp     eax, STEP_UNKNOWN
+    je      .unknown_insn
+    jmp     .out_of_bounds
+
 .run_loop:
     mov     cx, [num_breakpoints]
     test    cx, cx
@@ -2429,7 +2757,7 @@ cmd_go:
 
 .hit_breakpoint:
     invoke  WriteConsoleA, [hStdOut], msg_breakpoint, msg_breakpoint_len, chars_written, 0
-    jmp     print_registers
+    jmp     cmd_register.show_all
 
 .program_end:
     invoke  WriteConsoleA, [hStdOut], msg_prog_end, msg_prog_end_len, chars_written, 0
@@ -2437,7 +2765,7 @@ cmd_go:
 
 .unknown_insn:
     invoke  WriteConsoleA, [hStdOut], msg_unknown_insn, msg_unknown_insn_len, chars_written, 0
-    jmp     print_registers
+    jmp     cmd_register.show_all
 
 .out_of_bounds:
     call    print_error
@@ -2494,7 +2822,7 @@ cmd_trace:
 
 .step_unknown:
     invoke  WriteConsoleA, [hStdOut], msg_unknown_insn, msg_unknown_insn_len, chars_written, 0
-    jmp     print_registers
+    jmp     cmd_register.show_all
 
 .step_ok:
     call    cmd_register.show_all
@@ -2713,8 +3041,74 @@ step:
 
     cmp     al, 0C3h
     jne     .not_ret
-    jmp     .step_prog_end
+    cmp     word [reg_SP], 0FFEEh
+    jae     .step_prog_end
+    mov     ax, [reg_SS]
+    mov     bx, [reg_SP]
+    call    calc_linear_addr
+    mov     ecx, 2
+    call    check_mem_range
+    jc      .out_of_bounds
+    mov     cx, word [memory + eax]
+    mov     [reg_IP], cx
+    add     word [reg_SP], 2
+    jmp     .step_ok
 .not_ret:
+
+    cmp     al, 0E8h
+    jne     .not_call_near
+    sub     word [reg_SP], 2
+    mov     ax, [reg_SS]
+    mov     bx, [reg_SP]
+    call    calc_linear_addr
+    mov     ecx, 2
+    call    check_mem_range
+    jc      .out_of_bounds
+    mov     dx, [reg_IP]
+    add     dx, 3
+    mov     word [memory + eax], dx
+    mov     cx, word [ebp+1]
+    add     [reg_IP], cx
+    add     word [reg_IP], 3
+    jmp     .step_ok
+.not_call_near:
+
+    cmp     al, 0E9h
+    jne     .not_jmp_near
+    mov     cx, word [ebp+1]
+    add     word [reg_IP], 3
+    add     [reg_IP], cx
+    jmp     .step_ok
+.not_jmp_near:
+
+    cmp     al, 0EBh
+    jne     .not_jmp_short
+    movsx   cx, byte [ebp+1]
+    add     word [reg_IP], 2
+    add     [reg_IP], cx
+    jmp     .step_ok
+.not_jmp_short:
+
+    cmp     al, 0E2h
+    jne     .not_loop
+    dec     word [reg_CX]
+    movsx   cx, byte [ebp+1]
+    add     word [reg_IP], 2
+    cmp     word [reg_CX], 0
+    je      .step_ok
+    add     [reg_IP], cx
+    jmp     .step_ok
+.not_loop:
+
+    cmp     al, 0E3h
+    jne     .not_jcxz
+    movsx   cx, byte [ebp+1]
+    add     word [reg_IP], 2
+    cmp     word [reg_CX], 0
+    jne     .step_ok
+    add     [reg_IP], cx
+    jmp     .step_ok
+.not_jcxz:
 
     cmp     al, OP_INT
     jne     .not_int
@@ -2765,8 +3159,14 @@ step:
     jmp     .step_ok
 .not_int:
 
-    cmp     al, OP_PUSH_CX
-    jne     .not_push_cx
+    cmp     al, 50h
+    jb      .not_push_r16
+    cmp     al, 57h
+    ja      .not_push_r16
+    sub     al, 50h
+    movzx   eax, al
+    mov     edi, [reg16_ptrs + eax*4]
+    mov     si, [edi]
     sub     word [reg_SP], 2
     mov     ax, [reg_SS]
     mov     bx, [reg_SP]
@@ -2774,14 +3174,18 @@ step:
     mov     ecx, 2
     call    check_mem_range
     jc      .out_of_bounds
-    mov     cx, [reg_CX]
-    mov     word [memory + eax], cx
+    mov     word [memory + eax], si
     add     word [reg_IP], 1
     jmp     .step_ok
-.not_push_cx:
+.not_push_r16:
 
-    cmp     al, OP_POP_CX
-    jne     .not_pop_cx
+    cmp     al, 58h
+    jb      .not_pop_r16
+    cmp     al, 5Fh
+    ja      .not_pop_r16
+    sub     al, 58h
+    movzx   eax, al
+    mov     edi, [reg16_ptrs + eax*4]
     mov     ax, [reg_SS]
     mov     bx, [reg_SP]
     call    calc_linear_addr
@@ -2789,11 +3193,28 @@ step:
     call    check_mem_range
     jc      .out_of_bounds
     mov     cx, word [memory + eax]
-    mov     [reg_CX], cx
+    mov     [edi], cx
     add     word [reg_SP], 2
     add     word [reg_IP], 1
     jmp     .step_ok
-.not_pop_cx:
+.not_pop_r16:
+
+    cmp     al, 40h
+    jb      .not_inc_r16
+    cmp     al, 47h
+    ja      .not_inc_r16
+    sub     al, 40h
+    movzx   eax, al
+    mov     edi, [reg16_ptrs + eax*4]
+    inc     word [edi]
+    pushfd
+    pop     edx
+    mov     cl, [flag_states + FLAG_CY]
+    call    update_flags_from_eflags
+    mov     [flag_states + FLAG_CY], cl
+    add     word [reg_IP], 1
+    jmp     .step_ok
+.not_inc_r16:
 
     cmp     al, 48h
     jb      .not_dec_r16
@@ -2812,15 +3233,76 @@ step:
     jmp     .step_ok
 .not_dec_r16:
 
-    cmp     al, OP_JNZ_REL8
-    jne     .not_jnz
+    cmp     al, 70h
+    jb      .not_jcc
+    cmp     al, 7Fh
+    ja      .not_jcc
+
+    mov     dl, al
+    and     dl, 1
+
+    shr     al, 1
+    and     al, 7
+
+    cmp     al, 0
+    jne     .jcc_1
+    mov     dh, [flag_states + FLAG_OV]
+    jmp     .jcc_eval_done
+
+.jcc_1:
+    cmp     al, 1
+    jne     .jcc_2
+    mov     dh, [flag_states + FLAG_CY]
+    jmp     .jcc_eval_done
+
+.jcc_2:
+    cmp     al, 2
+    jne     .jcc_3
+    mov     dh, [flag_states + FLAG_ZR]
+    jmp     .jcc_eval_done
+
+.jcc_3:
+    cmp     al, 3
+    jne     .jcc_4
+    mov     dh, [flag_states + FLAG_CY]
+    or      dh, [flag_states + FLAG_ZR]
+    jmp     .jcc_eval_done
+
+.jcc_4:
+    cmp     al, 4
+    jne     .jcc_5
+    mov     dh, [flag_states + FLAG_NG]
+    jmp     .jcc_eval_done
+
+.jcc_5:
+    cmp     al, 5
+    jne     .jcc_6
+    mov     dh, [flag_states + FLAG_PE]
+    jmp     .jcc_eval_done
+
+.jcc_6:
+    cmp     al, 6
+    jne     .jcc_7
+    mov     dh, [flag_states + FLAG_NG]
+    cmp     dh, [flag_states + FLAG_OV]
+    setne   dh
+    jmp     .jcc_eval_done
+
+.jcc_7:
+    mov     dh, [flag_states + FLAG_NG]
+    cmp     dh, [flag_states + FLAG_OV]
+    setne   dh
+    or      dh, [flag_states + FLAG_ZR]
+
+.jcc_eval_done:
+    xor     dh, dl
     movsx   cx, byte [ebp+1]
     add     word [reg_IP], 2
-    cmp     byte [flag_states + FLAG_ZR], 0
-    jne     .step_ok
-    add     word [reg_IP], cx
+    test    dh, dh
+    jz      .step_ok
+    add     [reg_IP], cx
     jmp     .step_ok
-.not_jnz:
+.not_jcc:
 
     cmp     al, 0B0h
     jb      .not_mov_r8_imm
@@ -3542,9 +4024,11 @@ step:
     mov     bl, al
     call    decode_modrm
     jc      .out_of_bounds
+    test    edx, edx
+    jz      .fe_ff_inc
     cmp     edx, 1
     jne     .unknown_insn
-    test    bl, bl
+    test    byte [ebp], 1
     jz      .fe_dec_b
     dec     word [edi]
     pushfd
@@ -3556,6 +4040,27 @@ step:
     jmp     .step_ok
 .fe_dec_b:
     dec     byte [edi]
+    pushfd
+    pop     edx
+    mov     cl, [flag_states + FLAG_CY]
+    call    update_flags_from_eflags
+    mov     [flag_states + FLAG_CY], cl
+    add     [reg_IP], cx
+    jmp     .step_ok
+
+.fe_ff_inc:
+    test    byte [ebp], 1
+    jz      .fe_inc_b
+    inc     word [edi]
+    pushfd
+    pop     edx
+    mov     cl, [flag_states + FLAG_CY]
+    call    update_flags_from_eflags
+    mov     [flag_states + FLAG_CY], cl
+    add     [reg_IP], cx
+    jmp     .step_ok
+.fe_inc_b:
+    inc     byte [edi]
     pushfd
     pop     edx
     mov     cl, [flag_states + FLAG_CY]
