@@ -3305,9 +3305,11 @@ step:
 
 .int21:
     mov     ah, byte [reg_AX+1]
-    cmp     ah, 09h
+    cmp     ah, INT21_AH_PRINT_STRING
     je      .int21_ah09
-    cmp     ah, 4Ch
+    cmp     ah, INT21_AH_BUFFERED_INPUT
+    je      .int21_ah0a
+    cmp     ah, INT21_AH_EXIT
     je      .step_prog_end
     add     word [reg_IP], 2
     jmp     .step_ok
@@ -3338,6 +3340,92 @@ step:
     invoke  WriteConsoleA, [hStdOut], esi, edx, chars_written, 0
 
 .int21_09_skip:
+    add     word [reg_IP], 2
+    jmp     .step_ok
+
+.int21_ah0a:
+    mov     ax, [reg_DS]
+    mov     bx, [reg_DX]
+    call    calc_linear_addr
+
+    cmp     eax, MEM_SIZE - 2
+    jae     .int21_0a_skip
+
+    mov     edi, memory
+    add     edi, eax
+
+    movzx   ecx, byte [edi]
+    test    ecx, ecx
+    jnz     .int21_0a_have_max
+    mov     ecx, 255
+    mov     byte [edi], cl
+.int21_0a_have_max:
+
+    mov     edx, MEM_SIZE - 3
+    sub     edx, eax
+    jbe     .int21_0a_skip
+    cmp     ecx, edx
+    jbe     .int21_0a_len_ok
+    mov     ecx, edx
+.int21_0a_len_ok:
+
+    mov     dword [int21_old_console_mode], 0
+    invoke  GetConsoleMode, [hStdIn], int21_old_console_mode
+    test    eax, eax
+    jz      .int21_0a_no_setmode
+    mov     eax, [int21_old_console_mode]
+    or      eax, ENABLE_PROCESSED_INPUT or ENABLE_LINE_INPUT or ENABLE_ECHO_INPUT
+    invoke  SetConsoleMode, [hStdIn], eax
+.int21_0a_no_setmode:
+
+    mov     dword [int21_chars_read], 0
+    invoke  ReadConsoleA, [hStdIn], int21_input_buf, 255, int21_chars_read, 0
+
+    cmp     dword [int21_old_console_mode], 0
+    jz      .int21_0a_no_restoremode
+    invoke  SetConsoleMode, [hStdIn], [int21_old_console_mode]
+.int21_0a_no_restoremode:
+
+    cmp     byte [ctrl_c_flag], 0
+    jne     .int21_0a_skip
+
+    mov     ebx, [int21_chars_read]
+    xor     edx, edx
+    mov     esi, int21_input_buf
+.int21_0a_count:
+    test    ebx, ebx
+    jz      .int21_0a_count_done
+    mov     al, [esi]
+    cmp     al, 13
+    je      .int21_0a_count_done
+    cmp     al, 10
+    je      .int21_0a_count_done
+    inc     esi
+    inc     edx
+    dec     ebx
+    jmp     .int21_0a_count
+.int21_0a_count_done:
+
+    cmp     edx, ecx
+    jbe     .int21_0a_clamp_ok
+    mov     edx, ecx
+.int21_0a_clamp_ok:
+
+    mov     byte [edi + 1], dl
+    push    edi
+    push    esi
+    push    ecx
+    cld
+    lea     esi, [int21_input_buf]
+    lea     edi, [edi + 2]
+    mov     ecx, edx
+    rep     movsb
+    mov     byte [edi], 13
+    pop     ecx
+    pop     esi
+    pop     edi
+
+.int21_0a_skip:
     add     word [reg_IP], 2
     jmp     .step_ok
 .not_int:

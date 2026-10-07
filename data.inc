@@ -68,6 +68,7 @@ ENABLE_PROCESSED_INPUT  equ 0001h
 ENABLE_LINE_INPUT       equ 0002h
 ENABLE_ECHO_INPUT       equ 0004h
 INT21_AH_PRINT_STRING   equ 09h
+INT21_AH_BUFFERED_INPUT equ 0Ah
 INT21_AH_EXIT           equ 4Ch
 
 INSN_LEN_1              equ 1
@@ -255,6 +256,8 @@ section '.data' data readable writeable
     edit_char        db 0
     edit_chars_read  dd 0
     old_console_mode dd 0
+    int21_old_console_mode dd 0
+    int21_chars_read dd 0
     edit_nibble      db 0
     edit_have_nibble db 0
     edit_cell_done   db 0
@@ -612,6 +615,7 @@ COMTAB:
 
 section '.bss' readable writeable
     input_buffer    rb INPUT_BUFFER_SIZE
+    int21_input_buf rb INPUT_BUFFER_SIZE
     line_buffer     rb LINE_BUFFER_SIZE
     asm_token       rb ASM_TOKEN_SIZE
     asm_bytes       rb ASM_BYTES_SIZE
