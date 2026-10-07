@@ -134,10 +134,10 @@ dd_line_loop:
     mov     esi, line_buffer
     call    print_buffer
 
+    add     word [dump_off], DUMP_LINE_BYTES
     movzx   ecx, word [dd_line_bytes]
     sub     word [dump_len], cx
     jz      dd_done
-    add     word [dump_off], DUMP_LINE_BYTES
     mov     word [dd_skip], 0
     jmp     dd_line_loop
 
