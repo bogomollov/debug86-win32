@@ -772,6 +772,150 @@ cmd_move:
     pop     ebx
     jmp     print_error_and_ret
 
+cmd_search:
+    mov     esi, [cmd_ptr]
+
+    call    parse_address
+    jc      print_error_and_ret
+    mov     [search_seg], ax
+    mov     [search_off], bx
+    mov     bp, ax
+
+    mov     dx, bx
+    call    parse_length
+    jc      print_error_and_ret
+    mov     [search_len], ecx
+
+    mov     edi, search_pat
+    xor     ecx, ecx
+
+.cs_next_token:
+    call    skip_whitespace
+    call    is_eol
+    jc      .cs_pat_done
+
+    cmp     ecx, FILL_PAT_MAX
+    jae     .cs_pat_done
+
+    cmp     al, 22h
+    je      .cs_string
+    cmp     al, 27h
+    je      .cs_string
+
+    call    parse_hex_byte
+    jc      print_error_and_ret
+    stosb
+    inc     ecx
+    jmp     .cs_next_token
+
+.cs_string:
+    mov     dl, al
+    inc     esi
+.cs_str_loop:
+    mov     al, [esi]
+    call    is_eol
+    jc      .cs_pat_done
+    cmp     al, dl
+    je      .cs_str_end
+
+    cmp     ecx, FILL_PAT_MAX
+    jae     .cs_pat_done
+
+    stosb
+    inc     ecx
+    inc     esi
+    jmp     .cs_str_loop
+.cs_str_end:
+    inc     esi
+    jmp     .cs_next_token
+
+.cs_pat_done:
+    test    ecx, ecx
+    jz      print_error_and_ret
+    mov     [search_patlen], cx
+
+.cs_do_search:
+    mov     ax, [search_seg]
+    mov     bx, [search_off]
+    call    calc_linear_addr
+
+    mov     ecx, [search_len]
+    call    check_mem_range
+    jc      print_error_and_ret
+
+    movzx   edx, word [search_patlen]
+    cmp     ecx, edx
+    jb      .cs_ret
+
+    sub     ecx, edx
+    inc     ecx
+
+    lea     edi, [memory + eax]
+    xor     ebx, ebx
+
+.cs_search_loop:
+    cmp     byte [ctrl_c_flag], 0
+    jne     .cs_interrupted
+
+    push    ecx
+    push    esi
+    push    edi
+
+    lea     esi, [edi + ebx]
+    mov     edi, search_pat
+    movzx   ecx, word [search_patlen]
+    cld
+    repe    cmpsb
+
+    pop     edi
+    pop     esi
+    pop     ecx
+    jne     .cs_no_match
+
+    mov     ax, [search_off]
+    add     ax, bx
+    movzx   eax, ax
+
+    push    ebx
+    push    ecx
+    push    edi
+    push    eax
+
+    mov     edi, line_buffer
+    mov     ax, [search_seg]
+    call    put_hex_word
+    mov     al, COLON
+    stosb
+    pop     eax
+    call    put_hex_word
+    mov     al, CR
+    stosb
+    mov     al, LF
+    stosb
+
+    mov     edx, edi
+    sub     edx, line_buffer
+    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
+
+    pop     edi
+    pop     ecx
+    pop     ebx
+
+.cs_no_match:
+    inc     ebx
+    dec     ecx
+    jnz     .cs_search_loop
+
+.cs_ret:
+    ret
+
+.cs_interrupted:
+    mov     byte [ctrl_c_flag], 0
+    mov     byte [line_buffer], CR
+    mov     byte [line_buffer+1], LF
+    invoke  WriteConsoleA, [hStdOut], line_buffer, 2, chars_written, 0
+    ret
+
 cmd_assemble:
     mov     esi, [cmd_ptr]
 

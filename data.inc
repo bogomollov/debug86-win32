@@ -244,6 +244,11 @@ section '.data' data readable writeable
     fill_len        dw 0
     fill_patlen     dw 0
     fill_pat        rb FILL_PAT_MAX
+    search_seg      dw 0
+    search_off      dw 0
+    search_len      dd 0
+    search_patlen   dw 0
+    search_pat      rb FILL_PAT_MAX
 
     move_src_seg    dw 0
     move_src_off    dw 0
@@ -576,6 +581,7 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
               db 'enter                 E адрес [список]',CR,LF
               db 'fill                  F диапазон список',CR,LF
               db 'move                  M диапазон адрес',CR,LF
+              db 'search                S диапазон список',CR,LF
               db 'register              R [имя]',CR,LF
               db 'go                    G [=addr] [bp]',CR,LF
               db 'proceed               P [=addr] [count]',CR,LF
@@ -602,6 +608,7 @@ COMTAB:
     cmd_entry 'f', cmd_fill
     cmd_entry 'e', cmd_edit
     cmd_entry 'm', cmd_move
+    cmd_entry 's', cmd_search
     cmd_entry 'g', cmd_go
     cmd_entry 't', cmd_trace
     cmd_entry 'p', cmd_proceed
