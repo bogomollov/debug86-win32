@@ -124,102 +124,12 @@ cmd_register:
 .show_all:
     call    print_registers
 
-    mov     edi, line_buffer
-
-    mov     ax, [reg_CS]
-    call    put_hex_word
-    mov     al, COLON
-    stosb
-    mov     ax, [reg_IP]
-    call    put_hex_word
-    mov     al, SPACE
-    stosb
-
     mov     ax, [reg_CS]
     mov     bx, [reg_IP]
-    call    calc_linear_addr
-    mov     ebp, memory
-    add     ebp, eax
-
-    mov     al, [ebp]
-    cmp     al, 00h
-    je      .cr_add_bxsi
-
-    call    put_hex_byte
-    mov     al, SPACE
-    stosb
-    mov     al, 'D'
-    stosb
-    mov     al, 'B'
-    stosb
-    mov     al, SPACE
-    stosb
-    mov     al, [ebp]
-    call    put_hex_byte
-    jmp     .cr_done
-
-.cr_add_bxsi:
-    mov     al, [ebp]
-    call    put_hex_byte
-    mov     al, [ebp+1]
-    call    put_hex_byte
-    mov     al, SPACE
-    stosb
-
-    mov     esi, str_add_bxsi_al
-.cr_str:
-    lodsb
-    test    al, al
-    jz      .cr_mem_chk
-    stosb
-    jmp     .cr_str
-
-.cr_mem_chk:
-    mov     al, [ebp+1]
-    test    al, 0C0h
-    jnz     .cr_done
-    and     al, 07h
-    jnz     .cr_done
-
-    movzx   ecx, word [reg_BX]
-    movzx   ebx, word [reg_SI]
-    add     ecx, ebx
-    push    ecx
-
-    movzx   eax, word [reg_DS]
-    shl     eax, 4
-    add     eax, ecx
-    mov     esi, memory
-    add     esi, eax
-    mov     bl, [esi]
-
-    pop     ecx
-
-    mov     al, SPACE
-    stosb
-    mov     al, 'D'
-    stosb
-    mov     al, 'S'
-    stosb
-    mov     al, COLON
-    stosb
-    mov     ax, cx
-    call    put_hex_word
-    mov     al, '='
-    stosb
-    mov     al, bl
-    call    put_hex_byte
-
-.cr_done:
-    mov     al, CR
-    stosb
-    mov     al, LF
-    stosb
-
-    mov     edx, edi
-    sub     edx, line_buffer
-    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
+    mov     cl, 1
+    call    disasm_line
     ret
+
 
 cmd_rf:
     call    show_flags
@@ -897,20 +807,54 @@ cmd_unassemble:
     test    ecx, ecx
     jz      .done
 
-    mov     edi, line_buffer
     mov     ax, [unasm_seg]
+    mov     bx, [unasm_off]
+    xor     cl, cl
+    call    disasm_line
+    add     [unasm_off], bx
+
+    mov     ax, [unasm_len]
+    sub     ax, bx
+    jbe     .done
+    mov     [unasm_len], ax
+    jmp     .unasm_loop
+
+.done:
+    ret
+
+disasm_line:
+    push    ecx
+    push    edx
+    push    esi
+    push    edi
+    push    ebp
+    sub     esp, 16
+
+    movzx   edx, ax
+    mov     [esp+0], edx
+    movzx   edx, bx
+    mov     [esp+4], edx
+    movzx   edx, cl
+    mov     [esp+8], edx
+    mov     dword [esp+12], 1
+
+    mov     edi, line_buffer
+    mov     ax, [esp+0]
     call    put_hex_word
     mov     al, COLON
     stosb
-    mov     ax, [unasm_off]
+    mov     ax, [esp+4]
     call    put_hex_word
     mov     al, SPACE
     stosb
     stosb
 
-    mov     ax, [unasm_seg]
-    mov     bx, [unasm_off]
+    mov     ax, [esp+0]
+    mov     bx, [esp+4]
     call    calc_linear_addr
+    cmp     eax, MEM_SIZE
+    jae     .out_of_mem
+
     mov     ebp, memory
     add     ebp, eax
 
@@ -922,6 +866,7 @@ cmd_unassemble:
 
     movzx   ebx, dl
     inc     ebx
+    mov     [esp+12], ebx
 
     mov     eax, ebp
     sub     eax, memory
@@ -930,6 +875,7 @@ cmd_unassemble:
     jbe     .have_bytes
 
 .not_found:
+    mov     dword [esp+12], 1
     mov     al, [ebp]
     call    put_hex_byte
 
@@ -948,9 +894,15 @@ cmd_unassemble:
 
     mov     al, [ebp]
     call    put_hex_byte
-
-    mov     ebx, 1
     jmp     .line_done
+
+.out_of_mem:
+    mov     al, '?'
+    stosb
+    mov     al, '?'
+    stosb
+    mov     dword [esp+12], 1
+    jmp     .write_line
 
 .have_bytes:
     push    esi
@@ -1053,6 +1005,51 @@ cmd_unassemble:
     call    put_hex_byte
 
 .line_done:
+    cmp     dword [esp+8], 0
+    jz      .write_line
+
+    cmp     byte [ebp], 00h
+    jne     .write_line
+    cmp     byte [ebp+1], 00h
+    jne     .write_line
+
+    movzx   ecx, word [reg_BX]
+    movzx   edx, word [reg_SI]
+    add     ecx, edx
+    push    ecx
+
+    movzx   eax, word [reg_DS]
+    shl     eax, 4
+    add     eax, ecx
+    cmp     eax, MEM_SIZE
+    jae     .pop_skip_mem
+
+    mov     esi, memory
+    add     esi, eax
+    mov     dl, [esi]
+
+    pop     ecx
+
+    mov     al, SPACE
+    stosb
+    mov     al, 'D'
+    stosb
+    mov     al, 'S'
+    stosb
+    mov     al, COLON
+    stosb
+    mov     ax, cx
+    call    put_hex_word
+    mov     al, '='
+    stosb
+    mov     al, dl
+    call    put_hex_byte
+    jmp     .write_line
+
+.pop_skip_mem:
+    pop     ecx
+
+.write_line:
     mov     al, CR
     stosb
     mov     al, LF
@@ -1062,18 +1059,17 @@ cmd_unassemble:
     sub     edx, line_buffer
     invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
 
-    add     [unasm_off], bx
-
-    mov     ax, [unasm_len]
-    sub     ax, bx
-    jbe     .done
-    mov     [unasm_len], ax
-    jmp     .unasm_loop
-
-.done:
+    mov     ebx, [esp+12]
+    add     esp, 16
+    pop     ebp
+    pop     edi
+    pop     esi
+    pop     edx
+    pop     ecx
     ret
 
 .rel_jump:
+    mov     dword [esp+12], 2
     mov     eax, ebp
     sub     eax, memory
     add     eax, 2
@@ -1101,12 +1097,11 @@ cmd_unassemble:
     rep     stosb
 
     movsx   eax, byte [ebp+1]
-    add     ax, [unasm_off]
+    add     ax, [esp+4]
     add     ax, 2
     call    put_hex_word
-
-    mov     bx, 2
     jmp     .line_done
+
 
 find_opcode:
     push    edi
