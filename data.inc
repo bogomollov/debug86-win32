@@ -275,6 +275,9 @@ section '.data' data readable writeable
     unasm_len       dw 32
 
     trace_count     dw 1
+    proceed_count   dw 1
+    proceed_target_seg dw 0
+    proceed_target_off dw 0
     
     reg_name_table:
         reg_entry 'ax', reg_AX
@@ -575,6 +578,7 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
               db 'move                  M диапазон адрес',CR,LF
               db 'register              R [имя]',CR,LF
               db 'go                    G [=addr] [bp]',CR,LF
+              db 'proceed               P [=addr] [count]',CR,LF
               db 'quit                  Q',CR,LF,0
     help_text_len = $ - help_text
 
@@ -600,6 +604,7 @@ COMTAB:
     cmd_entry 'm', cmd_move
     cmd_entry 'g', cmd_go
     cmd_entry 't', cmd_trace
+    cmd_entry 'p', cmd_proceed
     cmd_entry 'r', cmd_register
     cmd_entry '?', cmd_help
     db 0
