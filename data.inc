@@ -8,6 +8,15 @@ COMMA                   equ 2Ch
 QUOTE_DOUBLE            equ 22h
 QUOTE_SINGLE            equ 27h
 
+GENERIC_READ            equ 80000000h
+GENERIC_WRITE           equ 40000000h
+FILE_SHARE_READ         equ 1
+FILE_SHARE_WRITE        equ 2
+CREATE_ALWAYS           equ 2
+OPEN_EXISTING           equ 3
+FILE_ATTRIBUTE_NORMAL   equ 80h
+INVALID_HANDLE_VALUE    equ -1
+
 INPUT_BUFFER_MAX        equ 255
 INPUT_BUFFER_SIZE       equ 256
 LINE_BUFFER_SIZE        equ 256
@@ -85,53 +94,53 @@ STEP_UNKNOWN            equ 2
 STEP_ERROR              equ 3
 
 ; ============================================================
-;  á†Ø®·® ‚†°´®Ê Á•‡•ß ¨†™‡Æ·Î + ®¨•≠Æ¢†≠≠Î• ·¨•È•≠®Ô ØÆ´•©.
-;  è†‡†¨•‚‡Î ¨†™‡Æ·Æ¢ ØÆ§·‚†¢´ÔÓ‚·Ô ‚•™·‚„†´Ï≠Æ, ØÆÌ‚Æ¨„
-;  ·‚‡Æ™Æ¢Î• ´®‚•‡†´Î ('ov', 'ax', ...) ‡†°Æ‚†Ó‚ ™†™ ≠†§Æ.
-;  ë¨•È•≠®Ô ® ‡†ß¨•‡Î ØÆ´•© ß†§†≠Î ™Æ≠·‚†≠‚†¨® ? •§®≠Î©
-;  ®·‚ÆÁ≠®™ Ø‡†¢§Î ® §´Ô ·°Æ‡™® §†≠≠ÎÂ, ® §´Ô §Æ·‚„Ø† ™ ≠®¨.
+;  –ó–∞–ø–∏—Å–∏ —Ç–∞–±–ª–∏—Ü —á–µ—Ä–µ–∑ –º–∞–∫—Ä–æ—Å—ã + –∏–º–µ–Ω–æ–≤–∞–Ω–Ω—ã–µ —Å–º–µ—â–µ–Ω–∏—è –ø–æ–ª–µ–π.
+;  –ü–∞—Ä–∞–º–µ—Ç—Ä—ã –º–∞–∫—Ä–æ—Å–æ–≤ –ø–æ–¥—Å—Ç–∞–≤–ª—è—é—Ç—Å—è —Ç–µ–∫—Å—Ç—É–∞–ª—å–Ω–æ, –ø–æ—ç—Ç–æ–º—É
+;  —Å—Ç—Ä–æ–∫–æ–≤—ã–µ –ª–∏—Ç–µ—Ä–∞–ª—ã ('ov', 'ax', ...) —Ä–∞–±–æ—Ç–∞—é—Ç –∫–∞–∫ –Ω–∞–¥–æ.
+;  –°–º–µ—â–µ–Ω–∏—è –∏ —Ä–∞–∑–º–µ—Ä—ã –ø–æ–ª–µ–π –∑–∞–¥–∞–Ω—ã –∫–æ–Ω—Å—Ç–∞–Ω—Ç–∞–º–∏ ? –µ–¥–∏–Ω—ã–π
+;  –∏—Å—Ç–æ—á–Ω–∏–∫ –ø—Ä–∞–≤–¥—ã –∏ –¥–ª—è —Å–±–æ—Ä–∫–∏ –¥–∞–Ω–Ω—ã—Ö, –∏ –¥–ª—è –¥–æ—Å—Ç—É–ø–∞ –∫ –Ω–∏–º.
 ; ============================================================
 
-; --- á†Ø®·Ï ‚†°´®ÊÎ ™Æ¨†≠§ (COMTAB) ---
-CMD_ENTRY_CHAR_OFF       equ 0     ; db  ? ·®¨¢Æ´ ™Æ¨†≠§Î
-CMD_ENTRY_HANDLER_OFF    equ 1     ; dd  ? „™†ß†‚•´Ï ≠† Æ°‡†°Æ‚Á®™
+; --- –ó–∞–ø–∏—Å—å —Ç–∞–±–ª–∏—Ü—ã –∫–æ–º–∞–Ω–¥ (COMTAB) ---
+CMD_ENTRY_CHAR_OFF       equ 0     ; db  ? —Å–∏–º–≤–æ–ª –∫–æ–º–∞–Ω–¥—ã
+CMD_ENTRY_HANDLER_OFF    equ 1     ; dd  ? —É–∫–∞–∑–∞—Ç–µ–ª—å –Ω–∞ –æ–±—Ä–∞–±–æ—Ç—á–∏–∫
 CMD_ENTRY_CHAR_SIZE      equ 1
 CMD_ENTRY_HANDLER_SIZE   equ 4
 COMTAB_RECORD_SIZE       equ CMD_ENTRY_CHAR_SIZE + CMD_ENTRY_HANDLER_SIZE
 
 macro cmd_entry cmd_char, cmd_handler {
-    db  cmd_char                       ; +0: ·®¨¢Æ´ ™Æ¨†≠§Î
-    dd  cmd_handler                    ; +1: Æ°‡†°Æ‚Á®™
+    db  cmd_char                       ; +0: —Å–∏–º–≤–æ–ª –∫–æ–º–∞–Ω–¥—ã
+    dd  cmd_handler                    ; +1: –æ–±—Ä–∞–±–æ—Ç—á–∏–∫
 }
 
-; --- á†Ø®·Ï ‚†°´®ÊÎ ®¨Ò≠ ‡•£®·‚‡Æ¢ (reg_name_table) ---
-REG_ENTRY_NAME_OFF       equ 0     ; 'ax' ? 2 ·®¨¢Æ´†
-REG_ENTRY_NUL_OFF        equ 2     ; ‚•‡¨®≠†‚Æ‡
-REG_ENTRY_PTR_OFF        equ 3     ; dd ? „™†ß†‚•´Ï ≠† ‡•£®·‚‡
+; --- –ó–∞–ø–∏—Å—å —Ç–∞–±–ª–∏—Ü—ã –∏–º—ë–Ω —Ä–µ–≥–∏—Å—Ç—Ä–æ–≤ (reg_name_table) ---
+REG_ENTRY_NAME_OFF       equ 0     ; 'ax' ? 2 —Å–∏–º–≤–æ–ª–∞
+REG_ENTRY_NUL_OFF        equ 2     ; —Ç–µ—Ä–º–∏–Ω–∞—Ç–æ—Ä
+REG_ENTRY_PTR_OFF        equ 3     ; dd ? —É–∫–∞–∑–∞—Ç–µ–ª—å –Ω–∞ —Ä–µ–≥–∏—Å—Ç—Ä
 REG_ENTRY_NAME_SIZE      equ 2
 REG_ENTRY_NUL_SIZE       equ 1
 REG_ENTRY_PTR_SIZE       equ 4
 REG_NAME_RECORD_SIZE     equ REG_ENTRY_NAME_SIZE + REG_ENTRY_NUL_SIZE + REG_ENTRY_PTR_SIZE
 
 macro reg_entry reg_name, reg_ptr {
-    db  reg_name                       ; +0: ®¨Ô (2 ·®¨¢Æ´†)
-    db  0                              ; +2: ‚•‡¨®≠†‚Æ‡
-    dd  reg_ptr                        ; +3: „™†ß†‚•´Ï
+    db  reg_name                       ; +0: –∏–º—è (2 —Å–∏–º–≤–æ–ª–∞)
+    db  0                              ; +2: —Ç–µ—Ä–º–∏–Ω–∞—Ç–æ—Ä
+    dd  reg_ptr                        ; +3: —É–∫–∞–∑–∞—Ç–µ–ª—å
 }
 
-; --- á†Ø®·Ï ‚†°´®ÊÎ ‰´†£Æ¢ (flag_map) ---
-FLAG_ENTRY_NAME_OFF      equ 0     ; 'ov' ? 2 ·®¨¢Æ´†
-FLAG_ENTRY_INDEX_OFF     equ 2     ; db ? ®≠§•™· ‰´†£†
-FLAG_ENTRY_VALUE_OFF     equ 3     ; db ? ß≠†Á•≠®•
+; --- –ó–∞–ø–∏—Å—å —Ç–∞–±–ª–∏—Ü—ã —Ñ–ª–∞–≥–æ–≤ (flag_map) ---
+FLAG_ENTRY_NAME_OFF      equ 0     ; 'ov' ? 2 —Å–∏–º–≤–æ–ª–∞
+FLAG_ENTRY_INDEX_OFF     equ 2     ; db ? –∏–Ω–¥–µ–∫—Å —Ñ–ª–∞–≥–∞
+FLAG_ENTRY_VALUE_OFF     equ 3     ; db ? –∑–Ω–∞—á–µ–Ω–∏–µ
 FLAG_ENTRY_NAME_SIZE     equ 2
 FLAG_ENTRY_INDEX_SIZE    equ 1
 FLAG_ENTRY_VALUE_SIZE    equ 1
 FLAG_MAP_RECORD_SIZE     equ FLAG_ENTRY_NAME_SIZE + FLAG_ENTRY_INDEX_SIZE + FLAG_ENTRY_VALUE_SIZE
 
 macro flag_entry flag_name, flag_idx, flag_val {
-    db  flag_name                      ; +0: ®¨Ô (2 ·®¨¢Æ´†)
-    db  flag_idx                       ; +2: ®≠§•™· ‰´†£†
-    db  flag_val                       ; +3: ß≠†Á•≠®•
+    db  flag_name                      ; +0: –∏–º—è (2 —Å–∏–º–≤–æ–ª–∞)
+    db  flag_idx                       ; +2: –∏–Ω–¥–µ–∫—Å —Ñ–ª–∞–≥–∞
+    db  flag_val                       ; +3: –∑–Ω–∞—á–µ–Ω–∏–µ
 }
 
 CPU_STATE_AX    equ 0
@@ -170,6 +179,27 @@ section '.data' data readable writeable
     dump_len        dw 128
     dd_skip         dw 0
     dd_line_bytes   dw 0
+
+    msg_file_not_found  db 'File not found',CR,LF,0
+    msg_file_not_found_len = $ - msg_file_not_found
+
+    msg_file_create_err db 'File creation error',CR,LF,0
+    msg_file_create_err_len = $ - msg_file_create_err
+
+    msg_no_memory       db 'Insufficient memory',CR,LF,0
+    msg_no_memory_len   = $ - msg_no_memory
+
+    msg_writing         db 'Writing ',0
+    msg_writing_len     = $ - msg_writing
+
+    msg_bytes           db ' bytes',CR,LF,0
+    msg_bytes_len       = $ - msg_bytes
+
+    file_handle         dd 0
+    file_size           dd 0
+    file_bytes_rw       dd 0
+    load_seg            dw 0
+    load_off            dw 0
 
     cpu_state:
         dw 0000h   ; AX
@@ -685,14 +715,14 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
         db "jpo",0,7Bh,0
         db 0
 
-    help_text db 'assemble              A [†§‡•·]',CR,LF
-              db 'unassemble            U [†§‡•·]',CR,LF
-              db 'dump                  D [§®†Ø†ßÆ≠]',CR,LF
-              db 'enter                 E †§‡•· [·Ø®·Æ™]',CR,LF
-              db 'fill                  F §®†Ø†ßÆ≠ ·Ø®·Æ™',CR,LF
-              db 'move                  M §®†Ø†ßÆ≠ †§‡•·',CR,LF
-              db 'search                S §®†Ø†ßÆ≠ ·Ø®·Æ™',CR,LF
-              db 'register              R [®¨Ô]',CR,LF
+    help_text db 'assemble              A [–∞–¥—Ä–µ—Å]',CR,LF
+              db 'unassemble            U [–∞–¥—Ä–µ—Å]',CR,LF
+              db 'dump                  D [–¥–∏–∞–ø–∞–∑–æ–Ω]',CR,LF
+              db 'enter                 E –∞–¥—Ä–µ—Å [—Å–ø–∏—Å–æ–∫]',CR,LF
+              db 'fill                  F –¥–∏–∞–ø–∞–∑–æ–Ω —Å–ø–∏—Å–æ–∫',CR,LF
+              db 'move                  M –¥–∏–∞–ø–∞–∑–æ–Ω –∞–¥—Ä–µ—Å',CR,LF
+              db 'search                S –¥–∏–∞–ø–∞–∑–æ–Ω —Å–ø–∏—Å–æ–∫',CR,LF
+              db 'register              R [–∏–º—è]',CR,LF
               db 'go                    G [=addr] [bp]',CR,LF
               db 'proceed               P [=addr] [count]',CR,LF
               db 'quit                  Q',CR,LF,0
@@ -701,7 +731,7 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
     err_text db '^ Error',CR,LF,0
     err_text_len = $ - err_text
 
-    msg_prog_end db CR,LF,'è‡Æ£‡†¨¨† ß†¢•‡Ë®´†·Ï ≠Æ‡¨†´Ï≠Æ',CR,LF,0
+    msg_prog_end db CR,LF,'Program terminated normally',CR,LF,0
     msg_prog_end_len = $ - msg_prog_end
 
     msg_breakpoint db 'Breakpoint reached',CR,LF,0
@@ -719,6 +749,9 @@ COMTAB:
     cmd_entry 'e', cmd_edit
     cmd_entry 'm', cmd_move
     cmd_entry 's', cmd_search
+    cmd_entry 'n', cmd_name
+    cmd_entry 'l', cmd_load
+    cmd_entry 'w', cmd_write
     cmd_entry 'g', cmd_go
     cmd_entry 't', cmd_trace
     cmd_entry 'p', cmd_proceed
@@ -736,6 +769,7 @@ COMTAB:
 
 
 section '.bss' readable writeable
+    current_filename rb 260
     input_buffer    rb INPUT_BUFFER_SIZE
     int21_input_buf rb INPUT_BUFFER_SIZE
     line_buffer     rb LINE_BUFFER_SIZE

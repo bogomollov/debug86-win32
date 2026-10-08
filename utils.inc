@@ -2,6 +2,11 @@ print_buffer:
     push    esi
     push    ecx
     invoke  WriteConsoleA, [hStdOut], esi, ecx, chars_written, 0
+    test    eax, eax
+    jnz     .pb_ok
+    mov     ecx, [esp]
+    invoke  WriteFile, [hStdOut], esi, ecx, chars_written, 0
+.pb_ok:
     pop     ecx
     pop     esi
     ret
@@ -20,7 +25,14 @@ print_string:
     not     ecx
     dec     ecx
 
+    push    ecx
     invoke  WriteConsoleA, [hStdOut], esi, ecx, chars_written, 0
+    test    eax, eax
+    jnz     .ps_ok
+    mov     ecx, [esp]
+    invoke  WriteFile, [hStdOut], esi, ecx, chars_written, 0
+.ps_ok:
+    pop     ecx
 
     pop     edi
     pop     esi
