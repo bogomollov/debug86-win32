@@ -237,35 +237,24 @@ section '.data' data readable writeable
         dw 'AX','BX','CX','DX','SP','BP','SI','DI','DS','ES','SS','CS','IP'
 
     flag_states     db 0, 0, 1, 0, 0, 0, 0, 0
-    flag_set_codes   db 'OF','DF','EI','SF','ZF','AF','PF','CF'
-    flag_clr_codes   db 'NO','ND','DI','NS','NZ','NA','NP','NC'
+    flag_set_codes   db 'OV','DN','EI','NG','ZR','AC','PE','CY'
+    flag_clr_codes   db 'NV','UP','DI','PL','NZ','NA','PO','NC'
 
     flag_map:
-        flag_entry 'of', FLAG_OV, 1
         flag_entry 'ov', FLAG_OV, 1
-        flag_entry 'no', FLAG_OV, 0
         flag_entry 'nv', FLAG_OV, 0
-        flag_entry 'df', FLAG_DN, 1
         flag_entry 'dn', FLAG_DN, 1
-        flag_entry 'nd', FLAG_DN, 0
         flag_entry 'up', FLAG_DN, 0
         flag_entry 'ei', FLAG_EI, 1
         flag_entry 'di', FLAG_EI, 0
-        flag_entry 'sf', FLAG_NG, 1
         flag_entry 'ng', FLAG_NG, 1
-        flag_entry 'ns', FLAG_NG, 0
         flag_entry 'pl', FLAG_NG, 0
-        flag_entry 'zf', FLAG_ZR, 1
         flag_entry 'zr', FLAG_ZR, 1
         flag_entry 'nz', FLAG_ZR, 0
-        flag_entry 'af', FLAG_AC, 1
         flag_entry 'ac', FLAG_AC, 1
         flag_entry 'na', FLAG_AC, 0
-        flag_entry 'pf', FLAG_PE, 1
         flag_entry 'pe', FLAG_PE, 1
-        flag_entry 'np', FLAG_PE, 0
         flag_entry 'po', FLAG_PE, 0
-        flag_entry 'cf', FLAG_CY, 1
         flag_entry 'cy', FLAG_CY, 1
         flag_entry 'nc', FLAG_CY, 0
         db 0
@@ -347,6 +336,7 @@ section '.data' data readable writeable
     dis_disp_len    dd 0
     dis_mnem_ptr    dd 0
     dis_is_sreg     dd 0
+    dis_is_unary    dd 0
 
     sreg_names      dw 'ES', 'CS', 'SS', 'DS'
     op_reg8_names   dw 'AL', 'CL', 'DL', 'BL', 'AH', 'CH', 'DH', 'BH'
@@ -364,6 +354,40 @@ section '.data' data readable writeable
     str_mnem_lea    db 'LEA ', 0
     str_mnem_test   db 'TEST', 0
     str_mnem_xchg   db 'XCHG', 0
+    str_mnem_les    db 'LES ', 0
+    str_mnem_lds    db 'LDS ', 0
+    str_mnem_pop    db 'POP ', 0
+    str_mnem_not    db 'NOT ', 0
+    str_mnem_neg    db 'NEG ', 0
+    str_mnem_mul    db 'MUL ', 0
+    str_mnem_imul   db 'IMUL', 0
+    str_mnem_div    db 'DIV ', 0
+    str_mnem_idiv   db 'IDIV', 0
+    str_mnem_inc    db 'INC ', 0
+    str_mnem_dec    db 'DEC ', 0
+    str_mnem_push   db 'PUSH', 0
+    str_mnem_call   db 'CALL', 0
+    str_mnem_jmp    db 'JMP ', 0
+
+    f6_f7_mnems:
+        dd str_mnem_test
+        dd 0
+        dd str_mnem_not
+        dd str_mnem_neg
+        dd str_mnem_mul
+        dd str_mnem_imul
+        dd str_mnem_div
+        dd str_mnem_idiv
+
+    fe_ff_mnems:
+        dd str_mnem_inc
+        dd str_mnem_dec
+        dd str_mnem_call
+        dd str_mnem_call
+        dd str_mnem_jmp
+        dd str_mnem_jmp
+        dd str_mnem_push
+        dd 0
     
     reg_name_table:
         reg_entry 'ax', reg_AX
@@ -625,6 +649,7 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
         db "nop",0,OP_NOP,0
         db "int",0,OP_INT,1
         db "ret",0,OP_RET,0
+        db "retf",0,0CBh,0
         db "push cx",0,OP_PUSH_CX,0
         db "pop cx",0,OP_POP_CX,0
         db "movsb",0,0A4h,0
@@ -637,6 +662,31 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
         db "lodsw",0,0ADh,0
         db "scasb",0,0AEh,0
         db "scasw",0,0AFh,0
+        db "cbw",0,98h,0
+        db "cwd",0,99h,0
+        db "pushf",0,9Ch,0
+        db "popf",0,9Dh,0
+        db "sahf",0,9Eh,0
+        db "lahf",0,9Fh,0
+        db "xlat",0,0D7h,0
+        db "clc",0,0F8h,0
+        db "stc",0,0F9h,0
+        db "cmc",0,0F5h,0
+        db "cld",0,0FCh,0
+        db "std",0,0FDh,0
+        db "cli",0,0FAh,0
+        db "sti",0,0FBh,0
+        db "hlt",0,0F4h,0
+        db "iret",0,0CFh,0
+        db "into",0,0CEh,0
+        db "wait",0,9Bh,0
+        db "daa",0,27h,0
+        db "das",0,2Fh,0
+        db "aaa",0,37h,0
+        db "aas",0,3Fh,0
+        db "salc",0,0D6h,0
+        db "aam",0,0D4h,0Ah
+        db "aad",0,0D5h,0Ah
         gen_dec_16
         db 0
 
@@ -658,6 +708,12 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
         db "mov bh",0,OP_MOV_BH,1
         db "cmp ax",0,3Dh,2
         db "cmp al",0,3Ch,1
+        db "in al",0,0E4h,1
+        db "in ax",0,0E5h,1
+        db "in al,dx",0,0ECh,0
+        db "in ax,dx",0,0EDh,0
+        db "out dx,al",0,0EEh,0
+        db "out dx,ax",0,0EFh,0
         db "rep stosb",0,0F3h,0AAh
         db "rep stosw",0,0F3h,0ABh
         db "rep movsb",0,0F3h,0A4h
@@ -691,6 +747,7 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
         db "test ax",0,0A9h,2
         db "test al",0,0A8h,1
         gen_r16_unary 'not ', 0F7h, 0F6h, 0D0h
+        gen_r16_unary 'neg ', 0F7h, 0F6h, 0D8h
         gen_r16_unary 'shl ', 0D1h, 0D0h, 0E0h
         gen_r16_unary 'sal ', 0D1h, 0D0h, 0E0h
         gen_r16_unary 'shr ', 0D1h, 0D0h, 0E8h
@@ -700,11 +757,18 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
         gen_r16_unary 'rcl ', 0D1h, 0D0h, 0D0h
         gen_r16_unary 'rcr ', 0D1h, 0D0h, 0D8h
         gen_r16_unary 'mul ', 0F7h, 0F6h, 0E0h
+        gen_r16_unary 'imul ', 0F7h, 0F6h, 0E8h
+        gen_r16_unary 'div ', 0F7h, 0F6h, 0F0h
+        gen_r16_unary 'idiv ', 0F7h, 0F6h, 0F8h
         gen_dec_16
         gen_dec_8
         db 0
 
     asm_3word_table db "mov bx ax",0,OP_MOV_BX_AX,OP_MOV_BX_AX_MODRM
+        db "in al dx",0,0ECh,0
+        db "in ax dx",0,0EDh,0
+        db "out dx al",0,0EEh,0
+        db "out dx ax",0,0EFh,0
         gen_shift_1 'shl', 0D1h, 0D0h, 0E0h
         gen_shift_1 'sal', 0D1h, 0D0h, 0E0h
         gen_shift_1 'shr', 0D1h, 0D0h, 0E8h
@@ -745,6 +809,7 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
         db "repne scasw",0,0F2h,0AFh
         gen_inc_8
         gen_r16_unary 'not ', 0F7h, 0F6h, 0D0h
+        gen_r16_unary 'neg ', 0F7h, 0F6h, 0D8h
         gen_shift_2byte 'shl', 0D1h, 0D0h, 0E0h
         gen_shift_2byte 'shr', 0D1h, 0D0h, 0E8h
         gen_shift_2byte 'sar', 0D1h, 0D0h, 0F8h
@@ -757,6 +822,9 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
         gen_logic_all 'or',  ',', 09h, 08h
         gen_logic_all 'test',',', 85h, 84h
         gen_r16_unary 'mul ', 0F7h, 0F6h, 0E0h
+        gen_r16_unary 'imul ', 0F7h, 0F6h, 0E8h
+        gen_r16_unary 'div ', 0F7h, 0F6h, 0F0h
+        gen_r16_unary 'idiv ', 0F7h, 0F6h, 0F8h
         gen_dec_8
         db 0
 
@@ -820,12 +888,18 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
     msg_prog_end db CR,LF,'Program terminated normally',CR,LF,0
     msg_prog_end_len = $ - msg_prog_end
 
-    msg_breakpoint db 'Breakpoint reached',CR,LF,0
-    msg_breakpoint_len = $ - msg_breakpoint
+    msg_br_error db 'BR error',CR,LF,0
+    msg_br_error_len = $ - msg_br_error
 
-    msg_unknown_insn db 'Unknown instruction',CR,LF,0
-    msg_unknown_insn_len = $ - msg_unknown_insn
-    
+    msg_bf_error db 'BF error',CR,LF,0
+    msg_bf_error_len = $ - msg_bf_error
+
+    msg_df_error db 'DF error',CR,LF,0
+    msg_df_error_len = $ - msg_df_error
+
+    msg_bp_error db 'BP error',CR,LF,0
+    msg_bp_error_len = $ - msg_bp_error
+
 COMTAB:
     cmd_entry 'a', cmd_assemble
     cmd_entry 'u', cmd_unassemble
@@ -846,16 +920,20 @@ COMTAB:
     cmd_entry 't', cmd_trace
     cmd_entry 'p', cmd_proceed
     cmd_entry 'r', cmd_register
-    cmd_entry '?', cmd_help
     db 0
 
     reg16_ptrs:
         dd reg_AX, reg_CX, reg_DX, reg_BX
         dd reg_SP, reg_BP, reg_SI, reg_DI
 
+    sreg_ptrs:
+        dd reg_ES, reg_CS, reg_SS, reg_DS
+
     reg8_ptrs:
         dd reg_AX,   reg_CX,   reg_DX,   reg_BX
         dd reg_AX+1, reg_CX+1, reg_DX+1, reg_BX+1
+
+    modrm_offset dw 0
 
 
 section '.bss' readable writeable

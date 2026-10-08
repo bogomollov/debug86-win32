@@ -327,3 +327,96 @@ parse_length:
     mov     cx, ax
     clc
     ret
+
+print_br_error:
+    invoke  WriteConsoleA, [hStdOut], msg_br_error, msg_br_error_len, chars_written, 0
+    test    eax, eax
+    jnz     .br_done
+    invoke  WriteFile, [hStdOut], msg_br_error, msg_br_error_len, chars_written, 0
+.br_done:
+    ret
+
+print_bf_error:
+    invoke  WriteConsoleA, [hStdOut], msg_bf_error, msg_bf_error_len, chars_written, 0
+    test    eax, eax
+    jnz     .bf_done
+    invoke  WriteFile, [hStdOut], msg_bf_error, msg_bf_error_len, chars_written, 0
+.bf_done:
+    ret
+
+print_df_error:
+    invoke  WriteConsoleA, [hStdOut], msg_df_error, msg_df_error_len, chars_written, 0
+    test    eax, eax
+    jnz     .df_done
+    invoke  WriteFile, [hStdOut], msg_df_error, msg_df_error_len, chars_written, 0
+.df_done:
+    ret
+
+print_bp_error:
+    invoke  WriteConsoleA, [hStdOut], msg_bp_error, msg_bp_error_len, chars_written, 0
+    test    eax, eax
+    jnz     .bp_done
+    invoke  WriteFile, [hStdOut], msg_bp_error, msg_bp_error_len, chars_written, 0
+.bp_done:
+    ret
+
+; In: edi = buffer, edx = max_len
+; Out: [chars_read] = count, CF = 0 if ok, CF = 1 if EOF
+read_line_console_or_pipe:
+    push    ebx
+    push    esi
+    push    edx
+    mov     byte [edi], 0
+    invoke  ReadConsoleA, [hStdIn], edi, edx, chars_read, 0
+    test    eax, eax
+    jnz     .rl_console_ok
+
+    ; Fallback for redirected input (pipe)
+    pop     edx             ; max_len
+    push    edx
+    xor     ebx, ebx
+.rl_pipe_loop:
+    cmp     ebx, edx
+    jae     .rl_pipe_done
+    push    ebx
+    push    edx
+    lea     eax, [edi + ebx]
+    invoke  ReadFile, [hStdIn], eax, 1, chars_read, 0
+    pop     edx
+    pop     ebx
+    test    eax, eax
+    jz      .rl_pipe_eof
+    cmp     dword [chars_read], 0
+    jz      .rl_pipe_eof
+    mov     al, [edi + ebx]
+    inc     ebx
+    cmp     al, LF
+    je      .rl_pipe_done
+    jmp     .rl_pipe_loop
+
+.rl_pipe_eof:
+    test    ebx, ebx
+    jnz     .rl_pipe_done
+    pop     edx
+    pop     esi
+    pop     ebx
+    stc
+    ret
+
+.rl_pipe_done:
+    mov     [chars_read], ebx
+    mov     byte [edi + ebx], 0
+    pop     edx
+    pop     esi
+    pop     ebx
+    clc
+    ret
+
+.rl_console_ok:
+    pop     edx
+    mov     eax, [chars_read]
+    mov     byte [edi + eax], 0
+    pop     esi
+    pop     ebx
+    clc
+    ret
