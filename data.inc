@@ -762,6 +762,7 @@ COMTAB:
     cmd_entry 'n', cmd_name
     cmd_entry 'l', cmd_load
     cmd_entry 'w', cmd_write
+    cmd_entry 'h', cmd_hex
     cmd_entry 'g', cmd_go
     cmd_entry 't', cmd_trace
     cmd_entry 'p', cmd_proceed

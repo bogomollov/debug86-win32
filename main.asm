@@ -1460,6 +1460,62 @@ cmd_compare:
     pop     ebx
     jmp     print_error_and_ret
 
+cmd_hex:
+    push    ebx
+    push    esi
+    push    edi
+
+    mov     esi, [cmd_ptr]
+
+    call    skip_whitespace
+    call    parse_hex
+    jc      .ch_err
+    mov     bx, ax
+
+    call    skip_whitespace
+    call    parse_hex
+    jc      .ch_err
+    mov     dx, ax
+
+    call    skip_whitespace
+    call    is_eol
+    jnc     .ch_err
+
+    mov     edi, line_buffer
+
+    mov     ax, bx
+    add     ax, dx
+    call    put_hex_word
+
+    mov     al, SPACE
+    stosb
+    stosb
+
+    mov     ax, bx
+    sub     ax, dx
+    call    put_hex_word
+
+    mov     al, CR
+    stosb
+    mov     al, LF
+    stosb
+
+    mov     ecx, edi
+    sub     ecx, line_buffer
+    mov     esi, line_buffer
+    call    print_buffer
+
+    pop     edi
+    pop     esi
+    pop     ebx
+    ret
+
+.ch_err:
+    pop     edi
+    pop     esi
+    pop     ebx
+    jmp     print_error_and_ret
+
 cmd_search:
     mov     esi, [cmd_ptr]
 
