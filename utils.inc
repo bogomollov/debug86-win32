@@ -45,9 +45,85 @@ print_error_and_ret:
     ret
 
 print_error:
+    push    eax
+    push    ebx
+    push    ecx
+    push    edx
+    push    esi
+    push    edi
+
+    cmp     esi, input_buffer
+    jb      .pe_check_cmd_ptr
+    cmp     esi, input_buffer + INPUT_BUFFER_SIZE
+    jb      .pe_have_ptr
+
+.pe_check_cmd_ptr:
+    mov     eax, [cmd_ptr]
+    cmp     eax, input_buffer
+    jb      .pe_no_ptr
+    cmp     eax, input_buffer + INPUT_BUFFER_SIZE
+    jae     .pe_no_ptr
+    mov     esi, eax
+
+.pe_have_ptr:
+    mov     ecx, [prompt_len]
+    mov     edx, input_buffer
+
+.pe_calc_loop:
+    cmp     edx, esi
+    jae     .pe_calc_done
+    mov     al, [edx]
+    test    al, al
+    jz      .pe_calc_done
+    cmp     al, CR
+    je      .pe_calc_done
+    cmp     al, LF
+    je      .pe_calc_done
+    cmp     al, 9
+    jne     .pe_not_tab
+    add     ecx, 8
+    and     ecx, not 7
+    jmp     .pe_next_char
+.pe_not_tab:
+    inc     ecx
+.pe_next_char:
+    inc     edx
+    jmp     .pe_calc_loop
+
+.pe_no_ptr:
+    xor     ecx, ecx
+
+.pe_calc_done:
+    cmp     ecx, LINE_BUFFER_SIZE - 16
+    jbe     .pe_clamp_ok
+    mov     ecx, LINE_BUFFER_SIZE - 16
+.pe_clamp_ok:
+    mov     edi, line_buffer
+    mov     al, SPACE
+    rep     stosb
+
     mov     esi, err_text
     mov     ecx, err_text_len
+    test    ecx, ecx
+    jz      .pe_copied
+    cmp     byte [esi + ecx - 1], 0
+    jne     .pe_copy
+    dec     ecx
+.pe_copy:
+    rep     movsb
+
+.pe_copied:
+    mov     ecx, edi
+    sub     ecx, line_buffer
+    mov     esi, line_buffer
     call    print_buffer
+
+    pop     edi
+    pop     esi
+    pop     edx
+    pop     ecx
+    pop     ebx
+    pop     eax
     ret
 
 check_mem_range:

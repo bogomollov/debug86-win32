@@ -169,6 +169,7 @@ CPU_STATE_SIZE  equ 26
 
 section '.data' data readable writeable
     prompt          db '-',0
+    prompt_len      dd 1
     hStdOut         dd 0
     hStdIn          dd 0
     chars_written   dd 0

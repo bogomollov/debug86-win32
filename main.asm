@@ -48,6 +48,7 @@ start:
 
 main_loop:
     mov     byte [ctrl_c_flag], 0
+    mov     dword [prompt_len], 1
     invoke  WriteConsoleA, [hStdOut], prompt, 1, chars_written, 0
     test    eax, eax
     jnz     .prompt_ok
@@ -115,6 +116,7 @@ main_loop:
     jmp     main_loop
 
 .cmd_not_found:
+    mov     esi, [cmd_ptr]
     call    print_error
     jmp     main_loop
 
@@ -1312,7 +1314,7 @@ cmd_move:
 .cm_err:
     pop     ebp
     pop     edi
-    pop     esi
+    add     esp, 4
     pop     ebx
     jmp     print_error_and_ret
 
@@ -1456,7 +1458,7 @@ cmd_compare:
 .cc_err:
     pop     ebp
     pop     edi
-    pop     esi
+    add     esp, 4
     pop     ebx
     jmp     print_error_and_ret
 
@@ -1512,7 +1514,7 @@ cmd_hex:
 
 .ch_err:
     pop     edi
-    pop     esi
+    add     esp, 4
     pop     ebx
     jmp     print_error_and_ret
 
@@ -1553,7 +1555,7 @@ cmd_input:
 
 .ci_err:
     pop     edi
-    pop     esi
+    add     esp, 4
     pop     ebx
     jmp     print_error_and_ret
 
@@ -1584,7 +1586,7 @@ cmd_output:
     ret
 
 .co_err:
-    pop     esi
+    add     esp, 4
     pop     ebx
     jmp     print_error_and_ret
 
@@ -1768,6 +1770,7 @@ cmd_assemble:
     mov     edx, edi
     sub     edx, line_buffer
     invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
+    mov     [prompt_len], edx
 
     invoke  ReadConsoleA, [hStdIn], input_buffer, 255, chars_read, 0
     
@@ -1800,6 +1803,7 @@ cmd_assemble:
     jmp     .loop
 
 .done:
+    mov     dword [prompt_len], 1
     ret
 
 cmd_unassemble:
@@ -6280,6 +6284,7 @@ step:
 
 
 parse_reg_name:
+    push    esi
     mov     edi, edit_reg_name
     xor     ecx, ecx
 .rd_name:
@@ -6324,6 +6329,7 @@ parse_reg_name:
     cmp     cl,  [edit_reg_name+1]
     jne     .rt_next
     mov     eax, [ebx + REG_ENTRY_PTR_OFF]
+    pop     edx
     clc
     ret
 .rt_next:
@@ -6331,6 +6337,7 @@ parse_reg_name:
     jmp     .rt_loop
 
 .rd_err:
+    pop     esi
     stc
     ret
 
