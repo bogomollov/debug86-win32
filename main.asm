@@ -1922,6 +1922,7 @@ disasm_line:
     mov     [esp+8], edx
     mov     dword [esp+12], 1
     mov     dword [dis_is_unary], 0
+    mov     dword [dis_is_shift], 0
 
     mov     edi, line_buffer
     mov     ax, [esp+0]
@@ -2279,7 +2280,15 @@ disasm_line:
     je      .res_f6
     cmp     al, 0F7h
     je      .res_f7
+    cmp     al, 0D0h
+    jb      .res_chk_fe_ff
+    cmp     al, 0D3h
+    jbe     .res_shift
     jmp     .res_chk_fe_ff
+.res_shift:
+    mov     cl, al
+    and     cl, 1
+    jmp     .res_is_modrm
 .res_f6:
     mov     cl, 0
     jmp     .res_is_modrm
@@ -2649,6 +2658,7 @@ disasm_line:
 
 .dis_not_direct:
     mov     dword [dis_is_unary], 0
+    mov     dword [dis_is_shift], 0
     ; Check ModR/M opcodes
     cmp     al, 3Bh
     ja      .dis_chk_mov
@@ -2771,6 +2781,11 @@ disasm_line:
     je      .dis_op_les
     cmp     al, 0C5h
     je      .dis_op_lds
+    cmp     al, 0D0h
+    jb      .dis_chk_f6_f7
+    cmp     al, 0D3h
+    jbe     .dis_op_shift
+.dis_chk_f6_f7:
     cmp     al, 0F6h
     je      .dis_op_f6
     cmp     al, 0F7h
@@ -2821,6 +2836,31 @@ disasm_line:
     mov     dword [dis_imm_len], 0
     mov     dword [dis_is_sreg], 0
     mov     dword [dis_mnem_ptr], str_mnem_lds
+    jmp     .dis_have_modrm_params
+
+.dis_op_shift:
+    movzx   edx, byte [ebp+1]
+    shr     edx, 3
+    and     edx, 7
+    cmp     edx, 6
+    je      .not_found
+    mov     eax, [shift_mnems + edx*4]
+    test    eax, eax
+    jz      .not_found
+    mov     [dis_mnem_ptr], eax
+    mov     al, [ebp]
+    movzx   edx, al
+    and     edx, 1
+    mov     [dis_is_word], edx
+    movzx   edx, al
+    shr     edx, 1
+    and     edx, 1
+    inc     edx
+    mov     [dis_is_shift], edx
+    mov     dword [dis_imm_len], 0
+    mov     dword [dis_dir], 0
+    mov     dword [dis_is_sreg], 0
+    mov     dword [dis_is_unary], 0
     jmp     .dis_have_modrm_params
 
 .dis_op_f6:
@@ -2991,9 +3031,26 @@ disasm_line:
     rep     stosb
 
     ; Output operands:
+    cmp     dword [dis_is_shift], 0
+    jnz     .dis_ops_shift
+
     cmp     dword [dis_is_unary], 0
     jz      .dis_not_unary
     call    .dm_write_rm
+    jmp     .line_done
+
+.dis_ops_shift:
+    call    .dm_write_rm
+    mov     al, COMMA
+    stosb
+    cmp     dword [dis_is_shift], 2
+    je      .dis_shift_cl
+    mov     al, '1'
+    stosb
+    jmp     .line_done
+.dis_shift_cl:
+    mov     ax, 'CL'
+    stosw
     jmp     .line_done
 
 .dis_not_unary:
@@ -3081,6 +3138,8 @@ disasm_line:
     jnz     .dm_print_size_prefix
     cmp     dword [dis_is_unary], 2
     je      .dm_print_size_prefix
+    cmp     dword [dis_is_shift], 0
+    jnz     .dm_print_size_prefix
     jmp     .dm_no_size_spec
 
 .dm_print_size_prefix:
@@ -3859,6 +3918,14 @@ mem_mnem_table:
     db 'dec', 0, 4, 1
     db 'push',0, 4, 6
     db 'pop', 0, 5, 0
+    db 'rol', 0, 6, 0
+    db 'ror', 0, 6, 1
+    db 'rcl', 0, 6, 2
+    db 'rcr', 0, 6, 3
+    db 'shl', 0, 6, 4
+    db 'sal', 0, 6, 4
+    db 'shr', 0, 6, 5
+    db 'sar', 0, 6, 7
     db 0
 
 check_has_bracket:
@@ -4351,6 +4418,8 @@ parse_mem_instruction:
     call    .parse_bracket_content
     jc      .mem_err
 
+    cmp     dword [ebp-4], 6
+    je      .shift_mem
     cmp     dword [ebp-4], 3
     jb      .not_unary_mem
     cmp     dword [ebp-4], 5
@@ -4399,6 +4468,44 @@ parse_mem_instruction:
 .unary_mem_done:
     mov     dword [ebp-68], 0
     jmp     .encode_instruction
+
+.shift_mem:
+    cmp     dword [ebp-80], 0
+    jz      .mem_err
+    call    skip_whitespace
+    call    parse_asm_reg
+    jc      .shift_check_imm
+    cmp     ah, 1
+    jne     .mem_err
+    cmp     al, 1
+    jne     .mem_err
+    mov     dword [ebp-76], 1
+    jmp     .shift_count_parsed
+
+.shift_check_imm:
+    call    parse_hex
+    jc      .mem_err
+    cmp     ax, 1
+    jne     .mem_err
+    mov     dword [ebp-76], 0
+
+.shift_count_parsed:
+    call    skip_whitespace
+    call    is_eol
+    jnc     .mem_err
+
+    mov     eax, 0D0h
+    cmp     dword [ebp-12], 2
+    jne     .shift_size_byte
+    inc     eax
+.shift_size_byte:
+    cmp     dword [ebp-76], 1
+    jne     .shift_op_set
+    add     eax, 2
+.shift_op_set:
+    mov     dword [ebp-60], eax
+    mov     dword [ebp-68], 0
+    jmp     .encode_instruction
 .not_unary_mem:
 
     call    skip_whitespace
@@ -4440,6 +4547,8 @@ parse_mem_instruction:
     jmp     .encode_instruction
 
 .op1_is_reg:
+    cmp     dword [ebp-4], 3
+    jae     .mem_err
     mov     dword [ebp-72], 1    ; var_dir = 1 (reg is destination)
     movzx   edx, al
     mov     dword [ebp-8], edx   ; var_reg = destination reg

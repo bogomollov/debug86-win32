@@ -337,6 +337,7 @@ section '.data' data readable writeable
     dis_mnem_ptr    dd 0
     dis_is_sreg     dd 0
     dis_is_unary    dd 0
+    dis_is_shift    dd 0
 
     sreg_names      dw 'ES', 'CS', 'SS', 'DS'
     op_reg8_names   dw 'AL', 'CL', 'DL', 'BL', 'AH', 'CH', 'DH', 'BH'
@@ -368,6 +369,13 @@ section '.data' data readable writeable
     str_mnem_push   db 'PUSH', 0
     str_mnem_call   db 'CALL', 0
     str_mnem_jmp    db 'JMP ', 0
+    str_mnem_rol    db 'ROL ', 0
+    str_mnem_ror    db 'ROR ', 0
+    str_mnem_rcl    db 'RCL ', 0
+    str_mnem_rcr    db 'RCR ', 0
+    str_mnem_shl    db 'SHL ', 0
+    str_mnem_shr    db 'SHR ', 0
+    str_mnem_sar    db 'SAR ', 0
 
     f6_f7_mnems:
         dd str_mnem_test
@@ -388,6 +396,16 @@ section '.data' data readable writeable
         dd str_mnem_jmp
         dd str_mnem_push
         dd 0
+
+    shift_mnems:
+        dd str_mnem_rol
+        dd str_mnem_ror
+        dd str_mnem_rcl
+        dd str_mnem_rcr
+        dd str_mnem_shl
+        dd str_mnem_shr
+        dd 0
+        dd str_mnem_sar
     
     reg_name_table:
         reg_entry 'ax', reg_AX
