@@ -8304,6 +8304,7 @@ step:
 .shift_cl:
     mov     cl, byte [reg_CX]
     and     cl, 1Fh
+    jz      .shift_done
 .shift_count_ok:
 
     test    bl, bl
@@ -8396,6 +8397,7 @@ step:
     pushfd
     pop     edx
     call    update_flags_from_eflags
+.shift_done:
     pop     ecx
     add     [reg_IP], cx
     jmp     .step_ok
