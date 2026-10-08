@@ -931,16 +931,24 @@ macro gen_r16_only prefix, opcode, modrm_base {
         db 0
 
     help_text db 'assemble              A [address]',CR,LF
-              db 'unassemble            U [address]',CR,LF
+              db 'compare               C range address',CR,LF
               db 'dump                  D [range]',CR,LF
               db 'enter                 E address [list]',CR,LF
               db 'fill                  F range list',CR,LF
-              db 'move                  M range address',CR,LF
-              db 'search                S range list',CR,LF
-              db 'register              R [name]',CR,LF
               db 'go                    G [=addr] [bp]',CR,LF
+              db 'hex                   H value1 value2',CR,LF
+              db 'input                 I port',CR,LF
+              db 'load                  L [address]',CR,LF
+              db 'move                  M range address',CR,LF
+              db 'name                  N [pathname] [arglist]',CR,LF
+              db 'output                O port byte',CR,LF
               db 'proceed               P [=addr] [count]',CR,LF
               db 'quit                  Q',CR,LF
+              db 'register              R [name]',CR,LF
+              db 'search                S range list',CR,LF
+              db 'trace                 T [=addr] [count]',CR,LF
+              db 'unassemble            U [range]',CR,LF
+              db 'write                 W [address]',CR,LF
     help_text_len = $ - help_text
               db 0
 
