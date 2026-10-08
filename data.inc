@@ -763,6 +763,7 @@ COMTAB:
     cmd_entry 'l', cmd_load
     cmd_entry 'w', cmd_write
     cmd_entry 'h', cmd_hex
+    cmd_entry 'i', cmd_input
     cmd_entry 'g', cmd_go
     cmd_entry 't', cmd_trace
     cmd_entry 'p', cmd_proceed
@@ -786,4 +787,5 @@ section '.bss' readable writeable
     line_buffer     rb LINE_BUFFER_SIZE
     asm_token       rb ASM_TOKEN_SIZE
     asm_bytes       rb ASM_BYTES_SIZE
+    io_ports        rb 10000h
     memory          rb MEM_SIZE

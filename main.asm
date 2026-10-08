@@ -1516,6 +1516,47 @@ cmd_hex:
     pop     ebx
     jmp     print_error_and_ret
 
+cmd_input:
+    push    ebx
+    push    esi
+    push    edi
+
+    mov     esi, [cmd_ptr]
+
+    call    skip_whitespace
+    call    parse_hex
+    jc      .ci_err
+    movzx   ebx, ax
+
+    call    skip_whitespace
+    call    is_eol
+    jnc     .ci_err
+
+    mov     al, [io_ports + ebx]
+
+    mov     edi, line_buffer
+    call    put_hex_byte
+    mov     al, CR
+    stosb
+    mov     al, LF
+    stosb
+
+    mov     ecx, edi
+    sub     ecx, line_buffer
+    mov     esi, line_buffer
+    call    print_buffer
+
+    pop     edi
+    pop     esi
+    pop     ebx
+    ret
+
+.ci_err:
+    pop     edi
+    pop     esi
+    pop     ebx
+    jmp     print_error_and_ret
+
 cmd_search:
     mov     esi, [cmd_ptr]
 
