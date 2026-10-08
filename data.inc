@@ -75,6 +75,8 @@ OP_DEC_CX               equ 49h
 
 OP_JNZ_REL8             equ 75h
 
+INT_VECTOR_10           equ 10h
+INT_VECTOR_16           equ 16h
 INT_VECTOR_20           equ 20h
 INT_VECTOR_21           equ 21h
 ENABLE_PROCESSED_INPUT  equ 0001h
@@ -306,6 +308,14 @@ section '.data' data readable writeable
     old_console_mode dd 0
     int21_old_console_mode dd 0
     int21_chars_read dd 0
+    kbd_peek_valid   db 0
+    kbd_peek_char    db 0
+    kbd_peek_scan    db 0
+    stdin_eof        db 0
+    kbd_temp_mode    dd 0
+    events_read      dd 0
+    temp_pipe_avail  dd 0
+    input_record     rb 32
     edit_nibble      db 0
     edit_have_nibble db 0
     edit_cell_done   db 0

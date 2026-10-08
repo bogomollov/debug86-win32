@@ -4386,6 +4386,191 @@ decode_modrm:
     stc
     ret
 
+check_char_available:
+    push    ebx
+    push    ecx
+    push    edx
+    push    esi
+    push    edi
+
+    cmp     byte [kbd_peek_valid], 1
+    je      .cca_avail
+
+    invoke  GetConsoleMode, [hStdIn], kbd_temp_mode
+    test    eax, eax
+    jz      .cca_not_console
+
+.cca_console_loop:
+    mov     dword [events_read], 0
+    invoke  PeekConsoleInputA, [hStdIn], input_record, 1, events_read
+    test    eax, eax
+    jz      .cca_none
+    cmp     dword [events_read], 0
+    jz      .cca_none
+
+    cmp     word [input_record], 1
+    jne     .cca_discard
+
+    cmp     dword [input_record + 4], 0
+    je      .cca_discard
+
+    cmp     byte [input_record + 14], 0
+    jne     .cca_got_key
+
+    movzx   eax, word [input_record + 10]
+    cmp     eax, 10h    ; VK_SHIFT
+    je      .cca_discard
+    cmp     eax, 11h    ; VK_CONTROL
+    je      .cca_discard
+    cmp     eax, 12h    ; VK_MENU
+    je      .cca_discard
+    cmp     eax, 14h    ; VK_CAPITAL
+    je      .cca_discard
+    cmp     eax, 90h    ; VK_NUMLOCK
+    je      .cca_discard
+    cmp     eax, 91h    ; VK_SCROLL
+    je      .cca_discard
+
+    cmp     word [input_record + 12], 0
+    je      .cca_discard
+    jmp     .cca_got_key
+
+.cca_discard:
+    invoke  ReadConsoleInputA, [hStdIn], input_record, 1, events_read
+    jmp     .cca_console_loop
+
+.cca_got_key:
+    invoke  ReadConsoleInputA, [hStdIn], input_record, 1, events_read
+    mov     al, [input_record + 14]
+    mov     [kbd_peek_char], al
+    mov     al, [input_record + 12]
+    mov     [kbd_peek_scan], al
+    mov     byte [kbd_peek_valid], 1
+    jmp     .cca_avail
+
+.cca_not_console:
+    mov     dword [temp_pipe_avail], 0
+    invoke  PeekNamedPipe, [hStdIn], 0, 0, 0, temp_pipe_avail, 0
+    test    eax, eax
+    jz      .cca_try_file
+    cmp     dword [temp_pipe_avail], 0
+    jz      .cca_none
+    invoke  ReadFile, [hStdIn], kbd_peek_char, 1, events_read, 0
+    test    eax, eax
+    jz      .cca_none
+    cmp     dword [events_read], 1
+    jne     .cca_none
+    call    .cca_setup_scan
+    mov     byte [kbd_peek_valid], 1
+    jmp     .cca_avail
+
+.cca_try_file:
+    invoke  ReadFile, [hStdIn], kbd_peek_char, 1, events_read, 0
+    test    eax, eax
+    jz      .cca_eof
+    cmp     dword [events_read], 1
+    jne     .cca_eof
+    call    .cca_setup_scan
+    mov     byte [kbd_peek_valid], 1
+    jmp     .cca_avail
+
+.cca_eof:
+    mov     byte [stdin_eof], 1
+    jmp     .cca_none
+
+.cca_setup_scan:
+    mov     byte [kbd_peek_scan], 0
+    mov     dl, [kbd_peek_char]
+    cmp     dl, 13
+    jne     .css_not_cr
+    mov     byte [kbd_peek_scan], 1Ch
+    ret
+.css_not_cr:
+    cmp     dl, 8
+    jne     .css_not_bs
+    mov     byte [kbd_peek_scan], 0Eh
+    ret
+.css_not_bs:
+    cmp     dl, 9
+    jne     .css_not_tab
+    mov     byte [kbd_peek_scan], 0Fh
+    ret
+.css_not_tab:
+    cmp     dl, 27
+    jne     .css_not_esc
+    mov     byte [kbd_peek_scan], 01h
+    ret
+.css_not_esc:
+    ret
+
+.cca_avail:
+    pop     edi
+    pop     esi
+    pop     edx
+    pop     ecx
+    pop     ebx
+    mov     al, 1
+    ret
+
+.cca_none:
+    pop     edi
+    pop     esi
+    pop     edx
+    pop     ecx
+    pop     ebx
+    xor     al, al
+    ret
+
+get_keystroke:
+    push    ebx
+    push    ecx
+    push    edx
+    push    esi
+    push    edi
+
+.gk_loop:
+    cmp     byte [ctrl_c_flag], 0
+    jne     .gk_ctrl_c
+    cmp     byte [stdin_eof], 0
+    jne     .gk_eof
+    call    check_char_available
+    test    al, al
+    jnz     .gk_have_char
+    cmp     byte [stdin_eof], 0
+    jne     .gk_eof
+    invoke  Sleep, 10
+    jmp     .gk_loop
+
+.gk_have_char:
+    mov     byte [kbd_peek_valid], 0
+    mov     al, [kbd_peek_char]
+    mov     ah, [kbd_peek_scan]
+    pop     edi
+    pop     esi
+    pop     edx
+    pop     ecx
+    pop     ebx
+    ret
+
+.gk_eof:
+    mov     al, 1Ah
+    xor     ah, ah
+    pop     edi
+    pop     esi
+    pop     edx
+    pop     ecx
+    pop     ebx
+    ret
+
+.gk_ctrl_c:
+    xor     ax, ax
+    pop     edi
+    pop     esi
+    pop     edx
+    pop     ecx
+    pop     ebx
+    ret
+
 step:
     push    ebx
     push    ecx
@@ -4576,17 +4761,105 @@ step:
     je      .step_prog_end
     cmp     al, INT_VECTOR_21
     je      .int21
+    cmp     al, INT_VECTOR_10
+    je      .int10
+    cmp     al, INT_VECTOR_16
+    je      .int16
     add     word [reg_IP], 2
     jmp     .step_ok
 
 .int21:
     mov     ah, byte [reg_AX+1]
+    cmp     ah, 00h
+    je      .step_prog_end
+    cmp     ah, 01h
+    je      .int21_ah01
+    cmp     ah, 02h
+    je      .int21_ah02
+    cmp     ah, 06h
+    je      .int21_ah06
+    cmp     ah, 07h
+    je      .int21_ah07_08
+    cmp     ah, 08h
+    je      .int21_ah07_08
     cmp     ah, INT21_AH_PRINT_STRING
     je      .int21_ah09
     cmp     ah, INT21_AH_BUFFERED_INPUT
     je      .int21_ah0a
+    cmp     ah, 0Bh
+    je      .int21_ah0b
+    cmp     ah, 25h
+    je      .int21_ah25
+    cmp     ah, 30h
+    je      .int21_ah30
+    cmp     ah, 35h
+    je      .int21_ah35
     cmp     ah, INT21_AH_EXIT
     je      .step_prog_end
+    add     word [reg_IP], 2
+    jmp     .step_ok
+
+.int21_ah01:
+    call    get_keystroke
+    mov     byte [reg_AX], al
+    cmp     al, CR
+    jne     .int21_01_not_cr
+    mov     byte [line_buffer], CR
+    mov     byte [line_buffer+1], LF
+    mov     esi, line_buffer
+    mov     ecx, 2
+    call    print_buffer
+    jmp     .int21_01_done
+.int21_01_not_cr:
+    mov     byte [line_buffer], al
+    mov     esi, line_buffer
+    mov     ecx, 1
+    call    print_buffer
+.int21_01_done:
+    add     word [reg_IP], 2
+    jmp     .step_ok
+
+.int21_ah02:
+    mov     al, byte [reg_DX]
+    mov     byte [line_buffer], al
+    mov     esi, line_buffer
+    mov     ecx, 1
+    call    print_buffer
+    mov     al, byte [reg_DX]
+    mov     byte [reg_AX], al
+    add     word [reg_IP], 2
+    jmp     .step_ok
+
+.int21_ah06:
+    cmp     byte [reg_DX], 0FFh
+    jne     .int21_06_out
+    call    check_char_available
+    test    al, al
+    jz      .int21_06_no_char
+    mov     byte [kbd_peek_valid], 0
+    mov     al, [kbd_peek_char]
+    mov     byte [reg_AX], al
+    mov     byte [flag_states + FLAG_ZR], 0
+    jmp     .int21_06_done
+.int21_06_no_char:
+    mov     byte [reg_AX], 0
+    mov     byte [flag_states + FLAG_ZR], 1
+    jmp     .int21_06_done
+.int21_06_out:
+    mov     al, byte [reg_DX]
+    mov     byte [line_buffer], al
+    mov     esi, line_buffer
+    mov     ecx, 1
+    call    print_buffer
+    mov     al, byte [reg_DX]
+    mov     byte [reg_AX], al
+.int21_06_done:
+    add     word [reg_IP], 2
+    jmp     .step_ok
+
+.int21_ah07_08:
+    call    get_keystroke
+    mov     byte [reg_AX], al
     add     word [reg_IP], 2
     jmp     .step_ok
 
@@ -4703,6 +4976,101 @@ step:
     pop     edi
 
 .int21_0a_skip:
+    add     word [reg_IP], 2
+    jmp     .step_ok
+
+.int21_ah0b:
+    call    check_char_available
+    test    al, al
+    jz      .int21_0b_none
+    mov     byte [reg_AX], 0FFh
+    jmp     .int21_0b_done
+.int21_0b_none:
+    mov     byte [reg_AX], 00h
+.int21_0b_done:
+    add     word [reg_IP], 2
+    jmp     .step_ok
+
+.int21_ah25:
+    movzx   eax, byte [reg_AX]
+    shl     eax, 2
+    mov     dx, [reg_DX]
+    mov     word [memory + eax], dx
+    mov     dx, [reg_DS]
+    mov     word [memory + eax + 2], dx
+    add     word [reg_IP], 2
+    jmp     .step_ok
+
+.int21_ah30:
+    mov     word [reg_AX], 0002h
+    mov     word [reg_BX], 0000h
+    mov     word [reg_CX], 0000h
+    add     word [reg_IP], 2
+    jmp     .step_ok
+
+.int21_ah35:
+    movzx   eax, byte [reg_AX]
+    shl     eax, 2
+    mov     bx, word [memory + eax]
+    mov     [reg_BX], bx
+    mov     bx, word [memory + eax + 2]
+    mov     [reg_ES], bx
+    add     word [reg_IP], 2
+    jmp     .step_ok
+
+.int10:
+    mov     ah, byte [reg_AX+1]
+    cmp     ah, 0Eh
+    je      .int10_ah0e
+    cmp     ah, 02h
+    je      .int10_ah02
+    add     word [reg_IP], 2
+    jmp     .step_ok
+
+.int10_ah0e:
+    mov     al, byte [reg_AX]
+    mov     byte [line_buffer], al
+    mov     esi, line_buffer
+    mov     ecx, 1
+    call    print_buffer
+    add     word [reg_IP], 2
+    jmp     .step_ok
+
+.int10_ah02:
+    movzx   eax, byte [reg_DX+1]
+    shl     eax, 16
+    mov     al, byte [reg_DX]
+    invoke  SetConsoleCursorPosition, [hStdOut], eax
+    add     word [reg_IP], 2
+    jmp     .step_ok
+
+.int16:
+    mov     ah, byte [reg_AX+1]
+    cmp     ah, 00h
+    je      .int16_ah00
+    cmp     ah, 01h
+    je      .int16_ah01
+    add     word [reg_IP], 2
+    jmp     .step_ok
+
+.int16_ah00:
+    call    get_keystroke
+    mov     word [reg_AX], ax
+    add     word [reg_IP], 2
+    jmp     .step_ok
+
+.int16_ah01:
+    call    check_char_available
+    test    al, al
+    jz      .int16_01_none
+    mov     byte [flag_states + FLAG_ZR], 0
+    mov     al, [kbd_peek_char]
+    mov     ah, [kbd_peek_scan]
+    mov     word [reg_AX], ax
+    jmp     .int16_01_done
+.int16_01_none:
+    mov     byte [flag_states + FLAG_ZR], 1
+.int16_01_done:
     add     word [reg_IP], 2
     jmp     .step_ok
 .not_int:
@@ -6044,4 +6412,9 @@ section '.idata' import data readable writeable
            ReadFile,              'ReadFile',\
            WriteFile,             'WriteFile',\
            CloseHandle,           'CloseHandle',\
-           GetFileSize,           'GetFileSize'
+           GetFileSize,           'GetFileSize',\
+           SetConsoleCursorPosition, 'SetConsoleCursorPosition',\
+           PeekConsoleInputA,     'PeekConsoleInputA',\
+           ReadConsoleInputA,     'ReadConsoleInputA',\
+           PeekNamedPipe,         'PeekNamedPipe',\
+           Sleep,                 'Sleep'
