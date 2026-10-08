@@ -133,7 +133,9 @@ main_loop:
     jmp     main_loop
 
 cmd_help:
-    invoke  WriteConsoleA, [hStdOut], help_text, help_text_len, chars_written, 0
+    mov     esi, help_text
+    mov     ecx, help_text_len
+    call    print_buffer
     ret
 
 cmd_register:

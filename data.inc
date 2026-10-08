@@ -735,18 +735,19 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
         db "jpo",0,7Bh,0
         db 0
 
-    help_text db 'assemble              A [адрес]',CR,LF
-              db 'unassemble            U [адрес]',CR,LF
-              db 'dump                  D [диапазон]',CR,LF
-              db 'enter                 E адрес [список]',CR,LF
-              db 'fill                  F диапазон список',CR,LF
-              db 'move                  M диапазон адрес',CR,LF
-              db 'search                S диапазон список',CR,LF
-              db 'register              R [имя]',CR,LF
+    help_text db 'assemble              A [address]',CR,LF
+              db 'unassemble            U [address]',CR,LF
+              db 'dump                  D [range]',CR,LF
+              db 'enter                 E address [list]',CR,LF
+              db 'fill                  F range list',CR,LF
+              db 'move                  M range address',CR,LF
+              db 'search                S range list',CR,LF
+              db 'register              R [name]',CR,LF
               db 'go                    G [=addr] [bp]',CR,LF
               db 'proceed               P [=addr] [count]',CR,LF
-              db 'quit                  Q',CR,LF,0
+              db 'quit                  Q',CR,LF
     help_text_len = $ - help_text
+              db 0
 
     err_text db '^ Error',CR,LF,0
     err_text_len = $ - err_text
