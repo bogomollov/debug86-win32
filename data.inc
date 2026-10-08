@@ -21,7 +21,7 @@ INPUT_BUFFER_MAX        equ 255
 INPUT_BUFFER_SIZE       equ 256
 LINE_BUFFER_SIZE        equ 256
 ASM_TOKEN_SIZE          equ 32
-ASM_BYTES_SIZE          equ 16
+ASM_BYTES_SIZE          equ 64
 REG_NAME_BUFFER_SIZE    equ 4
 REG_NAME_MAX_LEN        equ 3
 REG_PRINT_COUNT         equ 13
@@ -645,11 +645,57 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
     db op, ' bh,cl', 0, op8  + 2, modrm_base + 7
 }
 
+macro gen_mov_sreg_dst sreg, sreg_idx, sep {
+    db 'mov ', sreg, sep, 'ax', 0, 8Eh, 0C0h + (sreg_idx shl 3) + 0
+    db 'mov ', sreg, sep, 'cx', 0, 8Eh, 0C0h + (sreg_idx shl 3) + 1
+    db 'mov ', sreg, sep, 'dx', 0, 8Eh, 0C0h + (sreg_idx shl 3) + 2
+    db 'mov ', sreg, sep, 'bx', 0, 8Eh, 0C0h + (sreg_idx shl 3) + 3
+    db 'mov ', sreg, sep, 'sp', 0, 8Eh, 0C0h + (sreg_idx shl 3) + 4
+    db 'mov ', sreg, sep, 'bp', 0, 8Eh, 0C0h + (sreg_idx shl 3) + 5
+    db 'mov ', sreg, sep, 'si', 0, 8Eh, 0C0h + (sreg_idx shl 3) + 6
+    db 'mov ', sreg, sep, 'di', 0, 8Eh, 0C0h + (sreg_idx shl 3) + 7
+}
+
+macro gen_mov_sreg_src sreg, sreg_idx, sep {
+    db 'mov ax', sep, sreg, 0, 8Ch, 0C0h + (sreg_idx shl 3) + 0
+    db 'mov cx', sep, sreg, 0, 8Ch, 0C0h + (sreg_idx shl 3) + 1
+    db 'mov dx', sep, sreg, 0, 8Ch, 0C0h + (sreg_idx shl 3) + 2
+    db 'mov bx', sep, sreg, 0, 8Ch, 0C0h + (sreg_idx shl 3) + 3
+    db 'mov sp', sep, sreg, 0, 8Ch, 0C0h + (sreg_idx shl 3) + 4
+    db 'mov bp', sep, sreg, 0, 8Ch, 0C0h + (sreg_idx shl 3) + 5
+    db 'mov si', sep, sreg, 0, 8Ch, 0C0h + (sreg_idx shl 3) + 6
+    db 'mov di', sep, sreg, 0, 8Ch, 0C0h + (sreg_idx shl 3) + 7
+}
+
+macro gen_sreg_all sep {
+    gen_mov_sreg_dst 'es', 0, sep
+    gen_mov_sreg_dst 'ss', 2, sep
+    gen_mov_sreg_dst 'ds', 3, sep
+
+    gen_mov_sreg_src 'es', 0, sep
+    gen_mov_sreg_src 'cs', 1, sep
+    gen_mov_sreg_src 'ss', 2, sep
+    gen_mov_sreg_src 'ds', 3, sep
+}
+
+macro gen_r16_only prefix, opcode, modrm_base {
+    db prefix, 'ax', 0, opcode, modrm_base + 0
+    db prefix, 'cx', 0, opcode, modrm_base + 1
+    db prefix, 'dx', 0, opcode, modrm_base + 2
+    db prefix, 'bx', 0, opcode, modrm_base + 3
+    db prefix, 'sp', 0, opcode, modrm_base + 4
+    db prefix, 'bp', 0, opcode, modrm_base + 5
+    db prefix, 'si', 0, opcode, modrm_base + 6
+    db prefix, 'di', 0, opcode, modrm_base + 7
+}
+
     asm_1word_table:
         db "nop",0,OP_NOP,0
         db "int",0,OP_INT,1
         db "ret",0,OP_RET,0
         db "retf",0,0CBh,0
+        db "ret",0,0C2h,2
+        db "retf",0,0CAh,2
         db "push cx",0,OP_PUSH_CX,0
         db "pop cx",0,OP_POP_CX,0
         db "movsb",0,0A4h,0
@@ -762,6 +808,8 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
         gen_r16_unary 'idiv ', 0F7h, 0F6h, 0F8h
         gen_dec_16
         gen_dec_8
+        gen_r16_only 'call ', 0FFh, 0D0h
+        gen_r16_only 'jmp ',  0FFh, 0E0h
         db 0
 
     asm_3word_table db "mov bx ax",0,OP_MOV_BX_AX,OP_MOV_BX_AX_MODRM
@@ -789,6 +837,12 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
         gen_logic_all 'and', ' ', 21h, 20h
         gen_logic_all 'or',  ' ', 09h, 08h
         gen_logic_all 'test',' ', 85h, 84h
+        gen_logic_all 'add', ' ', 01h, 00h
+        gen_logic_all 'adc', ' ', 11h, 10h
+        gen_logic_all 'sub', ' ', 29h, 28h
+        gen_logic_all 'sbb', ' ', 19h, 18h
+        gen_logic_all 'cmp', ' ', 39h, 38h
+        gen_sreg_all ' '
         db 0
 
     asm_2byte_table db "mov bx,ax",0,OP_MOV_BX_AX,OP_MOV_BX_AX_MODRM
@@ -821,6 +875,14 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
         gen_logic_all 'and', ',', 21h, 20h
         gen_logic_all 'or',  ',', 09h, 08h
         gen_logic_all 'test',',', 85h, 84h
+        gen_logic_all 'add', ',', 01h, 00h
+        gen_logic_all 'adc', ',', 11h, 10h
+        gen_logic_all 'sub', ',', 29h, 28h
+        gen_logic_all 'sbb', ',', 19h, 18h
+        gen_logic_all 'cmp', ',', 39h, 38h
+        gen_sreg_all ','
+        gen_r16_only 'call ', 0FFh, 0D0h
+        gen_r16_only 'jmp ',  0FFh, 0E0h
         gen_r16_unary 'mul ', 0F7h, 0F6h, 0E0h
         gen_r16_unary 'imul ', 0F7h, 0F6h, 0E8h
         gen_r16_unary 'div ', 0F7h, 0F6h, 0F0h

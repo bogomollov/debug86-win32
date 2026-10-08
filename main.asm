@@ -4845,6 +4845,118 @@ parse_mem_instruction:
     ret
 
 parse_instruction:
+    call    skip_whitespace
+    call    is_eol
+    jc      .err
+
+    ; Check for 'db' or 'dw' directive
+    mov     al, [esi]
+    or      al, 20h
+    cmp     al, 'd'
+    jne     .not_directive
+    mov     ah, [esi+1]
+    or      ah, 20h
+    cmp     ah, 'b'
+    je      .check_db_delim
+    cmp     ah, 'w'
+    je      .check_dw_delim
+    jmp     .not_directive
+
+.check_db_delim:
+    mov     al, [esi+2]
+    cmp     al, ' '
+    je      .parse_db
+    cmp     al, 9
+    je      .parse_db
+    cmp     al, ','
+    je      .parse_db
+    jmp     .not_directive
+
+.check_dw_delim:
+    mov     al, [esi+2]
+    cmp     al, ' '
+    je      .parse_dw
+    cmp     al, 9
+    je      .parse_dw
+    cmp     al, ','
+    je      .parse_dw
+    jmp     .not_directive
+
+.parse_db:
+    add     esi, 2
+    xor     ecx, ecx
+    mov     edi, asm_bytes
+.db_loop:
+    call    skip_whitespace
+    call    is_eol
+    jc      .db_done
+    mov     al, [esi]
+    cmp     al, ''''
+    je      .db_string
+    cmp     al, '"'
+    je      .db_string
+    call    parse_hex_byte
+    jc      .err
+    movzx   ecx, cx
+    cmp     ecx, ASM_BYTES_SIZE
+    jae     .err
+    mov     [edi], al
+    inc     edi
+    inc     ecx
+    jmp     .db_loop
+.db_string:
+    mov     dl, al
+    inc     esi
+.db_str_loop:
+    call    is_eol
+    jc      .err
+    mov     al, [esi]
+    cmp     al, dl
+    jne     .db_str_char
+    inc     esi
+    cmp     byte [esi], dl
+    jne     .db_loop
+.db_str_char:
+    cmp     ecx, ASM_BYTES_SIZE
+    jae     .err
+    mov     [edi], al
+    inc     edi
+    inc     ecx
+    inc     esi
+    jmp     .db_str_loop
+.db_done:
+    test    ecx, ecx
+    jz      .err
+    mov     [asm_len], cx
+    clc
+    ret
+
+.parse_dw:
+    add     esi, 2
+    xor     ecx, ecx
+    mov     edi, asm_bytes
+.dw_loop:
+    call    skip_whitespace
+    call    is_eol
+    jc      .dw_done
+    call    parse_hex
+    jc      .err
+    movzx   ecx, cx
+    cmp     ecx, ASM_BYTES_SIZE - 2
+    ja      .err
+    mov     [edi], al
+    mov     [edi+1], ah
+    add     edi, 2
+    add     ecx, 2
+    jmp     .dw_loop
+.dw_done:
+    test    ecx, ecx
+    jz      .err
+    mov     [asm_len], cx
+    clc
+    ret
+
+.not_directive:
     push    esi
     call    check_has_bracket
     pop     esi
@@ -4863,7 +4975,84 @@ parse_instruction:
     mov     ebx, asm_rel8_table
     call    search_table
     jnc     .found_rel8
-    
+
+    ; Check if first token is 'call'
+    cmp     dword [asm_token], 'call'
+    jne     .not_call_insn
+    cmp     byte [asm_token+4], 0
+    jne     .not_call_insn
+
+    call    skip_whitespace
+    call    is_eol
+    jc      .err
+
+    ; Check reg16: call ax, call bx, etc.
+    push    esi
+    call    parse_asm_reg
+    jc      .call_target
+    cmp     ah, 2
+    jne     .call_target_restore
+    push    eax
+    call    skip_whitespace
+    call    is_eol
+    pop     eax
+    jnc     .call_target_restore
+    add     esp, 4
+    mov     byte [asm_bytes], 0FFh
+    add     al, 0D0h
+    mov     byte [asm_bytes+1], al
+    mov     word [asm_len], 2
+    clc
+    ret
+
+.call_target_restore:
+    pop     esi
+    jmp     .call_parse_addr
+
+.call_target:
+    pop     esi
+
+.call_parse_addr:
+    call    parse_hex
+    jc      .err
+    mov     bx, ax
+    call    skip_whitespace
+    cmp     byte [esi], ':'
+    jne     .call_near
+
+    ; Far call: 9A off seg (5 bytes)
+    inc     esi
+    call    skip_whitespace
+    call    parse_hex
+    jc      .err
+    push    ax
+    call    skip_whitespace
+    call    is_eol
+    pop     ax
+    jnc     .err
+    mov     byte [asm_bytes], 9Ah
+    mov     [asm_bytes+1], al
+    mov     [asm_bytes+2], ah
+    mov     [asm_bytes+3], bl
+    mov     [asm_bytes+4], bh
+    mov     word [asm_len], 5
+    clc
+    ret
+
+.call_near:
+    call    is_eol
+    jnc     .err
+    mov     ax, bx
+    sub     ax, [asm_off]
+    sub     ax, 3
+    mov     byte [asm_bytes], 0E8h
+    mov     [asm_bytes+1], al
+    mov     [asm_bytes+2], ah
+    mov     word [asm_len], 3
+    clc
+    ret
+
+.not_call_insn:
     mov     edi, asm_token
 .find_end:
     cmp     byte [edi], 0
@@ -4926,6 +5115,52 @@ parse_instruction:
     call    skip_whitespace
     call    is_eol
     jc      .err
+
+    cmp     byte [asm_bytes], 0EBh
+    jne     .rel8_check_addr
+
+    ; For JMP, check if operand is reg16
+    push    esi
+    call    parse_asm_reg
+    jc      .jmp_not_reg
+    cmp     ah, 2
+    jne     .jmp_not_reg_restore
+    push    eax
+    call    skip_whitespace
+    call    is_eol
+    pop     eax
+    jnc     .jmp_not_reg_restore
+    add     esp, 4
+    mov     byte [asm_bytes], 0FFh
+    add     al, 0E0h
+    mov     byte [asm_bytes+1], al
+    mov     word [asm_len], 2
+    clc
+    ret
+
+.jmp_not_reg_restore:
+    pop     esi
+    jmp     .rel8_check_addr
+
+.jmp_not_reg:
+    pop     esi
+
+.rel8_check_addr:
+    call    parse_hex
+    jc      .err
+    mov     bx, ax
+
+    call    skip_whitespace
+    cmp     byte [esi], ':'
+    jne     .rel8_no_colon
+
+    ; Colon is ONLY valid for JMP (0EBh)
+    cmp     byte [asm_bytes], 0EBh
+    jne     .err
+
+    ; Far jump: EA off seg (5 bytes)
+    inc     esi
+    call    skip_whitespace
     call    parse_hex
     jc      .err
     push    ax
@@ -4933,13 +5168,43 @@ parse_instruction:
     call    is_eol
     pop     ax
     jnc     .err
+    mov     byte [asm_bytes], 0EAh
+    mov     [asm_bytes+1], al
+    mov     [asm_bytes+2], ah
+    mov     [asm_bytes+3], bl
+    mov     [asm_bytes+4], bh
+    mov     word [asm_len], 5
+    clc
+    ret
+
+.rel8_no_colon:
+    call    is_eol
+    jnc     .err
+
+    mov     ax, bx
     sub     ax, [asm_off]
     sub     ax, 2
     movsx   dx, al
     cmp     dx, ax
-    jne     .err
+    jne     .rel8_disp_overflow
+
     mov     [asm_bytes+1], al
     mov     word [asm_len], 2
+    clc
+    ret
+
+.rel8_disp_overflow:
+    cmp     byte [asm_bytes], 0EBh
+    jne     .err
+
+    ; Near jump: E9 disp16 (3 bytes)
+    mov     ax, bx
+    sub     ax, [asm_off]
+    sub     ax, 3
+    mov     byte [asm_bytes], 0E9h
+    mov     [asm_bytes+1], al
+    mov     [asm_bytes+2], ah
+    mov     word [asm_len], 3
     clc
     ret
 
@@ -4952,9 +5217,26 @@ parse_instruction:
     jnz     .has_args
     call    skip_whitespace
     call    is_eol
-    jnc     .err
+    jnc     .check_ret_imm
     clc
     ret
+
+.check_ret_imm:
+    cmp     byte [asm_bytes], 0C3h
+    je      .do_ret_imm
+    cmp     byte [asm_bytes], 0CBh
+    je      .do_retf_imm
+    jmp     .err
+
+.do_ret_imm:
+    mov     byte [asm_bytes], 0C2h
+    mov     byte [asm_arg_size], 2
+    jmp     .has_immediate
+
+.do_retf_imm:
+    mov     byte [asm_bytes], 0CAh
+    mov     byte [asm_arg_size], 2
+    jmp     .has_immediate
 
 .has_args:
     cmp     ah, 2
