@@ -783,7 +783,13 @@ macro gen_r16_only prefix, opcode, modrm_base {
         gen_inc_16
         gen_inc_8
         db "add ax",0,OP_ADD_AX,2
+        db "add al",0,04h,1
+        db "adc ax",0,15h,2
+        db "adc al",0,14h,1
         db "sub ax",0,OP_SUB_AX,2
+        db "sub al",0,2Ch,1
+        db "sbb ax",0,1Dh,2
+        db "sbb al",0,1Ch,1
         db "xor ax",0,35h,2
         db "xor al",0,34h,1
         db "and ax",0,25h,2
