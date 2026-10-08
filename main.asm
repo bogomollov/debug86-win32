@@ -8306,8 +8306,6 @@ step:
     and     cl, 1Fh
 .shift_count_ok:
 
-    bt      word [flag_states + FLAG_CY], 0
-
     test    bl, bl
     jz      .shift_byte
 
@@ -8335,9 +8333,11 @@ step:
     ror     word [edi], cl
     jmp     .shift_flags
 .sh16_rcl:
+    bt      word [flag_states + FLAG_CY], 0
     rcl     word [edi], cl
     jmp     .shift_flags
 .sh16_rcr:
+    bt      word [flag_states + FLAG_CY], 0
     rcr     word [edi], cl
     jmp     .shift_flags
 .sh16_shl:
@@ -8375,9 +8375,11 @@ step:
     ror     byte [edi], cl
     jmp     .shift_flags
 .sh8_rcl:
+    bt      word [flag_states + FLAG_CY], 0
     rcl     byte [edi], cl
     jmp     .shift_flags
 .sh8_rcr:
+    bt      word [flag_states + FLAG_CY], 0
     rcr     byte [edi], cl
     jmp     .shift_flags
 .sh8_shl:
@@ -8436,7 +8438,6 @@ step:
 
 .alu_imm_exec_w:
     push    ecx
-    bt      word [flag_states + FLAG_CY], 0
     cmp     edx, 0
     je      .alu_w_add
     cmp     edx, 1
@@ -8463,9 +8464,11 @@ step:
     or      word [edi], ax
     jmp     .alu_imm_w_done
 .alu_w_adc:
+    bt      word [flag_states + FLAG_CY], 0
     adc     word [edi], ax
     jmp     .alu_imm_w_done
 .alu_w_sbb:
+    bt      word [flag_states + FLAG_CY], 0
     sbb     word [edi], ax
     jmp     .alu_imm_w_done
 .alu_w_and:
@@ -8493,7 +8496,6 @@ step:
     mov     al, byte [ebp + ecx]
     inc     ecx
     push    ecx
-    bt      word [flag_states + FLAG_CY], 0
     cmp     edx, 0
     je      .alu_b_add
     cmp     edx, 1
@@ -8520,9 +8522,11 @@ step:
     or      byte [edi], al
     jmp     .alu_imm_b_done
 .alu_b_adc:
+    bt      word [flag_states + FLAG_CY], 0
     adc     byte [edi], al
     jmp     .alu_imm_b_done
 .alu_b_sbb:
+    bt      word [flag_states + FLAG_CY], 0
     sbb     byte [edi], al
     jmp     .alu_imm_b_done
 .alu_b_and:
@@ -8594,7 +8598,6 @@ step:
 
 .dir_rm_dst:
     push    ecx
-    bt      word [flag_states + FLAG_CY], 0
     movzx   edx, dl
     test    bl, bl
     jz      .reg_alu_byte
