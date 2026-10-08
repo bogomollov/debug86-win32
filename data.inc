@@ -600,8 +600,16 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
         db "ret",0,OP_RET,0
         db "push cx",0,OP_PUSH_CX,0
         db "pop cx",0,OP_POP_CX,0
-        db "lodsb",0,0ACh,0
+        db "movsb",0,0A4h,0
+        db "movsw",0,0A5h,0
+        db "cmpsb",0,0A6h,0
+        db "cmpsw",0,0A7h,0
         db "stosb",0,0AAh,0
+        db "stosw",0,0ABh,0
+        db "lodsb",0,0ACh,0
+        db "lodsw",0,0ADh,0
+        db "scasb",0,0AEh,0
+        db "scasw",0,0AFh,0
         gen_dec_16
         db 0
 
@@ -624,6 +632,23 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
         db "cmp ax",0,3Dh,2
         db "cmp al",0,3Ch,1
         db "rep stosb",0,0F3h,0AAh
+        db "rep stosw",0,0F3h,0ABh
+        db "rep movsb",0,0F3h,0A4h
+        db "rep movsw",0,0F3h,0A5h
+        db "rep lodsb",0,0F3h,0ACh
+        db "rep lodsw",0,0F3h,0ADh
+        db "rep cmpsb",0,0F3h,0A6h
+        db "rep cmpsw",0,0F3h,0A7h
+        db "rep scasb",0,0F3h,0AEh
+        db "rep scasw",0,0F3h,0AFh
+        db "repe cmpsb",0,0F3h,0A6h
+        db "repe cmpsw",0,0F3h,0A7h
+        db "repe scasb",0,0F3h,0AEh
+        db "repe scasw",0,0F3h,0AFh
+        db "repne cmpsb",0,0F2h,0A6h
+        db "repne cmpsw",0,0F2h,0A7h
+        db "repne scasb",0,0F2h,0AEh
+        db "repne scasw",0,0F2h,0AFh
         gen_push_16
         gen_pop_16
         gen_inc_16
@@ -678,6 +703,19 @@ macro gen_shift_2byte op, op16, op8, modrm_base {
     asm_2byte_table db "mov bx,ax",0,OP_MOV_BX_AX,OP_MOV_BX_AX_MODRM
         db "add [bx+si],al",0,00h,00h
         db "rep stosb",0,0F3h,0AAh
+        db "rep stosw",0,0F3h,0ABh
+        db "rep movsb",0,0F3h,0A4h
+        db "rep movsw",0,0F3h,0A5h
+        db "rep lodsb",0,0F3h,0ACh
+        db "rep lodsw",0,0F3h,0ADh
+        db "repe cmpsb",0,0F3h,0A6h
+        db "repe cmpsw",0,0F3h,0A7h
+        db "repe scasb",0,0F3h,0AEh
+        db "repe scasw",0,0F3h,0AFh
+        db "repne cmpsb",0,0F2h,0A6h
+        db "repne cmpsw",0,0F2h,0A7h
+        db "repne scasb",0,0F2h,0AEh
+        db "repne scasw",0,0F2h,0AFh
         gen_inc_8
         gen_r16_unary 'not ', 0F7h, 0F6h, 0D0h
         gen_shift_2byte 'shl', 0D1h, 0D0h, 0E0h

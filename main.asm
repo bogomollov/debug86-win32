@@ -4577,6 +4577,285 @@ get_keystroke:
     pop     ebx
     ret
 
+exec_one_string_op:
+    push    ebx
+    push    ecx
+    push    edx
+    push    esi
+    push    edi
+
+    cmp     al, 0A4h
+    je      .op_movsb
+    cmp     al, 0A5h
+    je      .op_movsw
+    cmp     al, 0A6h
+    je      .op_cmpsb
+    cmp     al, 0A7h
+    je      .op_cmpsw
+    cmp     al, 0AAh
+    je      .op_stosb
+    cmp     al, 0ABh
+    je      .op_stosw
+    cmp     al, 0ACh
+    je      .op_lodsb
+    cmp     al, 0ADh
+    je      .op_lodsw
+    cmp     al, 0AEh
+    je      .op_scasb
+    cmp     al, 0AFh
+    je      .op_scasw
+    jmp     .fail
+
+.op_movsb:
+    mov     ax, [reg_DS]
+    mov     bx, [reg_SI]
+    call    calc_linear_addr
+    mov     ecx, 1
+    call    check_mem_range
+    jc      .fail
+    movzx   edx, byte [memory + eax]
+
+    mov     ax, [reg_ES]
+    mov     bx, [reg_DI]
+    call    calc_linear_addr
+    mov     ecx, 1
+    call    check_mem_range
+    jc      .fail
+    mov     byte [memory + eax], dl
+
+    cmp     byte [flag_states + FLAG_DN], 0
+    jne     .movsb_dec
+    inc     word [reg_SI]
+    inc     word [reg_DI]
+    jmp     .ok
+.movsb_dec:
+    dec     word [reg_SI]
+    dec     word [reg_DI]
+    jmp     .ok
+
+.op_movsw:
+    mov     ax, [reg_DS]
+    mov     bx, [reg_SI]
+    call    calc_linear_addr
+    mov     ecx, 2
+    call    check_mem_range
+    jc      .fail
+    movzx   edx, word [memory + eax]
+
+    mov     ax, [reg_ES]
+    mov     bx, [reg_DI]
+    call    calc_linear_addr
+    mov     ecx, 2
+    call    check_mem_range
+    jc      .fail
+    mov     word [memory + eax], dx
+
+    cmp     byte [flag_states + FLAG_DN], 0
+    jne     .movsw_dec
+    add     word [reg_SI], 2
+    add     word [reg_DI], 2
+    jmp     .ok
+.movsw_dec:
+    sub     word [reg_SI], 2
+    sub     word [reg_DI], 2
+    jmp     .ok
+
+.op_cmpsb:
+    mov     ax, [reg_DS]
+    mov     bx, [reg_SI]
+    call    calc_linear_addr
+    mov     ecx, 1
+    call    check_mem_range
+    jc      .fail
+    movzx   edx, byte [memory + eax]
+
+    mov     ax, [reg_ES]
+    mov     bx, [reg_DI]
+    call    calc_linear_addr
+    mov     ecx, 1
+    call    check_mem_range
+    jc      .fail
+    mov     cl, byte [memory + eax]
+
+    cmp     dl, cl
+    pushfd
+    pop     edx
+    call    update_flags_from_eflags
+
+    cmp     byte [flag_states + FLAG_DN], 0
+    jne     .cmpsb_dec
+    inc     word [reg_SI]
+    inc     word [reg_DI]
+    jmp     .ok
+.cmpsb_dec:
+    dec     word [reg_SI]
+    dec     word [reg_DI]
+    jmp     .ok
+
+.op_cmpsw:
+    mov     ax, [reg_DS]
+    mov     bx, [reg_SI]
+    call    calc_linear_addr
+    mov     ecx, 2
+    call    check_mem_range
+    jc      .fail
+    movzx   esi, word [memory + eax]
+
+    mov     ax, [reg_ES]
+    mov     bx, [reg_DI]
+    call    calc_linear_addr
+    mov     ecx, 2
+    call    check_mem_range
+    jc      .fail
+    mov     cx, word [memory + eax]
+
+    cmp     si, cx
+    pushfd
+    pop     edx
+    call    update_flags_from_eflags
+
+    cmp     byte [flag_states + FLAG_DN], 0
+    jne     .cmpsw_dec
+    add     word [reg_SI], 2
+    add     word [reg_DI], 2
+    jmp     .ok
+.cmpsw_dec:
+    sub     word [reg_SI], 2
+    sub     word [reg_DI], 2
+    jmp     .ok
+
+.op_stosb:
+    mov     ax, [reg_ES]
+    mov     bx, [reg_DI]
+    call    calc_linear_addr
+    mov     ecx, 1
+    call    check_mem_range
+    jc      .fail
+    mov     dl, byte [reg_AX]
+    mov     byte [memory + eax], dl
+
+    cmp     byte [flag_states + FLAG_DN], 0
+    jne     .stosb_dec
+    inc     word [reg_DI]
+    jmp     .ok
+.stosb_dec:
+    dec     word [reg_DI]
+    jmp     .ok
+
+.op_stosw:
+    mov     ax, [reg_ES]
+    mov     bx, [reg_DI]
+    call    calc_linear_addr
+    mov     ecx, 2
+    call    check_mem_range
+    jc      .fail
+    mov     dx, word [reg_AX]
+    mov     word [memory + eax], dx
+
+    cmp     byte [flag_states + FLAG_DN], 0
+    jne     .stosw_dec
+    add     word [reg_DI], 2
+    jmp     .ok
+.stosw_dec:
+    sub     word [reg_DI], 2
+    jmp     .ok
+
+.op_lodsb:
+    mov     ax, [reg_DS]
+    mov     bx, [reg_SI]
+    call    calc_linear_addr
+    mov     ecx, 1
+    call    check_mem_range
+    jc      .fail
+    mov     dl, byte [memory + eax]
+    mov     byte [reg_AX], dl
+
+    cmp     byte [flag_states + FLAG_DN], 0
+    jne     .lodsb_dec
+    inc     word [reg_SI]
+    jmp     .ok
+.lodsb_dec:
+    dec     word [reg_SI]
+    jmp     .ok
+
+.op_lodsw:
+    mov     ax, [reg_DS]
+    mov     bx, [reg_SI]
+    call    calc_linear_addr
+    mov     ecx, 2
+    call    check_mem_range
+    jc      .fail
+    mov     dx, word [memory + eax]
+    mov     word [reg_AX], dx
+
+    cmp     byte [flag_states + FLAG_DN], 0
+    jne     .lodsw_dec
+    add     word [reg_SI], 2
+    jmp     .ok
+.lodsw_dec:
+    sub     word [reg_SI], 2
+    jmp     .ok
+
+.op_scasb:
+    mov     ax, [reg_ES]
+    mov     bx, [reg_DI]
+    call    calc_linear_addr
+    mov     ecx, 1
+    call    check_mem_range
+    jc      .fail
+    mov     dl, byte [reg_AX]
+    cmp     dl, byte [memory + eax]
+    pushfd
+    pop     edx
+    call    update_flags_from_eflags
+
+    cmp     byte [flag_states + FLAG_DN], 0
+    jne     .scasb_dec
+    inc     word [reg_DI]
+    jmp     .ok
+.scasb_dec:
+    dec     word [reg_DI]
+    jmp     .ok
+
+.op_scasw:
+    mov     ax, [reg_ES]
+    mov     bx, [reg_DI]
+    call    calc_linear_addr
+    mov     ecx, 2
+    call    check_mem_range
+    jc      .fail
+    mov     dx, word [reg_AX]
+    cmp     dx, word [memory + eax]
+    pushfd
+    pop     edx
+    call    update_flags_from_eflags
+
+    cmp     byte [flag_states + FLAG_DN], 0
+    jne     .scasw_dec
+    add     word [reg_DI], 2
+    jmp     .ok
+.scasw_dec:
+    sub     word [reg_DI], 2
+    jmp     .ok
+
+.ok:
+    pop     edi
+    pop     esi
+    pop     edx
+    pop     ecx
+    pop     ebx
+    clc
+    ret
+
+.fail:
+    pop     edi
+    pop     esi
+    pop     edx
+    pop     ecx
+    pop     ebx
+    stc
+    ret
+
 step:
     push    ebx
     push    ecx
@@ -5201,85 +5480,87 @@ step:
     jmp     .step_ok
 .not_pop_seg:
 
-    ; --- REP STOSB (F3 AA) ---
+    ; --- REP / REPNE string ops (F3h / F2h) ---
     cmp     al, 0F3h
-    jne     .not_rep_stosb
+    je      .is_rep_prefix
+    cmp     al, 0F2h
+    je      .is_rep_prefix
+    jmp     .not_rep_string
+
+.is_rep_prefix:
     mov     ax, [reg_CS]
     mov     bx, [reg_IP]
     call    calc_linear_addr
     mov     ecx, 2
     call    check_mem_range
     jc      .out_of_bounds
-    cmp     byte [ebp+1], 0AAh
-    jne     .unknown_insn
-.rep_stosb_loop:
+    mov     dl, byte [ebp+1]
+    cmp     dl, 0A4h
+    jb      .unknown_insn
+    cmp     dl, 0A7h
+    jbe     .rep_prefix_valid
+    cmp     dl, 0AAh
+    jb      .unknown_insn
+    cmp     dl, 0AFh
+    ja      .unknown_insn
+
+.rep_prefix_valid:
+    mov     dh, byte [ebp]      ; dh = prefix (F3h or F2h), dl = opcode
+.rep_loop:
     cmp     word [reg_CX], 0
-    je      .rep_stosb_done
-    mov     ax, [reg_ES]
-    mov     bx, [reg_DI]
-    call    calc_linear_addr
-    mov     ecx, 1
-    call    check_mem_range
+    je      .rep_done
+
+    mov     al, dl
+    call    exec_one_string_op
     jc      .out_of_bounds
-    mov     dl, byte [reg_AX]
-    mov     byte [memory + eax], dl
-    cmp     byte [flag_states + FLAG_DN], 0
-    jne     .rep_stosb_dec
-    inc     word [reg_DI]
-    jmp     .rep_stosb_next
-.rep_stosb_dec:
-    dec     word [reg_DI]
-.rep_stosb_next:
+
     dec     word [reg_CX]
-    jmp     .rep_stosb_loop
-.rep_stosb_done:
+
+    cmp     dl, 0A6h
+    je      .rep_check_zf
+    cmp     dl, 0A7h
+    je      .rep_check_zf
+    cmp     dl, 0AEh
+    je      .rep_check_zf
+    cmp     dl, 0AFh
+    je      .rep_check_zf
+    jmp     .rep_loop
+
+.rep_check_zf:
+    cmp     dh, 0F3h
+    je      .rep_check_repe
+    ; REPNE (F2): terminate if ZF == 1
+    cmp     byte [flag_states + FLAG_ZR], 0
+    jne     .rep_done
+    jmp     .rep_loop
+
+.rep_check_repe:
+    ; REPE (F3): terminate if ZF == 0
+    cmp     byte [flag_states + FLAG_ZR], 0
+    je      .rep_done
+    jmp     .rep_loop
+
+.rep_done:
     add     word [reg_IP], 2
     jmp     .step_ok
-.not_rep_stosb:
+.not_rep_string:
 
-    ; --- STOSB (AAh) ---
+    ; --- Non-prefixed string ops (A4h..A7h, AAh..AFh) ---
+    cmp     al, 0A4h
+    jb      .not_string_op
+    cmp     al, 0A7h
+    jbe     .is_single_string_op
     cmp     al, 0AAh
-    jne     .not_stosb
-    mov     ax, [reg_ES]
-    mov     bx, [reg_DI]
-    call    calc_linear_addr
-    mov     ecx, 1
-    call    check_mem_range
-    jc      .out_of_bounds
-    mov     dl, byte [reg_AX]
-    mov     byte [memory + eax], dl
-    cmp     byte [flag_states + FLAG_DN], 0
-    jne     .stosb_dec
-    inc     word [reg_DI]
-    jmp     .stosb_done
-.stosb_dec:
-    dec     word [reg_DI]
-.stosb_done:
-    add     word [reg_IP], 1
-    jmp     .step_ok
-.not_stosb:
+    jb      .not_string_op
+    cmp     al, 0AFh
+    ja      .not_string_op
 
-    ; --- LODSB (ACh) ---
-    cmp     al, 0ACh
-    jne     .not_lodsb
-    mov     ax, [reg_DS]
-    mov     bx, [reg_SI]
-    call    calc_linear_addr
-    mov     ecx, 1
-    call    check_mem_range
+.is_single_string_op:
+    call    exec_one_string_op
     jc      .out_of_bounds
-    mov     dl, byte [memory + eax]
-    mov     byte [reg_AX], dl
-    cmp     byte [flag_states + FLAG_DN], 0
-    jne     .lodsb_dec
-    inc     word [reg_SI]
-    jmp     .lodsb_done
-.lodsb_dec:
-    dec     word [reg_SI]
-.lodsb_done:
     add     word [reg_IP], 1
     jmp     .step_ok
-.not_lodsb:
+.not_string_op:
 
     cmp     al, 40h
     jb      .not_inc_r16
