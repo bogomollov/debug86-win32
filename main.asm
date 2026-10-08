@@ -5094,7 +5094,7 @@ parse_instruction:
     mov     ebx, asm_2word_table
     call    search_table
     jnc     .found
-    jmp     .err
+    jmp     parse_alu_reg_imm
 
 .found_3word:
     pop     edi
@@ -5280,6 +5280,150 @@ parse_instruction:
     ret
     
 .err:
+    stc
+    ret
+
+parse_alu_reg_imm:
+    mov     edi, asm_token
+.pari_find_space:
+    mov     al, [edi]
+    test    al, al
+    jz      .pari_err
+    cmp     al, ' '
+    je      .pari_found_space
+    inc     edi
+    jmp     .pari_find_space
+
+.pari_found_space:
+    mov     byte [edi], 0
+    inc     edi
+
+    mov     ebx, mem_mnem_table
+.pari_search_mnem:
+    cmp     byte [ebx], 0
+    je      .pari_err
+    mov     edx, ebx
+    mov     ecx, asm_token
+.pari_cmp_mnem:
+    mov     al, [ecx]
+    mov     ah, [edx]
+    cmp     al, ah
+    jne     .pari_next_mnem
+    test    al, al
+    jz      .pari_found_mnem
+    inc     ecx
+    inc     edx
+    jmp     .pari_cmp_mnem
+
+.pari_next_mnem:
+    cmp     byte [ebx], 0
+    je      .pari_skip_null
+    inc     ebx
+    jmp     .pari_next_mnem
+.pari_skip_null:
+    add     ebx, 3
+    jmp     .pari_search_mnem
+
+.pari_found_mnem:
+    mov     cl, [edx+1]
+    cmp     cl, 0
+    je      .pari_type_ok
+    cmp     cl, 2
+    jne     .pari_err
+.pari_type_ok:
+    mov     ch, [edx+2]
+
+    push    esi
+    push    ecx
+    mov     esi, edi
+    call    parse_asm_reg
+    pop     ecx
+    pop     esi
+    jc      .pari_err
+
+    push    eax
+    push    ecx
+
+    call    skip_whitespace
+    cmp     byte [esi], ','
+    jne     .pari_no_comma
+    inc     esi
+    call    skip_whitespace
+.pari_no_comma:
+    call    parse_hex
+    pop     ecx
+    pop     edx
+    jc      .pari_err
+
+    push    ax
+    push    edx
+    push    ecx
+    call    skip_whitespace
+    call    is_eol
+    pop     ecx
+    pop     edx
+    pop     bx
+    jnc     .pari_err
+
+    movzx   eax, ch
+    shl     al, 3
+    or      al, 0C0h
+    or      al, dl
+    mov     byte [asm_bytes+1], al
+
+    cmp     cl, 2
+    je      .pari_test
+
+    cmp     dh, 1
+    jne     .pari_alu_word
+
+    test    bh, bh
+    jnz     .pari_err
+    mov     byte [asm_bytes], 80h
+    mov     byte [asm_bytes+2], bl
+    mov     word [asm_len], 3
+    clc
+    ret
+
+.pari_alu_word:
+    movsx   ax, bl
+    cmp     ax, bx
+    jne     .pari_alu_imm16
+
+    mov     byte [asm_bytes], 83h
+    mov     byte [asm_bytes+2], bl
+    mov     word [asm_len], 3
+    clc
+    ret
+
+.pari_alu_imm16:
+    mov     byte [asm_bytes], 81h
+    mov     byte [asm_bytes+2], bl
+    mov     byte [asm_bytes+3], bh
+    mov     word [asm_len], 4
+    clc
+    ret
+
+.pari_test:
+    cmp     dh, 1
+    jne     .pari_test_word
+    test    bh, bh
+    jnz     .pari_err
+    mov     byte [asm_bytes], 0F6h
+    mov     byte [asm_bytes+2], bl
+    mov     word [asm_len], 3
+    clc
+    ret
+
+.pari_test_word:
+    mov     byte [asm_bytes], 0F7h
+    mov     byte [asm_bytes+2], bl
+    mov     byte [asm_bytes+3], bh
+    mov     word [asm_len], 4
+    clc
+    ret
+
+.pari_err:
     stc
     ret
 
