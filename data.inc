@@ -290,6 +290,15 @@ section '.data' data readable writeable
     move_dst_seg    dw 0
     move_dst_off    dw 0
 
+    comp_src_seg    dw 0
+    comp_src_off    dw 0
+    comp_len        dd 0
+    comp_dst_seg    dw 0
+    comp_dst_off    dw 0
+    comp_val1       db 0
+    comp_val2       db 0
+
+
     edit_seg         dw 0
     edit_off         dw 0
     edit_char        db 0
@@ -745,6 +754,7 @@ COMTAB:
     cmd_entry 'u', cmd_unassemble
     cmd_entry 'q', cmd_quit
     cmd_entry 'd', cmd_dump
+    cmd_entry 'c', cmd_compare
     cmd_entry 'f', cmd_fill
     cmd_entry 'e', cmd_edit
     cmd_entry 'm', cmd_move

@@ -1316,6 +1316,150 @@ cmd_move:
     pop     ebx
     jmp     print_error_and_ret
 
+cmd_compare:
+    push    ebx
+    push    esi
+    push    edi
+    push    ebp
+
+    mov     esi, [cmd_ptr]
+
+    call    parse_address
+    jc      .cc_err
+    mov     [comp_src_seg], ax
+    mov     [comp_src_off], bx
+    mov     bp, ax
+
+    mov     dx, bx
+    call    parse_length
+    jc      .cc_err
+    mov     [comp_len], ecx
+
+    call    parse_address
+    jc      .cc_err
+    mov     [comp_dst_seg], ax
+    mov     [comp_dst_off], bx
+
+    call    skip_whitespace
+    call    is_eol
+    jnc     .cc_err
+
+    mov     ecx, [comp_len]
+    test    ecx, ecx
+    jz      .cc_done
+
+    movzx   eax, word [comp_src_seg]
+    shl     eax, 4
+    lea     esi, [memory + eax]
+
+    movzx   eax, word [comp_dst_seg]
+    shl     eax, 4
+    lea     edi, [memory + eax]
+
+    movzx   ebx, word [comp_src_off]
+    movzx   edx, word [comp_dst_off]
+
+.cc_loop:
+    cmp     byte [ctrl_c_flag], 0
+    jne     .cc_interrupted
+
+    movzx   eax, bx
+    movzx   ebp, dx
+    mov     al, [esi + eax]
+    cmp     al, [edi + ebp]
+    je      .cc_next
+
+    mov     [comp_val1], al
+    mov     al, [edi + ebp]
+    mov     [comp_val2], al
+
+    push    ebx
+    push    ecx
+    push    edx
+    push    esi
+    push    edi
+
+    mov     edi, line_buffer
+
+    mov     ax, [comp_src_seg]
+    call    put_hex_word
+    mov     al, COLON
+    stosb
+    mov     ax, bx
+    call    put_hex_word
+
+    mov     al, SPACE
+    stosb
+    stosb
+
+    mov     al, [comp_val1]
+    call    put_hex_byte
+
+    mov     al, SPACE
+    stosb
+    stosb
+
+    mov     al, [comp_val2]
+    call    put_hex_byte
+
+    mov     al, SPACE
+    stosb
+    stosb
+
+    mov     ax, [comp_dst_seg]
+    call    put_hex_word
+    mov     al, COLON
+    stosb
+    mov     ax, dx
+    call    put_hex_word
+
+    mov     al, CR
+    stosb
+    mov     al, LF
+    stosb
+
+    mov     ecx, edi
+    sub     ecx, line_buffer
+    mov     esi, line_buffer
+    call    print_buffer
+
+    pop     edi
+    pop     esi
+    pop     edx
+    pop     ecx
+    pop     ebx
+
+.cc_next:
+    inc     bx
+    inc     dx
+    dec     ecx
+    jnz     .cc_loop
+
+.cc_done:
+    pop     ebp
+    pop     edi
+    pop     esi
+    pop     ebx
+    ret
+
+.cc_interrupted:
+    mov     byte [ctrl_c_flag], 0
+    mov     byte [line_buffer], CR
+    mov     byte [line_buffer+1], LF
+    invoke  WriteConsoleA, [hStdOut], line_buffer, 2, chars_written, 0
+    pop     ebp
+    pop     edi
+    pop     esi
+    pop     ebx
+    ret
+
+.cc_err:
+    pop     ebp
+    pop     edi
+    pop     esi
+    pop     ebx
+    jmp     print_error_and_ret
+
 cmd_search:
     mov     esi, [cmd_ptr]
 
@@ -5772,4 +5916,4 @@ section '.idata' import data readable writeable
            ReadFile,              'ReadFile',\
            WriteFile,             'WriteFile',\
            CloseHandle,           'CloseHandle',\
-           GetFileSize,           'GetFileSize'
+           GetFileSize,           'GetFileSize'
