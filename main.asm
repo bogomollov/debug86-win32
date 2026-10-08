@@ -1557,6 +1557,37 @@ cmd_input:
     pop     ebx
     jmp     print_error_and_ret
 
+cmd_output:
+    push    ebx
+    push    esi
+
+    mov     esi, [cmd_ptr]
+
+    call    skip_whitespace
+    call    parse_hex
+    jc      .co_err
+    movzx   ebx, ax
+
+    call    skip_whitespace
+    call    parse_hex_byte
+    jc      .co_err
+    mov     dl, al
+
+    call    skip_whitespace
+    call    is_eol
+    jnc     .co_err
+
+    mov     [io_ports + ebx], dl
+
+    pop     esi
+    pop     ebx
+    ret
+
+.co_err:
+    pop     esi
+    pop     ebx
+    jmp     print_error_and_ret
+
 cmd_search:
     mov     esi, [cmd_ptr]
 
