@@ -4370,6 +4370,11 @@ decode_modrm:
     mov     dword [ebp-12], 0
 
 .disp_done:
+    cmp     dword [seg_override], 0
+    jz      .no_seg_override
+    mov     eax, [seg_override]
+    mov     dx, [eax]
+.no_seg_override:
     mov     ax, dx
     call    calc_linear_addr
 
@@ -4866,6 +4871,9 @@ step:
 
     mov     ax, [reg_CS]
     mov     bx, [reg_IP]
+    mov     [step_initial_ip], bx
+    mov     dword [seg_override], 0
+    mov     dword [prefix_len], 0
     call    calc_linear_addr
 
     mov     ecx, 1
@@ -4874,6 +4882,58 @@ step:
 
     mov     ebp, memory
     add     ebp, eax
+
+.prefix_loop:
+    mov     eax, ebp
+    sub     eax, memory
+    cmp     eax, MEM_SIZE
+    jae     .out_of_bounds
+
+    mov     al, [ebp]
+    cmp     al, 26h
+    je      .pref_es
+    cmp     al, 2Eh
+    je      .pref_cs
+    cmp     al, 36h
+    je      .pref_ss
+    cmp     al, 3Eh
+    je      .pref_ds
+    cmp     al, 0F0h
+    je      .pref_lock
+    jmp     .prefix_done
+
+.pref_es:
+    mov     dword [seg_override], reg_ES
+    inc     ebp
+    inc     dword [prefix_len]
+    jmp     .prefix_loop
+
+.pref_cs:
+    mov     dword [seg_override], reg_CS
+    inc     ebp
+    inc     dword [prefix_len]
+    jmp     .prefix_loop
+
+.pref_ss:
+    mov     dword [seg_override], reg_SS
+    inc     ebp
+    inc     dword [prefix_len]
+    jmp     .prefix_loop
+
+.pref_ds:
+    mov     dword [seg_override], reg_DS
+    inc     ebp
+    inc     dword [prefix_len]
+    jmp     .prefix_loop
+
+.pref_lock:
+    inc     ebp
+    inc     dword [prefix_len]
+    jmp     .prefix_loop
+
+.prefix_done:
+    mov     ax, word [prefix_len]
+    add     [reg_IP], ax
 
     movzx   eax, byte [ebp]
 
@@ -6526,6 +6586,8 @@ step:
 .not_fe_ff:
 
 .unknown_insn:
+    mov     ax, [step_initial_ip]
+    mov     [reg_IP], ax
     pop     ebp
     pop     edi
     pop     esi
@@ -6536,6 +6598,8 @@ step:
     ret
 
 .out_of_bounds:
+    mov     ax, [step_initial_ip]
+    mov     [reg_IP], ax
     pop     ebp
     pop     edi
     pop     esi

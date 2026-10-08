@@ -337,6 +337,9 @@ section '.data' data readable writeable
     proceed_count   dw 1
     proceed_target_seg dw 0
     proceed_target_off dw 0
+    seg_override    dd 0
+    prefix_len      dd 0
+    step_initial_ip dw 0
     
     reg_name_table:
         reg_entry 'ax', reg_AX
