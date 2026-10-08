@@ -7536,18 +7536,22 @@ print_registers:
     call    put_hex_word
     mov     al, SPACE
     stosb
+    stosb
 
     add     ebx, 2
     inc     edx
     cmp     edx, 8
     jne     .pr_next
-    dec     edi
+    sub     edi, 2
     mov     al, CR
     stosb
     mov     al, LF
     stosb
 .pr_next:
     loop    .pr_loop
+
+    mov     al, SPACE
+    stosb
 
     call    append_flags
 
