@@ -341,6 +341,30 @@ section '.data' data readable writeable
     prefix_len      dd 0
     step_initial_ip dw 0
     
+    dis_is_word     dd 0
+    dis_dir         dd 0
+    dis_imm_len     dd 0
+    dis_disp_len    dd 0
+    dis_mnem_ptr    dd 0
+    dis_is_sreg     dd 0
+
+    sreg_names      dw 'ES', 'CS', 'SS', 'DS'
+    op_reg8_names   dw 'AL', 'CL', 'DL', 'BL', 'AH', 'CH', 'DH', 'BH'
+    alu_op_names    db 'ADD ', 'OR  ', 'ADC ', 'SBB ', 'AND ', 'SUB ', 'XOR ', 'CMP '
+    modrm_base_names:
+        db 'BX+SI', 0, 0, 0
+        db 'BX+DI', 0, 0, 0
+        db 'BP+SI', 0, 0, 0
+        db 'BP+DI', 0, 0, 0
+        db 'SI', 0, 0, 0, 0, 0, 0
+        db 'DI', 0, 0, 0, 0, 0, 0
+        db 'BP', 0, 0, 0, 0, 0, 0
+        db 'BX', 0, 0, 0, 0, 0, 0
+    str_mnem_mov    db 'MOV ', 0
+    str_mnem_lea    db 'LEA ', 0
+    str_mnem_test   db 'TEST', 0
+    str_mnem_xchg   db 'XCHG', 0
+    
     reg_name_table:
         reg_entry 'ax', reg_AX
         reg_entry 'bx', reg_BX
