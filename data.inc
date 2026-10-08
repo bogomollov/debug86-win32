@@ -990,6 +990,7 @@ COMTAB:
     cmd_entry 't', cmd_trace
     cmd_entry 'p', cmd_proceed
     cmd_entry 'r', cmd_register
+    cmd_entry '?', cmd_help
     db 0
 
     reg16_ptrs:

@@ -133,8 +133,9 @@ main_loop:
     jmp     main_loop
 
 cmd_help:
-    mov     esi, [cmd_ptr]
-    call    print_error
+    mov     esi, help_text
+    mov     ecx, help_text_len
+    call    print_buffer
     ret
 
 cmd_register:
