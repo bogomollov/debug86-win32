@@ -301,7 +301,6 @@ parse_length:
     cmp     edx, 10000h
     ja      .err
     mov     ecx, edx
-    mov     cx, dx
     clc
     ret
 
@@ -319,12 +318,10 @@ parse_length:
     test    ax, ax
     jnz     .l_nonzero
     mov     ecx, 10000h
-    xor     cx, cx
     clc
     ret
 .l_nonzero:
     movzx   ecx, ax
-    mov     cx, ax
     clc
     ret
 

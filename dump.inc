@@ -9,7 +9,7 @@ do_dump:
     push    edi
     push    ebp
 
-    cmp     word [dump_len], 0
+    cmp     dword [dump_len], 0
     jz      dd_done
 
     mov     ax, [dump_off]
@@ -46,7 +46,7 @@ dd_line_loop:
     movzx   ecx, word [dd_skip]
     mov     edx, DUMP_LINE_BYTES
     sub     edx, ecx
-    movzx   eax, word [dump_len]
+    mov     eax, [dump_len]
     cmp     eax, edx
     jae     .dd_have_n
     mov     edx, eax
@@ -136,8 +136,8 @@ dd_line_loop:
 
     add     word [dump_off], DUMP_LINE_BYTES
     movzx   ecx, word [dd_line_bytes]
-    sub     word [dump_len], cx
-    jz      dd_done
+    sub     [dump_len], ecx
+    jbe     dd_done
     mov     word [dd_skip], 0
     jmp     dd_line_loop
 

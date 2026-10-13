@@ -179,7 +179,7 @@ section '.data' data readable writeable
 
     dump_seg        dw 0000h
     dump_off        dw 0100h
-    dump_len        dw 128
+    dump_len        dd 128
     dd_skip         dw 0
     dd_line_bytes   dw 0
 
@@ -267,7 +267,7 @@ section '.data' data readable writeable
 
     fill_seg        dw 0
     fill_off        dw 0
-    fill_len        dw 0
+    fill_len        dd 0
     fill_patlen     dw 0
     fill_pat        rb FILL_PAT_MAX
     search_seg      dw 0
@@ -278,7 +278,7 @@ section '.data' data readable writeable
 
     move_src_seg    dw 0
     move_src_off    dw 0
-    move_len        dw 0
+    move_len        dd 0
     move_dst_seg    dw 0
     move_dst_off    dw 0
 
@@ -320,7 +320,7 @@ section '.data' data readable writeable
     
     unasm_seg       dw 0
     unasm_off       dw 0100h
-    unasm_len       dw 32
+    unasm_len       dd 32
 
     trace_count     dw 1
     proceed_count   dw 1

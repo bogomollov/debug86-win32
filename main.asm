@@ -868,7 +868,7 @@ cmd_write:
 
 
 cmd_dump:
-    mov     word [dump_len], DUMP_DEFAULT_LEN
+    mov     dword [dump_len], DUMP_DEFAULT_LEN
     mov     esi, [cmd_ptr]
 
     call    skip_whitespace
@@ -881,7 +881,7 @@ cmd_dump:
     mov     [dump_off], bx
     mov     bp, ax
 
-    mov     word [dump_len], DUMP_DEFAULT_LEN
+    mov     dword [dump_len], DUMP_DEFAULT_LEN
 
     mov     dx, bx
     call    skip_whitespace
@@ -890,13 +890,13 @@ cmd_dump:
 
     call    parse_length
     jc      print_error_and_ret
-    mov     [dump_len], cx
+    mov     [dump_len], ecx
 
 .do_it:
     mov     ax, [dump_seg]
     mov     bx, [dump_off]
     call    calc_linear_addr
-    movzx   ecx, word [dump_len]
+    mov     ecx, [dump_len]
     call    check_mem_range
     jc      print_error_and_ret
     call    do_dump
@@ -914,7 +914,7 @@ cmd_fill:
     mov     dx, bx
     call    parse_length
     jc      print_error_and_ret
-    mov     [fill_len], cx
+    mov     [fill_len], ecx
 
     mov     edi, fill_pat
     xor     ecx, ecx
@@ -969,14 +969,14 @@ cmd_fill:
     mov     bx, [fill_off]
     call    calc_linear_addr
 
-    movzx   ecx, word [fill_len]
+    mov     ecx, [fill_len]
     call    check_mem_range
     jc      print_error_and_ret
 
     mov     edi, memory
     add     edi, eax
 
-    movzx   ecx, word [fill_len]
+    mov     ecx, [fill_len]
     mov     esi, fill_pat
     movzx   edx, word [fill_patlen]
     xor     ebx, ebx
@@ -1281,7 +1281,7 @@ cmd_move:
     mov     dx, bx
     call    parse_length
     jc      .cm_err
-    mov     [move_len], cx
+    mov     [move_len], ecx
     push    ecx
 
     call    parse_address
@@ -1873,7 +1873,7 @@ cmd_assemble:
 
 cmd_unassemble:
     mov     esi, [cmd_ptr]
-    mov     word [unasm_len], UNASM_DEFAULT_LEN
+    mov     dword [unasm_len], UNASM_DEFAULT_LEN
 
     call    skip_whitespace
     call    is_eol
@@ -1892,18 +1892,18 @@ cmd_unassemble:
 
     call    parse_length
     jc      print_error_and_ret
-    mov     [unasm_len], cx
+    mov     [unasm_len], ecx
 
 .do_it:
     mov     ax, [unasm_seg]
     mov     bx, [unasm_off]
     call    calc_linear_addr
-    movzx   ecx, word [unasm_len]
+    mov     ecx, [unasm_len]
     call    check_mem_range
     jc      print_error_and_ret
 
 .unasm_loop:
-    movzx   ecx, word [unasm_len]
+    mov     ecx, [unasm_len]
     test    ecx, ecx
     jz      .done
 
@@ -1913,10 +1913,11 @@ cmd_unassemble:
     call    disasm_line
     add     [unasm_off], bx
 
-    mov     ax, [unasm_len]
-    sub     ax, bx
+    mov     eax, [unasm_len]
+    movzx   ebx, bx
+    sub     eax, ebx
     jbe     .done
-    mov     [unasm_len], ax
+    mov     [unasm_len], eax
     jmp     .unasm_loop
 
 .done:
