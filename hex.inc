@@ -26,37 +26,38 @@ parse_hex:
     ret
 
 parse_hex_byte:
-    push    bx
-    push    cx
-    xor     bx, bx
-    xor     cx, cx
+    push    ebx
+    push    ecx
+    push    edx
+    mov     edx, esi
+    xor     ebx, ebx
+    xor     ecx, ecx
 .loop:
     mov     al, [esi]
     call    hex_to_val
     jc      .done
-    shl     bl, 4
+    shl     ebx, 4
+    jc      .err
     or      bl, al
     inc     esi
-    inc     cx
-    cmp     cx, 2
-    jb      .loop
+    inc     ecx
+    jmp     .loop
 .done:
-    test    cx, cx
+    test    ecx, ecx
     jz      .err
-    cmp     cx, 2
-    jb      .ok
-    mov     al, [esi]
-    call    hex_to_val
-    jnc     .err
-.ok:
+    cmp     ebx, 0FFh
+    ja      .err
     mov     al, bl
+    pop     edx
     clc
     jmp     .out
 .err:
+    mov     esi, edx
+    pop     edx
     stc
 .out:
-    pop     cx
-    pop     bx
+    pop     ecx
+    pop     ebx
     ret
 
 put_hex_word:
