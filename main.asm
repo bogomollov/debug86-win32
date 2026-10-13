@@ -9145,18 +9145,18 @@ step:
     dec     word [edi]
     pushfd
     pop     edx
-    mov     cl, [flag_states + FLAG_CY]
+    mov     al, [flag_states + FLAG_CY]
     call    update_flags_from_eflags
-    mov     [flag_states + FLAG_CY], cl
+    mov     [flag_states + FLAG_CY], al
     add     [reg_IP], cx
     jmp     .step_ok
 .fe_dec_b:
     dec     byte [edi]
     pushfd
     pop     edx
-    mov     cl, [flag_states + FLAG_CY]
+    mov     al, [flag_states + FLAG_CY]
     call    update_flags_from_eflags
-    mov     [flag_states + FLAG_CY], cl
+    mov     [flag_states + FLAG_CY], al
     add     [reg_IP], cx
     jmp     .step_ok
 
@@ -9166,18 +9166,18 @@ step:
     inc     word [edi]
     pushfd
     pop     edx
-    mov     cl, [flag_states + FLAG_CY]
+    mov     al, [flag_states + FLAG_CY]
     call    update_flags_from_eflags
-    mov     [flag_states + FLAG_CY], cl
+    mov     [flag_states + FLAG_CY], al
     add     [reg_IP], cx
     jmp     .step_ok
 .fe_inc_b:
     inc     byte [edi]
     pushfd
     pop     edx
-    mov     cl, [flag_states + FLAG_CY]
+    mov     al, [flag_states + FLAG_CY]
     call    update_flags_from_eflags
-    mov     [flag_states + FLAG_CY], cl
+    mov     [flag_states + FLAG_CY], al
     add     [reg_IP], cx
     jmp     .step_ok
 
