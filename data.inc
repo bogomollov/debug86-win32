@@ -177,7 +177,7 @@ section '.data' data readable writeable
 
     cmd_ptr         dd 0
 
-    dump_seg        dw 0000h
+    dump_seg        dw 0958h
     dump_off        dw 0100h
     dump_len        dd 128
     dd_skip         dw 0
@@ -318,7 +318,7 @@ section '.data' data readable writeable
     asm_len         dw 0
     asm_arg_size    db 0
     
-    unasm_seg       dw 0
+    unasm_seg       dw 0958h
     unasm_off       dw 0100h
     unasm_len       dd 32
 

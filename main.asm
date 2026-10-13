@@ -44,6 +44,10 @@ start:
     loop    .init_mem
 
     call    init_psp
+    mov     ax, [reg_DS]
+    mov     [dump_seg], ax
+    mov     ax, [reg_CS]
+    mov     [unasm_seg], ax
     call    parse_startup_cmdline
 
 main_loop:
