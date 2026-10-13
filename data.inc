@@ -94,6 +94,7 @@ STEP_OK                 equ 0
 STEP_PROGRAM_END        equ 1
 STEP_UNKNOWN            equ 2
 STEP_ERROR              equ 3
+STEP_BREAKPOINT         equ 4
 
 ; ============================================================
 ;  Записи таблиц через макросы + именованные смещения полей.

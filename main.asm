@@ -701,6 +701,30 @@ do_load_file:
     jne     .load_ok
     mov     word [reg_IP], 0100h
     mov     word [reg_AX], 0000h
+    mov     word [reg_SP], 0FFEEh
+    mov     word [reg_BP], 0000h
+    mov     word [reg_SI], 0000h
+    mov     word [reg_DI], 0000h
+    mov     word [reg_DX], 0000h
+
+    ; Initialize stack return address: [SS:SP] = 0000h
+    mov     ax, [reg_SS]
+    mov     bx, [reg_SP]
+    call    calc_linear_addr
+    cmp     eax, MEM_SIZE - 2
+    jae     .skip_stack_ret
+    mov     word [memory + eax], 0000h
+.skip_stack_ret:
+
+    ; Reset flags: NV UP EI PL NZ NA PO NC (EI=1, all other flags=0)
+    mov     byte [flag_states + FLAG_OV], 0
+    mov     byte [flag_states + FLAG_DN], 0
+    mov     byte [flag_states + FLAG_EI], 1
+    mov     byte [flag_states + FLAG_NG], 0
+    mov     byte [flag_states + FLAG_ZR], 0
+    mov     byte [flag_states + FLAG_AC], 0
+    mov     byte [flag_states + FLAG_PE], 0
+    mov     byte [flag_states + FLAG_CY], 0
 
 .load_ok:
     clc
@@ -6080,6 +6104,8 @@ cmd_go:
     call    step
     cmp     eax, STEP_OK
     je      .run_loop
+    cmp     eax, STEP_BREAKPOINT
+    je      .hit_breakpoint
     cmp     eax, STEP_PROGRAM_END
     je      .program_end
     cmp     eax, STEP_UNKNOWN
@@ -6119,6 +6145,8 @@ cmd_go:
     call    step
     cmp     eax, STEP_OK
     je      .run_loop
+    cmp     eax, STEP_BREAKPOINT
+    je      .hit_breakpoint
     cmp     eax, STEP_PROGRAM_END
     je      .program_end
     cmp     eax, STEP_UNKNOWN
@@ -6193,6 +6221,8 @@ cmd_trace:
 
     call    step
     cmp     eax, STEP_OK
+    je      .step_ok
+    cmp     eax, STEP_BREAKPOINT
     je      .step_ok
     cmp     eax, STEP_PROGRAM_END
     je      .step_prog_end
@@ -6428,6 +6458,8 @@ cmd_proceed:
     call    step
     cmp     eax, STEP_OK
     je      .proceed_step_ok
+    cmp     eax, STEP_BREAKPOINT
+    je      .proceed_hit_target
     cmp     eax, STEP_PROGRAM_END
     je      .proceed_prog_end
     cmp     eax, STEP_UNKNOWN
@@ -6450,6 +6482,8 @@ cmd_proceed:
     call    step
     cmp     eax, STEP_OK
     je      .proceed_step_loop
+    cmp     eax, STEP_BREAKPOINT
+    je      .proceed_hit_target
     cmp     eax, STEP_PROGRAM_END
     je      .proceed_prog_end
     cmp     eax, STEP_UNKNOWN
@@ -6471,6 +6505,8 @@ cmd_proceed:
     call    step
     cmp     eax, STEP_OK
     je      .proceed_step_loop
+    cmp     eax, STEP_BREAKPOINT
+    je      .proceed_hit_target
     cmp     eax, STEP_PROGRAM_END
     je      .proceed_prog_end
     cmp     eax, STEP_UNKNOWN
@@ -6953,6 +6989,16 @@ get_keystroke:
     pop     ebx
     ret
 
+get_str_src_seg:
+    cmp     dword [seg_override], 0
+    jz      .default_ds
+    mov     edx, [seg_override]
+    mov     ax, [edx]
+    ret
+.default_ds:
+    mov     ax, [reg_DS]
+    ret
+
 exec_one_string_op:
     push    ebx
     push    ecx
@@ -6983,7 +7029,7 @@ exec_one_string_op:
     jmp     .fail
 
 .op_movsb:
-    mov     ax, [reg_DS]
+    call    get_str_src_seg
     mov     bx, [reg_SI]
     call    calc_linear_addr
     mov     ecx, 1
@@ -7010,7 +7056,7 @@ exec_one_string_op:
     jmp     .ok
 
 .op_movsw:
-    mov     ax, [reg_DS]
+    call    get_str_src_seg
     mov     bx, [reg_SI]
     call    calc_linear_addr
     mov     ecx, 2
@@ -7037,7 +7083,7 @@ exec_one_string_op:
     jmp     .ok
 
 .op_cmpsb:
-    mov     ax, [reg_DS]
+    call    get_str_src_seg
     mov     bx, [reg_SI]
     call    calc_linear_addr
     mov     ecx, 1
@@ -7069,7 +7115,7 @@ exec_one_string_op:
     jmp     .ok
 
 .op_cmpsw:
-    mov     ax, [reg_DS]
+    call    get_str_src_seg
     mov     bx, [reg_SI]
     call    calc_linear_addr
     mov     ecx, 2
@@ -7137,7 +7183,7 @@ exec_one_string_op:
     jmp     .ok
 
 .op_lodsb:
-    mov     ax, [reg_DS]
+    call    get_str_src_seg
     mov     bx, [reg_SI]
     call    calc_linear_addr
     mov     ecx, 1
@@ -7155,7 +7201,7 @@ exec_one_string_op:
     jmp     .ok
 
 .op_lodsw:
-    mov     ax, [reg_DS]
+    call    get_str_src_seg
     mov     bx, [reg_SI]
     call    calc_linear_addr
     mov     ecx, 2
@@ -8332,7 +8378,7 @@ step:
     cmp     al, 0F4h
     jne     .not_hlt
     add     word [reg_IP], 1
-    jmp     .step_ok
+    jmp     .step_breakpoint
 .not_hlt:
 
     ; --- IRET (CFh), INT 3 (CCh), INTO (CEh) ---
@@ -8357,13 +8403,15 @@ step:
     cmp     al, 0CCh
     jne     .not_int3
     add     word [reg_IP], 1
-    jmp     .step_ok
+    jmp     .step_breakpoint
 .not_int3:
 
     cmp     al, 0CEh
     jne     .not_into
     add     word [reg_IP], 1
-    jmp     .step_ok
+    cmp     byte [flag_states + FLAG_OV], 0
+    jz      .step_ok
+    jmp     .step_breakpoint
 .not_into:
 
     ; --- REP / REPNE string ops (F3h / F2h) ---
@@ -8380,27 +8428,71 @@ step:
     mov     ecx, 2
     call    check_mem_range
     jc      .out_of_bounds
-    mov     dl, byte [ebp+1]
-    cmp     dl, 0A4h
-    jb      .unknown_insn
-    cmp     dl, 0A7h
-    jbe     .rep_prefix_valid
-    cmp     dl, 0AAh
-    jb      .unknown_insn
-    cmp     dl, 0AFh
-    ja      .unknown_insn
 
-.rep_prefix_valid:
-    mov     dh, byte [ebp]      ; dh = prefix (F3h or F2h), dl = opcode
-.rep_loop:
-    cmp     word [reg_CX], 0
-    je      .rep_done
+    mov     dh, byte [ebp]      ; dh = prefix (F3h or F2h)
+    mov     dl, byte [ebp+1]    ; dl = opcode or segment prefix
 
-    mov     al, dl
-    call    exec_one_string_op
+    cmp     dl, 26h
+    je      .rep_has_es
+    cmp     dl, 2Eh
+    je      .rep_has_cs
+    cmp     dl, 36h
+    je      .rep_has_ss
+    cmp     dl, 3Eh
+    je      .rep_has_ds
+
+    push    2                   ; [esp] = insn_len (relative to ebp)
+    jmp     .rep_check_opcode
+
+.rep_has_es:
+    mov     dword [seg_override], reg_ES
+    jmp     .rep_has_override
+.rep_has_cs:
+    mov     dword [seg_override], reg_CS
+    jmp     .rep_has_override
+.rep_has_ss:
+    mov     dword [seg_override], reg_SS
+    jmp     .rep_has_override
+.rep_has_ds:
+    mov     dword [seg_override], reg_DS
+
+.rep_has_override:
+    mov     ax, [reg_CS]
+    mov     bx, [reg_IP]
+    call    calc_linear_addr
+    mov     ecx, 3
+    call    check_mem_range
     jc      .out_of_bounds
+    mov     dl, byte [ebp+2]    ; opcode after segment prefix
+    push    3                   ; [esp] = insn_len (relative to ebp)
 
+.rep_check_opcode:
+    cmp     dl, 0A4h
+    jb      .rep_invalid
+    cmp     dl, 0A7h
+    jbe     .rep_opcode_ok
+    cmp     dl, 0AAh
+    jb      .rep_invalid
+    cmp     dl, 0AFh
+    jbe     .rep_opcode_ok
+
+.rep_invalid:
+    pop     eax
+    jmp     .unknown_insn
+
+.rep_opcode_ok:
+    cmp     word [reg_CX], 0
+    je      .rep_complete
+
+    mov     al, dl              ; al = opcode
+    call    exec_one_string_op
+    jnc     .rep_op_succeeded
+    pop     eax
+    jmp     .out_of_bounds
+
+.rep_op_succeeded:
     dec     word [reg_CX]
+    jz      .rep_complete
 
     cmp     dl, 0A6h
     je      .rep_check_zf
@@ -8410,24 +8502,32 @@ step:
     je      .rep_check_zf
     cmp     dl, 0AFh
     je      .rep_check_zf
-    jmp     .rep_loop
+    jmp     .rep_not_complete
 
 .rep_check_zf:
     cmp     dh, 0F3h
     je      .rep_check_repe
-    ; REPNE (F2): terminate if ZF == 1
+    ; REPNE (F2h): terminate if ZF == 1
     cmp     byte [flag_states + FLAG_ZR], 0
-    jne     .rep_done
-    jmp     .rep_loop
+    jne     .rep_complete
+    jmp     .rep_not_complete
 
 .rep_check_repe:
-    ; REPE (F3): terminate if ZF == 0
+    ; REPE (F3h): terminate if ZF == 0
     cmp     byte [flag_states + FLAG_ZR], 0
-    je      .rep_done
-    jmp     .rep_loop
+    je      .rep_complete
 
-.rep_done:
-    add     word [reg_IP], 2
+.rep_not_complete:
+    pop     eax
+    mov     ax, [step_initial_ip]
+    mov     [reg_IP], ax
+    jmp     .step_ok
+
+.rep_complete:
+    pop     eax                 ; insn_len relative to ebp
+    add     ax, word [prefix_len]
+    add     ax, [step_initial_ip]
+    mov     [reg_IP], ax
     jmp     .step_ok
 .not_rep_string:
 
@@ -9726,6 +9826,17 @@ step:
     pop     ecx
     pop     ebx
     mov     eax, STEP_OK
+    ret
+
+.step_breakpoint:
+    mov     dword [seg_override], 0
+    pop     ebp
+    pop     edi
+    pop     esi
+    pop     edx
+    pop     ecx
+    pop     ebx
+    mov     eax, STEP_BREAKPOINT
     ret
 
 
