@@ -154,11 +154,34 @@ cmd_register:
     mov     al, [esi]
     or      al, 20h
     cmp     al, 'f'
-    je      cmd_rf
+    jne     .parse_reg
+    mov     ah, [esi+1]
+    cmp     ah, ' '
+    je      .is_rf
+    cmp     ah, 9
+    je      .is_rf
+    cmp     ah, CR
+    je      .is_rf
+    cmp     ah, LF
+    je      .is_rf
+    test    ah, ah
+    jz      .is_rf
+    jmp     .parse_reg
 
+.is_rf:
+    inc     esi
+    call    skip_whitespace
+    call    is_eol
+    jnc     print_error_and_ret
+    jmp     cmd_rf
+
+.parse_reg:
     call    parse_reg_name
     jc      .bad_reg
     mov     [edit_reg_ptr], eax
+    call    skip_whitespace
+    call    is_eol
+    jnc     print_error_and_ret
 
     mov     edi, line_buffer
     mov     al, [edit_reg_name+0]
@@ -200,7 +223,12 @@ cmd_register:
     jc      .reg_done
 
     call    parse_hex
-    jc      .reg_done
+    jc      print_error_and_ret
+    push    ax
+    call    skip_whitespace
+    call    is_eol
+    pop     ax
+    jnc     print_error_and_ret
 
     mov     edi, [edit_reg_ptr]
     mov     [edi], ax
