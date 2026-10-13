@@ -1009,7 +1009,7 @@ cmd_fill:
 .cf_str_loop:
     mov     al, [esi]
     call    is_eol
-    jc      .cf_pat_done
+    jc      print_error_and_ret
     cmp     al, dl
     je      .cf_str_end
 
@@ -1112,7 +1112,7 @@ cmd_edit:
 .ce_str_loop:
     mov     al, [esi]
     call    is_eol
-    jc      .ce_ret
+    jc      print_error_and_ret
     cmp     al, dl
     je      .ce_str_end
 
@@ -1791,7 +1791,7 @@ cmd_search:
 .cs_str_loop:
     mov     al, [esi]
     call    is_eol
-    jc      .cs_pat_done
+    jc      print_error_and_ret
     cmp     al, dl
     je      .cs_str_end
 
