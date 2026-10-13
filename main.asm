@@ -362,7 +362,7 @@ cmd_quit:
     call    skip_whitespace
     call    is_eol
     jc      exit_program
-    ret
+    jmp     print_error_and_ret
 
 init_psp:
     push    eax
@@ -924,6 +924,10 @@ cmd_dump:
     call    parse_length
     jc      print_error_and_ret
     mov     [dump_len], ecx
+
+    call    skip_whitespace
+    call    is_eol
+    jnc     print_error_and_ret
 
 .do_it:
     mov     ax, [dump_seg]
@@ -1869,6 +1873,10 @@ cmd_assemble:
     jc      print_error_and_ret
     mov     [asm_seg], ax
     mov     [asm_off], bx
+
+    call    skip_whitespace
+    call    is_eol
+    jnc     print_error_and_ret
     jmp     .loop
 
 .use_default:
@@ -1975,6 +1983,10 @@ cmd_unassemble:
     call    parse_length
     jc      print_error_and_ret
     mov     [unasm_len], ecx
+
+    call    skip_whitespace
+    call    is_eol
+    jnc     print_error_and_ret
 
 .do_it:
     mov     byte [ctrl_c_flag], 0
