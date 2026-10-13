@@ -8821,7 +8821,13 @@ step:
     ja      .not_mov_accum_mem
 
     mov     bx, word [ebp+1]
-    mov     ax, [reg_DS]
+    mov     dx, [reg_DS]
+    cmp     dword [seg_override], 0
+    jz      .mov_accum_no_override
+    mov     eax, [seg_override]
+    mov     dx, [eax]
+.mov_accum_no_override:
+    mov     ax, dx
     call    calc_linear_addr
     mov     ecx, 2
     call    check_mem_range
