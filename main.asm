@@ -1309,6 +1309,7 @@ cmd_move:
 
     cmp     edi, edx
     je      .cm_done
+    pushfd
 
     movzx   eax, word [move_src_seg]
     shl     eax, 4
@@ -1321,6 +1322,7 @@ cmd_move:
     mov     bx, [move_src_off]
     mov     dx, [move_dst_off]
 
+    popfd
     jb      .cm_forward
 
     mov     eax, ecx
