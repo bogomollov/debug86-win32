@@ -6881,8 +6881,6 @@ step:
 
     cmp     al, 0C3h
     jne     .not_ret
-    cmp     word [reg_SP], 0FFEEh
-    jae     .step_prog_end
     mov     ax, [reg_SS]
     mov     bx, [reg_SP]
     call    calc_linear_addr
@@ -6899,8 +6897,6 @@ step:
 
     cmp     al, 0C2h
     jne     .not_ret_imm16
-    cmp     word [reg_SP], 0FFEEh
-    jae     .step_prog_end
     mov     ax, [reg_SS]
     mov     bx, [reg_SP]
     call    calc_linear_addr
@@ -6919,8 +6915,6 @@ step:
 
     cmp     al, 0CBh
     jne     .not_retf
-    cmp     word [reg_SP], 0FFEEh
-    jae     .step_prog_end
     mov     ax, [reg_SS]
     mov     bx, [reg_SP]
     call    calc_linear_addr
@@ -6939,8 +6933,6 @@ step:
 
     cmp     al, 0CAh
     jne     .not_retf_imm16
-    cmp     word [reg_SP], 0FFEEh
-    jae     .step_prog_end
     mov     ax, [reg_SS]
     mov     bx, [reg_SP]
     call    calc_linear_addr
