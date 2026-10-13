@@ -368,6 +368,9 @@ read_line_console_or_pipe:
     test    eax, eax
     jnz     .rl_console_ok
 
+    cmp     byte [ctrl_c_flag], 0
+    jnz     .rl_ctrl_c
+
     ; Fallback for redirected input (pipe)
     pop     edx             ; max_len
     push    edx
@@ -416,4 +419,11 @@ read_line_console_or_pipe:
     pop     esi
     pop     ebx
     clc
+    ret
+
+.rl_ctrl_c:
+    pop     edx
+    pop     esi
+    pop     ebx
+    stc
     ret

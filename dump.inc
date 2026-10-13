@@ -9,6 +9,8 @@ do_dump:
     push    edi
     push    ebp
 
+    mov     byte [ctrl_c_flag], 0
+
     cmp     dword [dump_len], 0
     jz      dd_done
 
@@ -21,6 +23,9 @@ do_dump:
     mov     [dump_off], ax
 
 dd_line_loop:
+    cmp     byte [ctrl_c_flag], 0
+    jne     .dd_interrupted
+
     mov     edi, line_buffer
 
     mov     ax, [dump_seg]
@@ -140,6 +145,14 @@ dd_line_loop:
     jbe     dd_done
     mov     word [dd_skip], 0
     jmp     dd_line_loop
+
+.dd_interrupted:
+    mov     byte [ctrl_c_flag], 0
+    mov     byte [line_buffer], CR
+    mov     byte [line_buffer+1], LF
+    mov     esi, line_buffer
+    mov     ecx, 2
+    call    print_buffer
 
 dd_done:
     pop     ebp

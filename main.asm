@@ -64,6 +64,9 @@ main_loop:
     test    eax, eax
     jnz     .check_read_count
 
+    cmp     byte [ctrl_c_flag], 0
+    jnz     .read_failed
+
     ; Fallback for redirected input (pipes, automated scripts)
     xor     ecx, ecx
 .pipe_read_loop:
@@ -1324,8 +1327,28 @@ cmd_move:
     mov     [move_dst_off], bx
     pop     ecx
 
+    call    skip_whitespace
+    call    is_eol
+    jnc     .cm_err
+
     test    ecx, ecx
     jz      .cm_done
+
+    mov     ax, [move_src_seg]
+    mov     bx, [move_src_off]
+    call    calc_linear_addr
+    mov     ecx, [move_len]
+    call    check_mem_range
+    jc      .cm_err
+
+    mov     ax, [move_dst_seg]
+    mov     bx, [move_dst_off]
+    call    calc_linear_addr
+    mov     ecx, [move_len]
+    call    check_mem_range
+    jc      .cm_err
+
+    mov     ecx, [move_len]
 
     movzx   eax, word [move_src_seg]
     shl     eax, 4
@@ -1427,6 +1450,22 @@ cmd_compare:
     mov     ecx, [comp_len]
     test    ecx, ecx
     jz      .cc_done
+
+    mov     ax, [comp_src_seg]
+    mov     bx, [comp_src_off]
+    call    calc_linear_addr
+    mov     ecx, [comp_len]
+    call    check_mem_range
+    jc      .cc_err
+
+    mov     ax, [comp_dst_seg]
+    mov     bx, [comp_dst_off]
+    call    calc_linear_addr
+    mov     ecx, [comp_len]
+    call    check_mem_range
+    jc      .cc_err
+
+    mov     ecx, [comp_len]
 
     movzx   eax, word [comp_src_seg]
     shl     eax, 4
@@ -1841,6 +1880,9 @@ cmd_assemble:
     mov     word [asm_off], 0100h
 
 .loop:
+    cmp     byte [ctrl_c_flag], 0
+    jne     .interrupted
+
     mov     edi, line_buffer
     mov     ax, [asm_seg]
     call    put_hex_word
@@ -1867,6 +1909,8 @@ cmd_assemble:
     mov     edi, input_buffer
     mov     edx, 255
     call    read_line_console_or_pipe
+    cmp     byte [ctrl_c_flag], 0
+    jne     .interrupted
     jc      .done
     
     mov     esi, input_buffer
@@ -1897,6 +1941,14 @@ cmd_assemble:
     call    print_error
     jmp     .loop
 
+.interrupted:
+    mov     byte [ctrl_c_flag], 0
+    mov     byte [line_buffer], CR
+    mov     byte [line_buffer+1], LF
+    mov     esi, line_buffer
+    mov     ecx, 2
+    call    print_buffer
+
 .done:
     mov     dword [prompt_len], 1
     ret
@@ -1925,6 +1977,7 @@ cmd_unassemble:
     mov     [unasm_len], ecx
 
 .do_it:
+    mov     byte [ctrl_c_flag], 0
     mov     ax, [unasm_seg]
     mov     bx, [unasm_off]
     call    calc_linear_addr
@@ -1933,6 +1986,9 @@ cmd_unassemble:
     jc      print_error_and_ret
 
 .unasm_loop:
+    cmp     byte [ctrl_c_flag], 0
+    jne     .unasm_interrupted
+
     mov     ecx, [unasm_len]
     test    ecx, ecx
     jz      .done
@@ -1949,6 +2005,14 @@ cmd_unassemble:
     jbe     .done
     mov     [unasm_len], eax
     jmp     .unasm_loop
+
+.unasm_interrupted:
+    mov     byte [ctrl_c_flag], 0
+    mov     byte [line_buffer], CR
+    mov     byte [line_buffer+1], LF
+    mov     esi, line_buffer
+    mov     ecx, 2
+    call    print_buffer
 
 .done:
     ret
