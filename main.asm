@@ -1956,7 +1956,6 @@ disasm_line:
     call    put_hex_word
     mov     al, SPACE
     stosb
-    stosb
 
     mov     ax, [esp+0]
     mov     bx, [esp+4]
@@ -2546,7 +2545,7 @@ disasm_line:
 .try_dis_modrm:
     mov     al, [ebp]
 
-    ; Check for segment override prefix byte at [ebp]
+    ; Check for segment override or instruction prefix byte at [ebp]
     cmp     al, 26h
     je      .dis_pref_es
     cmp     al, 2Eh
@@ -2555,6 +2554,12 @@ disasm_line:
     je      .dis_pref_ss
     cmp     al, 3Eh
     je      .dis_pref_ds
+    cmp     al, 0F3h
+    je      .dis_pref_rep
+    cmp     al, 0F2h
+    je      .dis_pref_repne
+    cmp     al, 0F0h
+    je      .dis_pref_lock
     jmp     .dis_check_direct
 
 .dis_pref_es:
@@ -2581,6 +2586,42 @@ disasm_line:
     add     edi, 2
     mov     al, COLON
     stosb
+    jmp     .line_done
+
+.dis_pref_rep:
+    mov     dword [esp+12], 1
+    mov     al, [ebp]
+    call    put_hex_byte
+    mov     ecx, 12
+    mov     al, SPACE
+    rep     stosb
+    mov     byte [edi], 'R'
+    mov     byte [edi+1], 'E'
+    mov     byte [edi+2], 'P'
+    add     edi, 3
+    jmp     .line_done
+
+.dis_pref_repne:
+    mov     dword [esp+12], 1
+    mov     al, [ebp]
+    call    put_hex_byte
+    mov     ecx, 12
+    mov     al, SPACE
+    rep     stosb
+    mov     dword [edi], 'REPN'
+    mov     byte [edi+4], 'E'
+    add     edi, 5
+    jmp     .line_done
+
+.dis_pref_lock:
+    mov     dword [esp+12], 1
+    mov     al, [ebp]
+    call    put_hex_byte
+    mov     ecx, 12
+    mov     al, SPACE
+    rep     stosb
+    mov     dword [edi], 'LOCK'
+    add     edi, 4
     jmp     .line_done
 
 .dis_check_direct:
@@ -2944,7 +2985,16 @@ disasm_line:
     mov     dword [dis_imm_len], 0
     cmp     edx, 6
     je      .dis_ff_push
+    cmp     edx, 3
+    je      .dis_ff_far
+    cmp     edx, 5
+    je      .dis_ff_far
     mov     dword [dis_is_unary], 2
+    jmp     .dis_have_modrm_params
+.dis_ff_far:
+    cmp     byte [ebp+1], 0C0h
+    jae     .not_found
+    mov     dword [dis_is_unary], 3
     jmp     .dis_have_modrm_params
 .dis_ff_push:
     mov     dword [dis_is_unary], 1
@@ -3157,12 +3207,19 @@ disasm_line:
     ret
 
 .dm_rm_mem:
+    cmp     dword [dis_is_unary], 3
+    je      .dm_print_far_prefix
     cmp     dword [dis_imm_len], 0
     jnz     .dm_print_size_prefix
     cmp     dword [dis_is_unary], 2
     je      .dm_print_size_prefix
     cmp     dword [dis_is_shift], 0
     jnz     .dm_print_size_prefix
+    jmp     .dm_no_size_spec
+
+.dm_print_far_prefix:
+    mov     dword [edi], 'FAR '
+    add     edi, 4
     jmp     .dm_no_size_spec
 
 .dm_print_size_prefix:
@@ -4307,19 +4364,19 @@ parse_size_prefix:
     mov     al, [ebx]
     or      al, 20h
     cmp     al, 'b'
-    jne     .psp_fail
+    jne     .psp_check_far
     mov     al, [ebx+1]
     or      al, 20h
     cmp     al, 'y'
-    jne     .psp_fail
+    jne     .psp_check_far
     mov     al, [ebx+2]
     or      al, 20h
     cmp     al, 't'
-    jne     .psp_fail
+    jne     .psp_check_far
     mov     al, [ebx+3]
     or      al, 20h
     cmp     al, 'e'
-    jne     .psp_fail
+    jne     .psp_check_far
     mov     al, [ebx+4]
     cmp     al, ' '
     je      .psp_byte_match
@@ -4327,11 +4384,39 @@ parse_size_prefix:
     je      .psp_byte_match
     cmp     al, '['
     je      .psp_byte_match
-    jmp     .psp_fail
+    jmp     .psp_check_far
 
 .psp_byte_match:
     add     ebx, 4
     mov     edx, 1
+    jmp     .psp_check_ptr
+
+.psp_check_far:
+    mov     al, [ebx]
+    or      al, 20h
+    cmp     al, 'f'
+    jne     .psp_fail
+    mov     al, [ebx+1]
+    or      al, 20h
+    cmp     al, 'a'
+    jne     .psp_fail
+    mov     al, [ebx+2]
+    or      al, 20h
+    cmp     al, 'r'
+    jne     .psp_fail
+    mov     al, [ebx+3]
+    cmp     al, ' '
+    je      .psp_far_match
+    cmp     al, 9
+    je      .psp_far_match
+    cmp     al, '['
+    je      .psp_far_match
+    jmp     .psp_fail
+
+.psp_far_match:
+    add     ebx, 3
+    mov     edx, 4
+    jmp     .psp_check_ptr
 
 .psp_check_ptr:
 .psp_ptr_ws:
@@ -4603,6 +4688,10 @@ parse_mem_instruction:
     jnc     .mem_err
     cmp     dword [ebp-12], 1
     je      .mem_err             ; BYTE PTR is illegal
+    cmp     dword [ebp-12], 4
+    jne     .not_far_target
+    inc     dword [ebp-8]        ; 2 -> 3 (CALL FAR), 4 -> 5 (JMP FAR)
+.not_far_target:
     mov     dword [ebp-60], 0FFh
     mov     dword [ebp-12], 2
 .unary_mem_done:

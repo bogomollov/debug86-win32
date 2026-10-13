@@ -709,6 +709,7 @@ macro gen_r16_only prefix, opcode, modrm_base {
 
     asm_1word_table:
         db "nop",0,OP_NOP,0
+        db "int 3",0,0CCh,0
         db "int",0,OP_INT,1
         db "ret",0,OP_RET,0
         db "retf",0,0CBh,0
