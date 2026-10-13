@@ -1225,8 +1225,17 @@ cmd_edit:
     invoke  WriteConsoleA, [hStdOut], line_buffer, 3, chars_written, 0
     ret
 
-.ce_int_space:
+.ce_commit_nibble:
+    cmp     byte [edit_have_nibble], 0
+    jz      .ce_commit_ret
+    mov     al, [edit_nibble]
+    mov     [ebp], al
     mov     byte [edit_have_nibble], 0
+.ce_commit_ret:
+    ret
+
+.ce_int_space:
+    call    .ce_commit_nibble
     mov     byte [edit_cell_done], 0
     inc     word [edit_off]
 .ce_int_space_chk_line:
@@ -1242,7 +1251,7 @@ cmd_edit:
     jmp     .ce_int_read
 
 .ce_int_minus:
-    mov     byte [edit_have_nibble], 0
+    call    .ce_commit_nibble
     mov     byte [edit_cell_done], 0
 
     dec     word [edit_off]
@@ -1264,6 +1273,7 @@ cmd_edit:
     jmp     .ce_int_read
 
 .ce_int_done:
+    call    .ce_commit_nibble
     invoke  SetConsoleMode, [hStdIn], [old_console_mode]
     mov     byte [line_buffer], 13
     mov     byte [line_buffer+1], 10
