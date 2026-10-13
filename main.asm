@@ -9053,18 +9053,18 @@ step:
 
 .sh16_rol:
     rol     word [edi], cl
-    jmp     .shift_flags
+    jmp     .rotate_flags
 .sh16_ror:
     ror     word [edi], cl
-    jmp     .shift_flags
+    jmp     .rotate_flags
 .sh16_rcl:
     bt      word [flag_states + FLAG_CY], 0
     rcl     word [edi], cl
-    jmp     .shift_flags
+    jmp     .rotate_flags
 .sh16_rcr:
     bt      word [flag_states + FLAG_CY], 0
     rcr     word [edi], cl
-    jmp     .shift_flags
+    jmp     .rotate_flags
 .sh16_shl:
     shl     word [edi], cl
     jmp     .shift_flags
@@ -9095,18 +9095,18 @@ step:
 
 .sh8_rol:
     rol     byte [edi], cl
-    jmp     .shift_flags
+    jmp     .rotate_flags
 .sh8_ror:
     ror     byte [edi], cl
-    jmp     .shift_flags
+    jmp     .rotate_flags
 .sh8_rcl:
     bt      word [flag_states + FLAG_CY], 0
     rcl     byte [edi], cl
-    jmp     .shift_flags
+    jmp     .rotate_flags
 .sh8_rcr:
     bt      word [flag_states + FLAG_CY], 0
     rcr     byte [edi], cl
-    jmp     .shift_flags
+    jmp     .rotate_flags
 .sh8_shl:
     shl     byte [edi], cl
     jmp     .shift_flags
@@ -9116,6 +9116,20 @@ step:
 .sh8_sar:
     sar     byte [edi], cl
     jmp     .shift_flags
+
+.rotate_flags:
+    pushfd
+    pop     edx
+    mov     eax, edx
+    and     al, 1
+    mov     [flag_states + FLAG_CY], al
+    cmp     cl, 1
+    jne     .shift_done
+    mov     eax, edx
+    shr     eax, 11
+    and     al, 1
+    mov     [flag_states + FLAG_OV], al
+    jmp     .shift_done
 
 .shift_flags:
     pushfd
