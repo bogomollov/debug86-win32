@@ -7774,51 +7774,75 @@ step:
     ; --- IN / OUT (E4h..E7h, ECh..EFh) ---
     cmp     al, 0E4h
     jne     .not_in_al_imm
-    mov     byte [reg_AX], 0FFh
+    movzx   edx, byte [ebp+1]
+    mov     al, [io_ports + edx]
+    mov     byte [reg_AX], al
     add     word [reg_IP], 2
     jmp     .step_ok
 .not_in_al_imm:
 
     cmp     al, 0E5h
     jne     .not_in_ax_imm
-    mov     word [reg_AX], 0FFFFh
+    movzx   edx, byte [ebp+1]
+    mov     ax, word [io_ports + edx]
+    mov     word [reg_AX], ax
     add     word [reg_IP], 2
     jmp     .step_ok
 .not_in_ax_imm:
 
     cmp     al, 0E6h
-    je      .is_out_imm
-    cmp     al, 0E7h
-    je      .is_out_imm
-    jmp     .not_out_imm
-.is_out_imm:
+    jne     .not_out_al_imm
+    movzx   edx, byte [ebp+1]
+    mov     al, byte [reg_AX]
+    mov     [io_ports + edx], al
     add     word [reg_IP], 2
     jmp     .step_ok
-.not_out_imm:
+.not_out_al_imm:
+
+    cmp     al, 0E7h
+    jne     .not_out_ax_imm
+    movzx   edx, byte [ebp+1]
+    mov     ax, word [reg_AX]
+    mov     word [io_ports + edx], ax
+    add     word [reg_IP], 2
+    jmp     .step_ok
+.not_out_ax_imm:
 
     cmp     al, 0ECh
     jne     .not_in_al_dx
-    mov     byte [reg_AX], 0FFh
+    movzx   edx, word [reg_DX]
+    mov     al, [io_ports + edx]
+    mov     byte [reg_AX], al
     add     word [reg_IP], 1
     jmp     .step_ok
 .not_in_al_dx:
 
     cmp     al, 0EDh
     jne     .not_in_ax_dx
-    mov     word [reg_AX], 0FFFFh
+    movzx   edx, word [reg_DX]
+    mov     ax, word [io_ports + edx]
+    mov     word [reg_AX], ax
     add     word [reg_IP], 1
     jmp     .step_ok
 .not_in_ax_dx:
 
     cmp     al, 0EEh
-    je      .is_out_dx
-    cmp     al, 0EFh
-    je      .is_out_dx
-    jmp     .not_out_dx
-.is_out_dx:
+    jne     .not_out_dx_al
+    movzx   edx, word [reg_DX]
+    mov     al, byte [reg_AX]
+    mov     [io_ports + edx], al
     add     word [reg_IP], 1
     jmp     .step_ok
-.not_out_dx:
+.not_out_dx_al:
+
+    cmp     al, 0EFh
+    jne     .not_out_dx_ax
+    movzx   edx, word [reg_DX]
+    mov     ax, word [reg_AX]
+    mov     word [io_ports + edx], ax
+    add     word [reg_IP], 1
+    jmp     .step_ok
+.not_out_dx_ax:
 
     ; --- CLC, STC, CMC, CLD, STD, CLI, STI, HLT ---
     cmp     al, 0F8h
