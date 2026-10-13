@@ -3949,6 +3949,12 @@ mem_mnem_table:
     db 'sal', 0, 6, 4
     db 'shr', 0, 6, 5
     db 'sar', 0, 6, 7
+    db 'xchg',0, 7, 0
+    db 'lea', 0, 8, 8Dh
+    db 'lds', 0, 8, 0C5h
+    db 'les', 0, 8, 0C4h
+    db 'call',0, 9, 2
+    db 'jmp', 0, 9, 4
     db 0
 
 check_has_bracket:
@@ -3969,6 +3975,70 @@ check_has_bracket:
     ret
 .no:
     clc
+    ret
+
+parse_asm_sreg:
+    push    ebx
+    mov     ebx, esi
+.pas_skip_ws:
+    mov     al, [ebx]
+    cmp     al, ' '
+    je      .pas_inc_ws
+    cmp     al, 9
+    je      .pas_inc_ws
+    jmp     .pas_check
+.pas_inc_ws:
+    inc     ebx
+    jmp     .pas_skip_ws
+.pas_check:
+    mov     al, [ebx]
+    or      al, 20h
+    mov     ah, [ebx+1]
+    or      ah, 20h
+    cmp     ah, 's'
+    jne     .pas_fail
+    mov     dl, [ebx+2]
+    cmp     dl, ' '
+    je      .pas_delim_ok
+    cmp     dl, 9
+    je      .pas_delim_ok
+    cmp     dl, ','
+    je      .pas_delim_ok
+    cmp     dl, CR
+    je      .pas_delim_ok
+    cmp     dl, LF
+    je      .pas_delim_ok
+    test    dl, dl
+    jz      .pas_delim_ok
+    jmp     .pas_fail
+.pas_delim_ok:
+    cmp     al, 'e'
+    jne     .pas_not_es
+    mov     al, 0
+    jmp     .pas_matched
+.pas_not_es:
+    cmp     al, 'c'
+    jne     .pas_not_cs
+    mov     al, 1
+    jmp     .pas_matched
+.pas_not_cs:
+    cmp     al, 's'
+    jne     .pas_not_ss
+    mov     al, 2
+    jmp     .pas_matched
+.pas_not_ss:
+    cmp     al, 'd'
+    jne     .pas_fail
+    mov     al, 3
+.pas_matched:
+    add     ebx, 2
+    mov     esi, ebx
+    pop     ebx
+    clc
+    ret
+.pas_fail:
+    pop     ebx
+    stc
     ret
 
 parse_asm_reg:
@@ -4352,6 +4422,8 @@ parse_mem_instruction:
     mov     dword [ebp-76], 0     ; var_is_reg_op (0=imm, 1=reg)
     mov     dword [ebp-80], 0     ; var_explicit_size (0=none, 1=byte, 2=word)
     mov     dword [ebp-84], 0     ; var_alu_op (0..7)
+    mov     dword [ebp-88], 0     ; var_seg_pfx (0=none, or 26h, 2Eh, 36h, 3Eh)
+    mov     dword [ebp-92], 0     ; var_is_sreg (0=no, 1=yes)
 
     call    skip_whitespace
     lea     edi, [ebp-128]
@@ -4421,6 +4493,36 @@ parse_mem_instruction:
 
     call    skip_whitespace
 
+    ; Check if Operand 1 is a segment register (e.g. MOV DS, [0200])
+    cmp     dword [ebp-4], 1      ; MOV only
+    jne     .check_op1_reg
+    call    parse_asm_sreg
+    jc      .check_op1_reg
+    cmp     al, 1                 ; MOV CS, mem is illegal
+    je      .mem_err
+    mov     dword [ebp-72], 1     ; reg is destination
+    movzx   edx, al
+    mov     dword [ebp-8], edx    ; sreg index in var_reg
+    mov     dword [ebp-12], 2     ; word size
+    mov     dword [ebp-92], 1     ; var_is_sreg = 1
+    mov     dword [ebp-76], 1     ; is reg op
+    call    skip_whitespace
+    cmp     byte [esi], ','
+    jne     .sreg_op1_no_comma
+    inc     esi
+    call    skip_whitespace
+.sreg_op1_no_comma:
+    call    .parse_seg_prefix
+    cmp     byte [esi], '['
+    jne     .mem_err
+    call    .parse_bracket_content
+    jc      .mem_err
+    call    skip_whitespace
+    call    is_eol
+    jnc     .mem_err
+    jmp     .encode_instruction
+
+.check_op1_reg:
     ; Check if Operand 1 is a register (e.g. MOV DX, [0200])
     call    parse_asm_reg
     jnc     .op1_is_reg
@@ -4428,6 +4530,7 @@ parse_mem_instruction:
     ; Operand 1 is MEMORY (e.g. MOV [0200], AX or MOV WORD PTR [BX+8], 0017)
     mov     dword [ebp-72], 0    ; var_dir = 0 (mem is destination)
 
+    call    .parse_seg_prefix
     call    parse_size_prefix
     jc      .op1_no_size_prefix
     mov     [ebp-12], eax        ; var_size = 1 or 2
@@ -4435,6 +4538,7 @@ parse_mem_instruction:
 .op1_no_size_prefix:
 
     call    skip_whitespace
+    call    .parse_seg_prefix
     cmp     byte [esi], '['
     jne     .mem_err
 
@@ -4443,6 +4547,10 @@ parse_mem_instruction:
 
     cmp     dword [ebp-4], 6
     je      .shift_mem
+    cmp     dword [ebp-4], 9     ; CALL / JMP memory
+    je      .unary_mem_call_jmp
+    cmp     dword [ebp-4], 7     ; XCHG memory dest
+    je      .not_unary_mem
     cmp     dword [ebp-4], 3
     jb      .not_unary_mem
     cmp     dword [ebp-4], 5
@@ -4488,6 +4596,15 @@ parse_mem_instruction:
     mov     dword [ebp-60], 8Fh
     mov     dword [ebp-8], 0
     mov     dword [ebp-12], 2
+    jmp     .unary_mem_done
+.unary_mem_call_jmp:
+    call    skip_whitespace
+    call    is_eol
+    jnc     .mem_err
+    cmp     dword [ebp-12], 1
+    je      .mem_err             ; BYTE PTR is illegal
+    mov     dword [ebp-60], 0FFh
+    mov     dword [ebp-12], 2
 .unary_mem_done:
     mov     dword [ebp-68], 0
     jmp     .encode_instruction
@@ -4532,7 +4649,28 @@ parse_mem_instruction:
 .not_unary_mem:
 
     call    skip_whitespace
+    cmp     byte [esi], ','
+    jne     .op1_mem_no_comma
+    inc     esi
+    call    skip_whitespace
+.op1_mem_no_comma:
 
+    ; Check if Operand 2 is a segment register (e.g. MOV [100], DS)
+    cmp     dword [ebp-4], 1      ; MOV only
+    jne     .check_op2_reg
+    call    parse_asm_sreg
+    jc      .check_op2_reg
+    mov     dword [ebp-76], 1     ; var_is_reg_op = 1
+    mov     dword [ebp-92], 1     ; var_is_sreg = 1
+    movzx   edx, al
+    mov     dword [ebp-8], edx    ; sreg index in var_reg
+    mov     dword [ebp-12], 2     ; word size
+    call    skip_whitespace
+    call    is_eol
+    jnc     .mem_err
+    jmp     .encode_instruction
+
+.check_op2_reg:
     ; Check if Operand 2 is a register
     call    parse_asm_reg
     jc      .op2_is_immediate
@@ -4571,7 +4709,18 @@ parse_mem_instruction:
 
 .op1_is_reg:
     cmp     dword [ebp-4], 3
-    jae     .mem_err
+    jb      .op1_reg_type_ok
+    cmp     dword [ebp-4], 7     ; XCHG
+    je      .op1_reg_type_ok
+    cmp     dword [ebp-4], 8     ; LEA / LDS / LES
+    je      .op1_reg_type_8
+    jmp     .mem_err
+
+.op1_reg_type_8:
+    cmp     ah, 2                ; must be 16-bit register
+    jne     .mem_err
+
+.op1_reg_type_ok:
     mov     dword [ebp-72], 1    ; var_dir = 1 (reg is destination)
     movzx   edx, al
     mov     dword [ebp-8], edx   ; var_reg = destination reg
@@ -4580,14 +4729,23 @@ parse_mem_instruction:
     mov     dword [ebp-76], 1    ; var_is_reg_op = 1
 
     call    skip_whitespace
+    cmp     byte [esi], ','
+    jne     .op1_reg_no_comma
+    inc     esi
+    call    skip_whitespace
+.op1_reg_no_comma:
 
+    call    .parse_seg_prefix
     call    parse_size_prefix
     jc      .op2_no_size_prefix
+    cmp     dword [ebp-4], 8     ; LEA/LDS/LES doesn't enforce size prefix matching reg
+    je      .op2_no_size_prefix
     cmp     eax, [ebp-12]
     jne     .mem_err
 .op2_no_size_prefix:
 
     call    skip_whitespace
+    call    .parse_seg_prefix
     cmp     byte [esi], '['
     jne     .mem_err
 
@@ -4609,8 +4767,14 @@ parse_mem_instruction:
     mov     dword [ebp-64], eax  ; var_modrm
 
     cmp     dword [ebp-4], 3
-    jae     .emit_bytes
+    jb      .check_reg_op
+    cmp     dword [ebp-4], 7
+    je      .check_reg_op
+    cmp     dword [ebp-4], 8
+    je      .check_reg_op
+    jmp     .emit_bytes
 
+.check_reg_op:
     cmp     dword [ebp-76], 1
     je      .enc_reg_op
 
@@ -4667,10 +4831,25 @@ parse_mem_instruction:
 .enc_reg_op:
     mov     dword [ebp-68], 0    ; imm_len = 0
 
+    cmp     dword [ebp-92], 1    ; segment register?
+    jne     .not_sreg_move
+    cmp     dword [ebp-72], 1    ; sreg is dest?
+    je      .sreg_is_dest
+    mov     dword [ebp-60], 8Ch  ; MOV r/m16, sreg
+    jmp     .emit_bytes
+.sreg_is_dest:
+    mov     dword [ebp-60], 8Eh  ; MOV sreg, r/m16
+    jmp     .emit_bytes
+.not_sreg_move:
+
     cmp     dword [ebp-4], 1     ; MOV?
     je      .enc_mov_reg
     cmp     dword [ebp-4], 2     ; TEST?
     je      .enc_test_reg
+    cmp     dword [ebp-4], 7     ; XCHG?
+    je      .enc_xchg_reg
+    cmp     dword [ebp-4], 8     ; LEA / LDS / LES?
+    je      .enc_lea_lds_les
 
     ; ALU with register
     mov     eax, [ebp-84]        ; var_alu_op
@@ -4683,6 +4862,20 @@ parse_mem_instruction:
     jne     .alu_reg_set_op
     inc     eax
 .alu_reg_set_op:
+    mov     dword [ebp-60], eax
+    jmp     .emit_bytes
+
+.enc_xchg_reg:
+    cmp     dword [ebp-12], 1
+    je      .xchg_rm8_r8
+    mov     dword [ebp-60], 87h
+    jmp     .emit_bytes
+.xchg_rm8_r8:
+    mov     dword [ebp-60], 86h
+    jmp     .emit_bytes
+
+.enc_lea_lds_les:
+    mov     eax, [ebp-84]
     mov     dword [ebp-60], eax
     jmp     .emit_bytes
 
@@ -4717,6 +4910,11 @@ parse_mem_instruction:
 
 .emit_bytes:
     mov     edi, asm_bytes
+    cmp     dword [ebp-88], 0
+    jz      .no_seg_pfx
+    mov     al, byte [ebp-88]
+    stosb
+.no_seg_pfx:
     mov     al, byte [ebp-60]    ; opcode
     stosb
     mov     al, byte [ebp-64]    ; modrm
@@ -4977,6 +5175,61 @@ parse_mem_instruction:
     stc
     ret
 
+.parse_seg_prefix:
+    call    skip_whitespace
+    mov     al, [esi]
+    or      al, 20h
+    mov     ah, [esi+1]
+    or      ah, 20h
+    cmp     ah, 's'
+    jne     .seg_none
+    push    ebx
+    mov     ebx, esi
+    add     ebx, 2
+.seg_skip_ws:
+    mov     dl, [ebx]
+    cmp     dl, ' '
+    je      .seg_inc_ws
+    cmp     dl, 9
+    je      .seg_inc_ws
+    jmp     .seg_check_colon
+.seg_inc_ws:
+    inc     ebx
+    jmp     .seg_skip_ws
+.seg_check_colon:
+    cmp     dl, ':'
+    jne     .seg_fail
+    inc     ebx
+    mov     esi, ebx
+    pop     ebx
+    cmp     al, 'e'
+    jne     .seg_not_es
+    mov     dword [ebp-88], 26h
+    call    skip_whitespace
+    ret
+.seg_not_es:
+    cmp     al, 'c'
+    jne     .seg_not_cs
+    mov     dword [ebp-88], 2Eh
+    call    skip_whitespace
+    ret
+.seg_not_cs:
+    cmp     al, 's'
+    jne     .seg_not_ss
+    mov     dword [ebp-88], 36h
+    call    skip_whitespace
+    ret
+.seg_not_ss:
+    cmp     al, 'd'
+    jne     .seg_none
+    mov     dword [ebp-88], 3Eh
+    call    skip_whitespace
+    ret
+.seg_fail:
+    pop     ebx
+.seg_none:
+    ret
+
 parse_instruction:
     call    skip_whitespace
     call    is_eol
@@ -5186,6 +5439,67 @@ parse_instruction:
     ret
 
 .not_call_insn:
+    cmp     dword [asm_token], 'out'
+    jne     .not_out_imm
+    cmp     byte [asm_token+3], 0
+    jne     .not_out_imm
+
+    push    esi
+    call    skip_whitespace
+    mov     al, [esi]
+    or      al, 20h
+    mov     ah, [esi+1]
+    or      ah, 20h
+    cmp     al, 'd'
+    jne     .try_port_hex
+    cmp     ah, 'x'
+    je      .not_out_imm_restore
+.try_port_hex:
+    call    parse_hex
+    jc      .not_out_imm_restore
+    cmp     ax, 0FFh
+    ja      .not_out_imm_restore
+    movzx   ebx, al
+    call    skip_whitespace
+    cmp     byte [esi], ','
+    jne     .out_no_comma
+    inc     esi
+    call    skip_whitespace
+.out_no_comma:
+    mov     edi, asm_token
+    call    get_token
+    cmp     word [asm_token], 'al'
+    jne     .out_check_ax
+    cmp     byte [asm_token+2], 0
+    jne     .not_out_imm_restore
+    add     esp, 4
+    call    skip_whitespace
+    call    is_eol
+    jnc     .err
+    mov     byte [asm_bytes], 0E6h
+    mov     byte [asm_bytes+1], bl
+    mov     word [asm_len], 2
+    clc
+    ret
+
+.out_check_ax:
+    cmp     word [asm_token], 'ax'
+    jne     .not_out_imm_restore
+    cmp     byte [asm_token+2], 0
+    jne     .not_out_imm_restore
+    add     esp, 4
+    call    skip_whitespace
+    call    is_eol
+    jnc     .err
+    mov     byte [asm_bytes], 0E7h
+    mov     byte [asm_bytes+1], bl
+    mov     word [asm_len], 2
+    clc
+    ret
+
+.not_out_imm_restore:
+    pop     esi
+.not_out_imm:
     mov     edi, asm_token
 .find_end:
     cmp     byte [edi], 0
@@ -5405,6 +5719,15 @@ parse_instruction:
     ret
     
 .arg_byte:
+    cmp     byte [asm_bytes], 0CDh
+    jne     .not_int3
+    cmp     al, 3
+    jne     .not_int3
+    mov     byte [asm_bytes], 0CCh
+    mov     word [asm_len], 1
+    clc
+    ret
+.not_int3:
     mov     [asm_bytes+1], al
     mov     word [asm_len], 2
 .ok:

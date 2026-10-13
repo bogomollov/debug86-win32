@@ -867,6 +867,7 @@ macro gen_r16_only prefix, opcode, modrm_base {
         gen_logic_all 'sbb', ' ', 19h, 18h
         gen_logic_all 'cmp', ' ', 39h, 38h
         gen_logic_all 'mov', ' ', 89h, 88h
+        gen_logic_all 'xchg', ' ', 87h, 86h
         gen_sreg_all ' '
         db 0
 
@@ -906,6 +907,7 @@ macro gen_r16_only prefix, opcode, modrm_base {
         gen_logic_all 'sbb', ',', 19h, 18h
         gen_logic_all 'cmp', ',', 39h, 38h
         gen_logic_all 'mov', ',', 89h, 88h
+        gen_logic_all 'xchg', ',', 87h, 86h
         gen_sreg_all ','
         gen_r16_only 'call ', 0FFh, 0D0h
         gen_r16_only 'jmp ',  0FFh, 0E0h
