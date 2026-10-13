@@ -174,11 +174,14 @@ cmd_register:
 
     mov     edx, edi
     sub     edx, line_buffer
+    push    edx
     invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
     test    eax, eax
     jnz     .reg_prompt_ok
+    mov     edx, [esp]
     invoke  WriteFile, [hStdOut], line_buffer, edx, chars_written, 0
 .reg_prompt_ok:
+    pop     edx
 
     mov     edi, input_buffer
     mov     edx, 255
@@ -330,11 +333,14 @@ show_flags:
 
     mov     edx, edi
     sub     edx, line_buffer
+    push    edx
     invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
     test    eax, eax
     jnz     .sf_ok
+    mov     edx, [esp]
     invoke  WriteFile, [hStdOut], line_buffer, edx, chars_written, 0
 .sf_ok:
+    pop     edx
 
     pop     edi
     pop     esi
@@ -1753,7 +1759,14 @@ cmd_search:
 
     mov     edx, edi
     sub     edx, line_buffer
+    push    edx
     invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
+    test    eax, eax
+    jnz     .cs_out_ok
+    mov     edx, [esp]
+    invoke  WriteFile, [hStdOut], line_buffer, edx, chars_written, 0
+.cs_out_ok:
+    pop     edx
 
     pop     edi
     pop     ecx
@@ -1809,13 +1822,14 @@ cmd_assemble:
     
     mov     edx, edi
     sub     edx, line_buffer
+    push    edx
     invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
     test    eax, eax
     jnz     .prompt_ok
-    mov     edx, edi
-    sub     edx, line_buffer
+    mov     edx, [esp]
     invoke  WriteFile, [hStdOut], line_buffer, edx, chars_written, 0
 .prompt_ok:
+    pop     edx
     mov     [prompt_len], edx
 
     mov     edi, input_buffer
