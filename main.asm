@@ -621,6 +621,8 @@ parse_address_cs:
     je      .no_colon_found
     cmp     al, 9
     je      .no_colon_found
+    cmp     al, COMMA
+    je      .no_colon_found
     cmp     al, COLON
     je      .colon_found
     inc     esi
@@ -1796,7 +1798,7 @@ cmd_assemble:
     call    is_eol
     jc      .use_default
     
-    call    parse_address
+    call    parse_address_cs
     jc      print_error_and_ret
     mov     [asm_seg], ax
     mov     [asm_off], bx
@@ -1879,7 +1881,7 @@ cmd_unassemble:
     call    is_eol
     jc      .do_it
 
-    call    parse_address
+    call    parse_address_cs
     jc      print_error_and_ret
     mov     [unasm_seg], ax
     mov     [unasm_off], bx
@@ -5631,7 +5633,7 @@ cmd_go:
     jne     .parse_bp_loop
 
     inc     esi
-    call    parse_address
+    call    parse_address_cs
     jc      print_error_and_ret
     mov     [reg_CS], ax
     mov     [reg_IP], bx
@@ -5646,7 +5648,7 @@ cmd_go:
     jae     .too_many_bp
 
     push    cx
-    call    parse_address
+    call    parse_address_cs
     pop     cx
     jc      print_error_and_ret
     
@@ -5746,7 +5748,7 @@ cmd_trace:
     jne     .parse_count
 
     inc     esi
-    call    parse_address
+    call    parse_address_cs
     jc      print_error_and_ret
     mov     [reg_CS], ax
     mov     [reg_IP], bx
@@ -5819,7 +5821,7 @@ cmd_proceed:
     jne     .parse_count
 
     inc     esi
-    call    parse_address
+    call    parse_address_cs
     jc      print_error_and_ret
     mov     [reg_CS], ax
     mov     [reg_IP], bx
