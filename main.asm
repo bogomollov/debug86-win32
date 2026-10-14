@@ -3303,6 +3303,21 @@ disasm_line:
     jmp     .line_done
 .dis_ops_imm8:
     mov     al, byte [ebp + edx]
+    cmp     dword [dis_is_word], 1
+    jne     .dis_imm8_unsigned
+    cmp     al, 0
+    jge     .dis_imm8_pos
+    mov     byte [edi], '-'
+    inc     edi
+    neg     al
+    call    put_hex_byte
+    jmp     .line_done
+.dis_imm8_pos:
+    mov     byte [edi], '+'
+    inc     edi
+    call    put_hex_byte
+    jmp     .line_done
+.dis_imm8_unsigned:
     call    put_hex_byte
     jmp     .line_done
 
