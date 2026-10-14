@@ -136,7 +136,9 @@ main_loop:
     mov     byte [ctrl_c_flag], 0
     mov     byte [line_buffer], CR
     mov     byte [line_buffer+1], LF
-    invoke  WriteConsoleA, [hStdOut], line_buffer, 2, chars_written, 0
+    mov     esi, line_buffer
+    mov     ecx, 2
+    call    print_buffer
     jmp     main_loop
 
 cmd_help:
@@ -1177,7 +1179,9 @@ cmd_edit:
     mov     [line_buffer+1], al
     mov     al, [edit_char]
     mov     [line_buffer], al
-    invoke  WriteConsoleA, [hStdOut], line_buffer, 1, chars_written, 0
+    mov     esi, line_buffer
+    mov     ecx, 1
+    call    print_buffer
     mov     al, [line_buffer+1]
 
     cmp     byte [edit_have_nibble], 0
@@ -1222,7 +1226,9 @@ cmd_edit:
     mov     byte [line_buffer], 8
     mov     byte [line_buffer+1], ' '
     mov     byte [line_buffer+2], 8
-    invoke  WriteConsoleA, [hStdOut], line_buffer, 3, chars_written, 0
+    mov     esi, line_buffer
+    mov     ecx, 3
+    call    print_buffer
     ret
 
 .ce_commit_nibble:
@@ -1277,7 +1283,9 @@ cmd_edit:
     invoke  SetConsoleMode, [hStdIn], [old_console_mode]
     mov     byte [line_buffer], 13
     mov     byte [line_buffer+1], 10
-    invoke  WriteConsoleA, [hStdOut], line_buffer, 2, chars_written, 0
+    mov     esi, line_buffer
+    mov     ecx, 2
+    call    print_buffer
 .ce_ret:
     ret
 
@@ -1333,9 +1341,10 @@ ce_show_byte:
     mov     al, '.'
     stosb
 
-    mov     edx, edi
-    sub     edx, line_buffer
-    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
+    mov     ecx, edi
+    sub     ecx, line_buffer
+    mov     esi, line_buffer
+    call    print_buffer
     clc
     ret
 
@@ -1612,7 +1621,9 @@ cmd_compare:
     mov     byte [ctrl_c_flag], 0
     mov     byte [line_buffer], CR
     mov     byte [line_buffer+1], LF
-    invoke  WriteConsoleA, [hStdOut], line_buffer, 2, chars_written, 0
+    mov     esi, line_buffer
+    mov     ecx, 2
+    call    print_buffer
     pop     ebp
     pop     edi
     pop     esi
@@ -1902,7 +1913,9 @@ cmd_search:
     mov     byte [ctrl_c_flag], 0
     mov     byte [line_buffer], CR
     mov     byte [line_buffer+1], LF
-    invoke  WriteConsoleA, [hStdOut], line_buffer, 2, chars_written, 0
+    mov     esi, line_buffer
+    mov     ecx, 2
+    call    print_buffer
     ret
 
 cmd_assemble:
@@ -6306,7 +6319,9 @@ cmd_go:
     mov     byte [ctrl_c_flag], 0
     mov     byte [line_buffer], CR
     mov     byte [line_buffer+1], LF
-    invoke  WriteConsoleA, [hStdOut], line_buffer, 2, chars_written, 0
+    mov     esi, line_buffer
+    mov     ecx, 2
+    call    print_buffer
     jmp     cmd_register.show_all
 
 .hit_breakpoint:
@@ -6395,7 +6410,9 @@ cmd_trace:
     mov     byte [ctrl_c_flag], 0
     mov     byte [line_buffer], CR
     mov     byte [line_buffer+1], LF
-    invoke  WriteConsoleA, [hStdOut], line_buffer, 2, chars_written, 0
+    mov     esi, line_buffer
+    mov     ecx, 2
+    call    print_buffer
     jmp     cmd_register.show_all
 
 .step_ok:
@@ -6672,7 +6689,9 @@ cmd_proceed:
     mov     byte [ctrl_c_flag], 0
     mov     byte [line_buffer], CR
     mov     byte [line_buffer+1], LF
-    invoke  WriteConsoleA, [hStdOut], line_buffer, 2, chars_written, 0
+    mov     esi, line_buffer
+    mov     ecx, 2
+    call    print_buffer
     jmp     cmd_register.show_all
 
 .proceed_prog_end:
