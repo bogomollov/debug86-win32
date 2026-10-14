@@ -4942,9 +4942,16 @@ parse_mem_instruction:
     jmp     .encode_instruction
 
 .op2_is_immediate:
+    cmp     dword [ebp-80], 0
+    jz      .mem_err
     mov     dword [ebp-76], 0    ; var_is_reg_op = 0
     call    parse_hex
     jc      .mem_err
+    cmp     dword [ebp-12], 1
+    jne     .op2_imm_ok
+    test    ah, ah
+    jnz     .mem_err
+.op2_imm_ok:
     movzx   eax, ax
     mov     dword [ebp-56], eax  ; var_imm = eax
 
