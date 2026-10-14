@@ -5954,6 +5954,12 @@ parse_instruction:
 .no_imm_comma:
     call    parse_hex
     jc      .err
+
+    push    eax
+    call    skip_whitespace
+    call    is_eol
+    pop     eax
+    jnc     .err
     
     mov     dl, [asm_arg_size]
     cmp     dl, 1
@@ -5966,6 +5972,8 @@ parse_instruction:
     ret
     
 .arg_byte:
+    test    ah, ah
+    jnz     .err
     cmp     byte [asm_bytes], 0CDh
     jne     .not_int3
     cmp     al, 3
