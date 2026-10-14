@@ -8435,8 +8435,12 @@ step:
     cmp     al, 0EDh
     jne     .not_in_ax_dx
     movzx   edx, word [reg_DX]
-    mov     ax, word [io_ports + edx]
-    mov     word [reg_AX], ax
+    mov     al, [io_ports + edx]
+    mov     byte [reg_AX], al
+    inc     dx
+    movzx   edx, dx
+    mov     al, [io_ports + edx]
+    mov     byte [reg_AX+1], al
     add     word [reg_IP], 1
     jmp     .step_ok
 .not_in_ax_dx:
@@ -8453,8 +8457,12 @@ step:
     cmp     al, 0EFh
     jne     .not_out_dx_ax
     movzx   edx, word [reg_DX]
-    mov     ax, word [reg_AX]
-    mov     word [io_ports + edx], ax
+    mov     al, byte [reg_AX]
+    mov     [io_ports + edx], al
+    inc     dx
+    movzx   edx, dx
+    mov     al, byte [reg_AX+1]
+    mov     [io_ports + edx], al
     add     word [reg_IP], 1
     jmp     .step_ok
 .not_out_dx_ax:
