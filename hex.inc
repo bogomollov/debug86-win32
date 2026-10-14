@@ -1,28 +1,33 @@
 parse_hex:
-    push    bx
-    push    cx
-    xor     bx, bx
-    xor     cx, cx
+    push    ebx
+    push    ecx
+    xor     ebx, ebx
+    xor     ecx, ecx
 .loop:
     mov     al, [esi]
     call    hex_to_val
     jc      .done
-    shl     bx, 4
+    cmp     ecx, 4
+    jae     .too_many
+    shl     ebx, 4
     or      bl, al
     inc     esi
-    inc     cx
+    inc     ecx
     jmp     .loop
 .done:
-    test    cx, cx
+    test    ecx, ecx
     jz      .err
     mov     ax, bx
     clc
     jmp     .out
+.too_many:
+    stc
+    jmp     .out
 .err:
     stc
 .out:
-    pop     cx
-    pop     bx
+    pop     ecx
+    pop     ebx
     ret
 
 parse_hex_byte:
