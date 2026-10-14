@@ -213,10 +213,9 @@ parse_address:
     cmp     byte [esi+2], COLON
     jne     .parse_num
 
-    mov     ax, cx
     add     esi, 3
     call    skip_whitespace
-    mov     dx, ax
+    mov     dx, cx
     call    parse_hex
     jc      .err
     mov     bx, ax
