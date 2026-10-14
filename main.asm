@@ -642,8 +642,8 @@ parse_startup_cmdline:
     ret
 
 parse_address_cs:
-    push    esi
     call    skip_whitespace
+    push    esi
 .check_colon_loop:
     mov     al, [esi]
     test    al, al
