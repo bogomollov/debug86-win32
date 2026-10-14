@@ -1139,7 +1139,7 @@ cmd_edit:
     mov     al, [ebp]
     mov     [edit_orig_byte], al
 
-    mov     dl, 1
+    mov     dl, 2
     call    ce_show_byte
     jc      .ce_int_done
 
@@ -1303,10 +1303,15 @@ ce_show_byte:
     test    dl, dl
     jz      .csb_normal
 
+    cmp     dl, 2
+    je      .csb_addr
+
     mov     al, CR
     stosb
     mov     al, LF
     stosb
+
+.csb_addr:
     mov     ax, [edit_seg]
     call    put_hex_word
     mov     al, COLON
