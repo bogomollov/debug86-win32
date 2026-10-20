@@ -161,6 +161,9 @@ CPU_STATE_CS    equ 22
 CPU_STATE_IP    equ 24
 CPU_STATE_SIZE  equ 26
 
+section '.data' data readable writeable
+    ctrl_c_flag     db 0
+
     mov8_reg_offsets:
         db CPU_STATE_AX,   CPU_STATE_CX,   CPU_STATE_DX,   CPU_STATE_BX
         db CPU_STATE_AX+1, CPU_STATE_CX+1, CPU_STATE_DX+1, CPU_STATE_BX+1
@@ -168,7 +171,6 @@ CPU_STATE_SIZE  equ 26
     mov16_reg_offsets:
         db CPU_STATE_AX, CPU_STATE_CX, CPU_STATE_DX, CPU_STATE_BX
 
-section '.data' data readable writeable
     prompt          db '-',0
     prompt_len      dd 1
     hStdOut         dd 0
@@ -1037,12 +1039,3 @@ COMTAB:
     modrm_offset dw 0
 
 
-section '.bss' readable writeable
-    current_filename rb 260
-    input_buffer    rb INPUT_BUFFER_SIZE
-    int21_input_buf rb INPUT_BUFFER_SIZE
-    line_buffer     rb LINE_BUFFER_SIZE
-    asm_token       rb ASM_TOKEN_SIZE
-    asm_bytes       rb ASM_BYTES_SIZE
-    io_ports        rb 10000h
-    memory          rb MEM_SIZE

@@ -1,5 +1,3 @@
-section '.text' code readable executable
-
 do_dump:
     push    eax
     push    ebx

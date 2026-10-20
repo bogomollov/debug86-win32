@@ -175,7 +175,3 @@ lex_expect_punct:
     stc
     ret
 
-section '.bss' readable writeable
-    tok_num     rw 1
-    tok_punct   rb 1
-    tok_text    rb TOK_TEXT_MAX

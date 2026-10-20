@@ -5,6 +5,8 @@ entry start
 include 'fasm/include/win32a.inc'
 
 include 'data.inc'
+
+section '.text' code readable executable
 include 'hex.inc'
 include 'dump.inc'
 include 'lexer.inc'
@@ -10156,8 +10158,6 @@ print_registers:
     pop     esi
     ret
 
-section '.data' data readable writeable
-    ctrl_c_flag     db 0
 
 section '.idata' import data readable writeable
     library kernel32, 'KERNEL32.DLL'
@@ -10182,3 +10182,16 @@ section '.idata' import data readable writeable
            ReadConsoleInputA,     'ReadConsoleInputA',\
            PeekNamedPipe,         'PeekNamedPipe',\
            Sleep,                 'Sleep'
+
+section '.bss' readable writeable
+    current_filename rb 260
+    input_buffer    rb INPUT_BUFFER_SIZE
+    int21_input_buf rb INPUT_BUFFER_SIZE
+    line_buffer     rb LINE_BUFFER_SIZE
+    asm_token       rb ASM_TOKEN_SIZE
+    asm_bytes       rb ASM_BYTES_SIZE
+    io_ports        rb 10000h
+    memory          rb MEM_SIZE
+    tok_num         rw 1
+    tok_punct       rb 1
+    tok_text        rb TOK_TEXT_MAX
