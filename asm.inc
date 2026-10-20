@@ -626,42 +626,13 @@ parse_mem_instruction:
 .mnem_done:
     mov     byte [edi], 0
 
-    mov     ebx, mem_mnem_table
-.search_mnem:
-    cmp     byte [ebx], 0
-    je      .mem_err
     lea     edi, [.mnem_buf]
-    mov     edx, ebx
-.cmp_mnem:
-    mov     al, [edi]
-    mov     ah, [edx]
-    cmp     al, ah
-    jne     .next_mnem
-    test    al, al
-    jz      .found_mnem
-    inc     edi
-    inc     edx
-    jmp     .cmp_mnem
-.next_mnem:
-    cmp     byte [ebx], 0
-    je      .skip_null
-    inc     ebx
-    jmp     .next_mnem
-.skip_null:
-    add     ebx, 3
-    jmp     .search_mnem
+    call    lookup_mnemonic
+    jc      .mem_err
 
-.found_mnem:
-    mov     edx, ebx
-.find_mnem_null:
-    cmp     byte [edx], 0
-    je      .got_mnem_null
-    inc     edx
-    jmp     .find_mnem_null
-.got_mnem_null:
-    movzx   eax, byte [edx+1]
+    movzx   eax, cl
     mov     dword [.var_type], eax   ; var_type
-    movzx   eax, byte [edx+2]
+    movzx   eax, ch
     mov     dword [.var_reg], eax   ; var_reg
     mov     dword [.var_alu_op], eax  ; var_alu_op
 
@@ -1697,49 +1668,10 @@ parse_instruction:
 
 .parse_db:
     add     esi, 2
-    xor     ecx, ecx
     mov     edi, asm_bytes
-.db_loop:
-    call    skip_whitespace
-    call    is_eol
-    jc      .db_done
-    mov     al, [esi]
-    cmp     al, ''''
-    je      .db_string
-    cmp     al, '"'
-    je      .db_string
-    call    parse_hex_byte
+    mov     edx, ASM_BYTES_SIZE
+    call    parse_pattern_list
     jc      .err
-    movzx   ecx, cx
-    cmp     ecx, ASM_BYTES_SIZE
-    jae     .err
-    mov     [edi], al
-    inc     edi
-    inc     ecx
-    jmp     .db_loop
-.db_string:
-    mov     dl, al
-    inc     esi
-.db_str_loop:
-    call    is_eol
-    jc      .err
-    mov     al, [esi]
-    cmp     al, dl
-    jne     .db_str_char
-    inc     esi
-    cmp     byte [esi], dl
-    jne     .db_loop
-.db_str_char:
-    cmp     ecx, ASM_BYTES_SIZE
-    jae     .err
-    mov     [edi], al
-    inc     edi
-    inc     ecx
-    inc     esi
-    jmp     .db_str_loop
-.db_done:
-    test    ecx, ecx
-    jz      .err
     mov     [asm_len], cx
     clc
     ret
@@ -1833,7 +1765,17 @@ parse_instruction:
     cmp     byte [esi], ':'
     jne     .call_near
 
-    ; Far call: 9A off seg (5 bytes)
+    mov     al, 9Ah
+    jmp     .parse_far_addr
+
+.call_near:
+    call    is_eol
+    jnc     .err
+    mov     byte [asm_bytes], 0E8h
+    jmp     .calc_disp16
+
+.parse_far_addr:
+    mov     [asm_bytes], al
     inc     esi
     call    skip_whitespace
     call    parse_hex
@@ -1843,25 +1785,11 @@ parse_instruction:
     call    is_eol
     pop     ax
     jnc     .err
-    mov     byte [asm_bytes], 9Ah
     mov     [asm_bytes+1], al
     mov     [asm_bytes+2], ah
     mov     [asm_bytes+3], bl
     mov     [asm_bytes+4], bh
     mov     word [asm_len], 5
-    clc
-    ret
-
-.call_near:
-    call    is_eol
-    jnc     .err
-    mov     ax, bx
-    sub     ax, [asm_off]
-    sub     ax, 3
-    mov     byte [asm_bytes], 0E8h
-    mov     [asm_bytes+1], al
-    mov     [asm_bytes+2], ah
-    mov     word [asm_len], 3
     clc
     ret
 
@@ -2040,24 +1968,8 @@ parse_instruction:
     cmp     byte [asm_bytes], 0EBh
     jne     .err
 
-    ; Far jump: EA off seg (5 bytes)
-    inc     esi
-    call    skip_whitespace
-    call    parse_hex
-    jc      .err
-    push    ax
-    call    skip_whitespace
-    call    is_eol
-    pop     ax
-    jnc     .err
-    mov     byte [asm_bytes], 0EAh
-    mov     [asm_bytes+1], al
-    mov     [asm_bytes+2], ah
-    mov     [asm_bytes+3], bl
-    mov     [asm_bytes+4], bh
-    mov     word [asm_len], 5
-    clc
-    ret
+    mov     al, 0EAh
+    jmp     .parse_far_addr
 
 .rel8_no_colon:
     call    is_eol
@@ -2080,10 +1992,12 @@ parse_instruction:
     jne     .err
 
     ; Near jump: E9 disp16 (3 bytes)
+    mov     byte [asm_bytes], 0E9h
+
+.calc_disp16:
     mov     ax, bx
     sub     ax, [asm_off]
     sub     ax, 3
-    mov     byte [asm_bytes], 0E9h
     mov     [asm_bytes+1], al
     mov     [asm_bytes+2], ah
     mov     word [asm_len], 3

@@ -131,5 +131,54 @@ class TestAssembleCommand(unittest.TestCase):
         self.assertIn("^ Error", res.stdout)
 
 
+    def test_assemble_far_and_near_call_jmp(self):
+        """Assembling Near and Far variants of CALL and JMP."""
+        cmds = [
+            "a 100",
+            "call 1234:5678",
+            "jmp 1234:5678",
+            "call 0120",
+            "jmp 0120",
+            "jmp 0300",
+            "",
+            "u 100 L 14",
+            "q",
+        ]
+        res = run_debug(cmds)
+        self.assertEqual(res.returncode, 0)
+        norm = re.sub(r"\s+", " ", res.stdout)
+        self.assertIn("CALL 1234:5678", norm)
+        self.assertIn("JMP 1234:5678", norm)
+        self.assertIn("CALL 0120", norm)
+        self.assertIn("JMP 0120", norm)
+        self.assertIn("JMP 0300", norm)
+
+    def test_assemble_far_syntax_errors(self):
+        """Far address syntax errors and colon misuse in conditional jumps."""
+        cmds = [
+            "a 100",
+            "jnz 1234:5678",
+            "call 1234:",
+            "jmp 1234:",
+            "q",
+        ]
+        res = run_debug(cmds)
+        self.assertEqual(res.returncode, 0)
+        self.assertIn("^ Error", res.stdout)
+
+    def test_assemble_db_mixed_literals(self):
+        """DB directive with single quotes, double quotes, and byte literals."""
+        cmds = [
+            "a 100",
+            "db 'A', \"B\", 43, 44",
+            "",
+            "d 100 103",
+            "q",
+        ]
+        res = run_debug(cmds)
+        self.assertEqual(res.returncode, 0)
+        self.assertIn("41 42 43 44", res.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()
