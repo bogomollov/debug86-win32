@@ -9,7 +9,6 @@ include 'data.inc'
 section '.text' code readable executable
 include 'hex.inc'
 include 'dump.inc'
-include 'lexer.inc'
 include 'utils.inc'
 
 ctrl_handler:
@@ -10192,6 +10191,3 @@ section '.bss' readable writeable
     asm_bytes       rb ASM_BYTES_SIZE
     io_ports        rb 10000h
     memory          rb MEM_SIZE
-    tok_num         rw 1
-    tok_punct       rb 1
-    tok_text        rb TOK_TEXT_MAX

@@ -71,9 +71,7 @@ OP_SUB_AX               equ 2Dh
 
 OP_PUSH_CX              equ 51h
 OP_POP_CX               equ 59h
-OP_DEC_CX               equ 49h
 
-OP_JNZ_REL8             equ 75h
 
 INT_VECTOR_10           equ 10h
 INT_VECTOR_16           equ 16h
@@ -163,13 +161,6 @@ CPU_STATE_SIZE  equ 26
 
 section '.data' data readable writeable
     ctrl_c_flag     db 0
-
-    mov8_reg_offsets:
-        db CPU_STATE_AX,   CPU_STATE_CX,   CPU_STATE_DX,   CPU_STATE_BX
-        db CPU_STATE_AX+1, CPU_STATE_CX+1, CPU_STATE_DX+1, CPU_STATE_BX+1
-
-    mov16_reg_offsets:
-        db CPU_STATE_AX, CPU_STATE_CX, CPU_STATE_DX, CPU_STATE_BX
 
     prompt          db '-',0
     prompt_len      dd 1
@@ -262,7 +253,6 @@ section '.data' data readable writeable
         flag_entry 'nc', FLAG_CY, 0
         db 0
 
-    str_add_bxsi_al db 'ADD [BX+SI],AL',0
 
     num_breakpoints dw 0
     breakpoints_seg rw MAX_BREAKPOINTS
