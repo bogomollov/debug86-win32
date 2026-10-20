@@ -6345,37 +6345,54 @@ cmd_go:
     call    print_error
     ret
 
-cmd_trace:
-    mov     word [trace_count], 1
+parse_exec_params:
+    mov     ax, 1
+    push    eax
     mov     esi, [cmd_ptr]
     call    skip_whitespace
     call    is_eol
-    jc      .start_trace
+    jc      .pep_ok
 
     mov     al, [esi]
     cmp     al, '='
-    jne     .parse_count
+    jne     .pep_count
 
     inc     esi
     call    parse_address_cs
-    jc      print_error_and_ret
+    jc      .pep_err
     mov     [reg_CS], ax
     mov     [reg_IP], bx
 
     call    skip_whitespace
     call    is_eol
-    jc      .start_trace
+    jc      .pep_ok
 
-.parse_count:
+.pep_count:
     call    parse_hex
-    jc      print_error_and_ret
+    jc      .pep_err
     test    ax, ax
-    jz      print_error_and_ret
-    mov     [trace_count], ax
+    jz      .pep_err
+    mov     [esp], ax
 
     call    skip_whitespace
     call    is_eol
-    jnc     print_error_and_ret
+    jnc     .pep_err
+
+.pep_ok:
+    pop     eax
+    clc
+    ret
+
+.pep_err:
+    add     esp, 4
+    call    print_error
+    stc
+    ret
+
+cmd_trace:
+    call    parse_exec_params
+    jc      .ret
+    mov     [trace_count], ax
 
 .start_trace:
     mov     byte [ctrl_c_flag], 0
@@ -6420,39 +6437,13 @@ cmd_trace:
     call    cmd_register.show_all
     dec     word [trace_count]
     jnz     .trace_loop
+.ret:
     ret
 
 cmd_proceed:
-    mov     word [proceed_count], 1
-    mov     esi, [cmd_ptr]
-    call    skip_whitespace
-    call    is_eol
-    jc      .start_proceed
-
-    mov     al, [esi]
-    cmp     al, '='
-    jne     .parse_count
-
-    inc     esi
-    call    parse_address_cs
-    jc      print_error_and_ret
-    mov     [reg_CS], ax
-    mov     [reg_IP], bx
-
-    call    skip_whitespace
-    call    is_eol
-    jc      .start_proceed
-
-.parse_count:
-    call    parse_hex
-    jc      print_error_and_ret
-    test    ax, ax
-    jz      print_error_and_ret
+    call    parse_exec_params
+    jc      .ret
     mov     [proceed_count], ax
-
-    call    skip_whitespace
-    call    is_eol
-    jnc     print_error_and_ret
 
 .start_proceed:
     mov     byte [ctrl_c_flag], 0
@@ -6706,6 +6697,7 @@ cmd_proceed:
 
 .proceed_out_of_bounds:
     call    print_error
+.ret:
     ret
 
 update_flags_from_eflags:
