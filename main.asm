@@ -6177,10 +6177,17 @@ get_token:
     ja      .store
     add     al, 20h
 .store:
+    cmp     edi, asm_token + ASM_TOKEN_SIZE - 1
+    jae     .skip_char
     stosb
+.skip_char:
     inc     esi
     jmp     .loop
 .done:
+    cmp     edi, asm_token + ASM_TOKEN_SIZE - 1
+    jbe     .null_ok
+    mov     edi, asm_token + ASM_TOKEN_SIZE - 1
+.null_ok:
     mov     byte [edi], 0
     ret
 
