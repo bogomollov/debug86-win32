@@ -1699,7 +1699,12 @@ dis_str_pop     db 'POP', 0
 find_opcode:
     push    edi
     
-    mov     edi, asm_2byte_table
+    cmp     al, 0F2h
+    je      .check_rep
+    cmp     al, 0F3h
+    jne     .end3
+.check_rep:
+    mov     edi, asm_2word_table
 .loop3:
     cmp     byte [edi], 0
     je      .end3

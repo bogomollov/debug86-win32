@@ -1401,6 +1401,8 @@ try_parse_reg_insn:
     je      .prr_type_ok
     cmp     cl, 2
     je      .prr_type_ok
+    cmp     cl, 3
+    je      .prr_type_ok
     cmp     cl, 6
     je      .prr_type_ok
     cmp     cl, 7
@@ -1458,13 +1460,29 @@ try_parse_reg_insn:
     push    eax
 
     call    skip_whitespace
+    mov     cl, [esp+4]
+
+    ; Single-register unary instructions (not, neg, mul, imul, div, idiv)
+    cmp     cl, 3
+    jne     .prr_not_type3
+    call    is_eol
+    jnc     .prr_syntax_err_pop2
+    mov     al, 0F6h
+    jmp     .prr_emit_unary_op
+
+.prr_not_type3:
+    ; Single-register shift instructions with implicit count 1 (e.g. shl ax)
+    cmp     cl, 6
+    jne     .prr_check_comma
+    call    is_eol
+    jc      .shift_done_1
+
+.prr_check_comma:
     cmp     byte [esi], ','
     jne     .reg1_no_comma
     inc     esi
 .reg1_no_comma:
     call    skip_whitespace
-
-    mov     cl, [esp+4]
 
     cmp     cl, 6
     je      .prr_shift
@@ -1501,16 +1519,9 @@ try_parse_reg_insn:
     call    skip_whitespace
     call    is_eol
     jnc     .prr_syntax_err_pop2
+.shift_done_1:
     mov     al, 0D0h
-    add     al, [esp+1]
-    dec     al
-    mov     [asm_bytes], al
-    mov     ah, [esp+5]
-    shl     ah, 3
-    or      ah, 0C0h
-    or      ah, [esp]
-    mov     [asm_bytes+1], ah
-    jmp     .prr_success_2bytes
+    jmp     .prr_emit_unary_op
 
 .check_cl:
     mov     ah, [esi+1]
@@ -1525,6 +1536,8 @@ try_parse_reg_insn:
     call    is_eol
     jnc     .prr_syntax_err_pop2
     mov     al, 0D2h
+
+.prr_emit_unary_op:
     add     al, [esp+1]
     dec     al
     mov     [asm_bytes], al

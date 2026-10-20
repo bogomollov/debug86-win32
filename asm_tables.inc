@@ -1,21 +1,3 @@
-macro gen_r16_unary prefix, op16, op8, modrm_base {
-    db prefix, 'ax', 0, op16, modrm_base + 0
-    db prefix, 'cx', 0, op16, modrm_base + 1
-    db prefix, 'dx', 0, op16, modrm_base + 2
-    db prefix, 'bx', 0, op16, modrm_base + 3
-    db prefix, 'sp', 0, op16, modrm_base + 4
-    db prefix, 'bp', 0, op16, modrm_base + 5
-    db prefix, 'si', 0, op16, modrm_base + 6
-    db prefix, 'di', 0, op16, modrm_base + 7
-    db prefix, 'al', 0, op8,  modrm_base + 0
-    db prefix, 'cl', 0, op8,  modrm_base + 1
-    db prefix, 'dl', 0, op8,  modrm_base + 2
-    db prefix, 'bl', 0, op8,  modrm_base + 3
-    db prefix, 'ah', 0, op8,  modrm_base + 4
-    db prefix, 'ch', 0, op8,  modrm_base + 5
-    db prefix, 'dh', 0, op8,  modrm_base + 6
-    db prefix, 'bh', 0, op8,  modrm_base + 7
-}
 
 macro gen_inc_16 {
     db 'inc ax', 0, 40h, 0
@@ -146,7 +128,6 @@ macro gen_r16_only prefix, opcode, modrm_base {
         db "salc",0,0D6h,0
         db "aam",0,0D4h,0Ah
         db "aad",0,0D5h,0Ah
-        gen_dec_16
         db 0
 
     asm_2word_table db "mov ax",0,OP_MOV_AX,2
@@ -211,20 +192,6 @@ macro gen_r16_only prefix, opcode, modrm_base {
         db "or al",0,0Ch,1
         db "test ax",0,0A9h,2
         db "test al",0,0A8h,1
-        gen_r16_unary 'not ', 0F7h, 0F6h, 0D0h
-        gen_r16_unary 'neg ', 0F7h, 0F6h, 0D8h
-        gen_r16_unary 'shl ', 0D1h, 0D0h, 0E0h
-        gen_r16_unary 'sal ', 0D1h, 0D0h, 0E0h
-        gen_r16_unary 'shr ', 0D1h, 0D0h, 0E8h
-        gen_r16_unary 'sar ', 0D1h, 0D0h, 0F8h
-        gen_r16_unary 'rol ', 0D1h, 0D0h, 0C0h
-        gen_r16_unary 'ror ', 0D1h, 0D0h, 0C8h
-        gen_r16_unary 'rcl ', 0D1h, 0D0h, 0D0h
-        gen_r16_unary 'rcr ', 0D1h, 0D0h, 0D8h
-        gen_r16_unary 'mul ', 0F7h, 0F6h, 0E0h
-        gen_r16_unary 'imul ', 0F7h, 0F6h, 0E8h
-        gen_r16_unary 'div ', 0F7h, 0F6h, 0F0h
-        gen_r16_unary 'idiv ', 0F7h, 0F6h, 0F8h
         gen_dec_16
         gen_dec_8
         gen_r16_only 'call ', 0FFh, 0D0h
@@ -238,22 +205,6 @@ macro gen_r16_only prefix, opcode, modrm_base {
         db "out dx ax",0,0EFh,0
         db 0
 
-    asm_2byte_table:
-        db "rep stosb",0,0F3h,0AAh
-        db "rep stosw",0,0F3h,0ABh
-        db "rep movsb",0,0F3h,0A4h
-        db "rep movsw",0,0F3h,0A5h
-        db "rep lodsb",0,0F3h,0ACh
-        db "rep lodsw",0,0F3h,0ADh
-        db "repe cmpsb",0,0F3h,0A6h
-        db "repe cmpsw",0,0F3h,0A7h
-        db "repe scasb",0,0F3h,0AEh
-        db "repe scasw",0,0F3h,0AFh
-        db "repne cmpsb",0,0F2h,0A6h
-        db "repne cmpsw",0,0F2h,0A7h
-        db "repne scasb",0,0F2h,0AEh
-        db "repne scasw",0,0F2h,0AFh
-        db 0
 
     asm_rel8_table:
         db "jne",0,75h,0

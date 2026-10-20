@@ -180,5 +180,76 @@ class TestAssembleCommand(unittest.TestCase):
         self.assertIn("41 42 43 44", res.stdout)
 
 
+    def test_assemble_unary_instructions(self):
+        """Assembling single-register unaries (not, neg, mul, div) and shifts."""
+        cmds = [
+            "a 100",
+            "not ax",
+            "neg bl",
+            "mul cx",
+            "imul dx",
+            "div si",
+            "idiv bh",
+            "shl ax",
+            "shr bl",
+            "rol cx, 1",
+            "ror dx, cl",
+            "sar di",
+            "",
+            "u 100 L 16",
+            "q",
+        ]
+        res = run_debug(cmds)
+        self.assertEqual(res.returncode, 0)
+        norm = re.sub(r"\s+", " ", res.stdout)
+        self.assertIn("NOT AX", norm)
+        self.assertIn("NEG BL", norm)
+        self.assertIn("MUL CX", norm)
+        self.assertIn("IMUL DX", norm)
+        self.assertIn("DIV SI", norm)
+        self.assertIn("IDIV BH", norm)
+        self.assertIn("SHL AX,1", norm)
+        self.assertIn("SHR BL,1", norm)
+        self.assertIn("ROL CX,1", norm)
+        self.assertIn("ROR DX,CL", norm)
+        self.assertIn("SAR DI,1", norm)
+
+    def test_assemble_unary_syntax_errors(self):
+        """Reject invalid operand counts for unaries and shifts."""
+        cmds = [
+            "a 100",
+            "not ax, bx",
+            "not ax 5",
+            "shl ax, 2",
+            "shl ax, bx",
+            "q",
+        ]
+        res = run_debug(cmds)
+        self.assertEqual(res.returncode, 0)
+        self.assertIn("^ Error", res.stdout)
+
+    def test_assemble_rep_string_and_dec(self):
+        """Assembling and unassembling string operations and dec reg."""
+        cmds = [
+            "a 100",
+            "dec ax",
+            "dec cl",
+            "rep movsb",
+            "rep stosw",
+            "repne scasb",
+            "",
+            "u 100 L 9",
+            "q",
+        ]
+        res = run_debug(cmds)
+        self.assertEqual(res.returncode, 0)
+        norm = re.sub(r"\s+", " ", res.stdout)
+        self.assertIn("DEC AX", norm)
+        self.assertIn("DEC CL", norm)
+        self.assertIn("REP MOVSB", norm)
+        self.assertIn("REP STOSW", norm)
+        self.assertIn("REPNE SCASB", norm)
+
+
 if __name__ == "__main__":
     unittest.main()
