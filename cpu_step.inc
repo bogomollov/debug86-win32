@@ -1348,24 +1348,33 @@ step:
 
 .alu_imm_exec_w:
     push    ecx
-    cmp     edx, 0
-    je      .alu_w_add
-    cmp     edx, 1
-    je      .alu_w_or
-    cmp     edx, 2
-    je      .alu_w_adc
-    cmp     edx, 3
-    je      .alu_w_sbb
-    cmp     edx, 4
-    je      .alu_w_and
-    cmp     edx, 5
-    je      .alu_w_sub
-    cmp     edx, 6
-    je      .alu_w_xor
     cmp     edx, 7
-    je      .alu_w_cmp
+    ja      .alu_op_err
+    jmp     dword [.alu_w_table + edx*4]
+
+.alu_op_err:
     pop     ecx
     jmp     .unknown_insn
+
+.alu_w_table:
+    dd .alu_w_add
+    dd .alu_w_or
+    dd .alu_w_adc
+    dd .alu_w_sbb
+    dd .alu_w_and
+    dd .alu_w_sub
+    dd .alu_w_xor
+    dd .alu_w_cmp
+
+.alu_b_table:
+    dd .alu_b_add
+    dd .alu_b_or
+    dd .alu_b_adc
+    dd .alu_b_sbb
+    dd .alu_b_and
+    dd .alu_b_sub
+    dd .alu_b_xor
+    dd .alu_b_cmp
 
 .alu_w_add:
     add     word [edi], ax
@@ -1406,24 +1415,9 @@ step:
     mov     al, byte [ebp + ecx]
     inc     ecx
     push    ecx
-    cmp     edx, 0
-    je      .alu_b_add
-    cmp     edx, 1
-    je      .alu_b_or
-    cmp     edx, 2
-    je      .alu_b_adc
-    cmp     edx, 3
-    je      .alu_b_sbb
-    cmp     edx, 4
-    je      .alu_b_and
-    cmp     edx, 5
-    je      .alu_b_sub
-    cmp     edx, 6
-    je      .alu_b_xor
     cmp     edx, 7
-    je      .alu_b_cmp
-    pop     ecx
-    jmp     .unknown_insn
+    ja      .alu_op_err
+    jmp     dword [.alu_b_table + edx*4]
 
 .alu_b_add:
     add     byte [edi], al
@@ -1504,45 +1498,15 @@ step:
     jz      .reg_alu_byte
 
     mov     ax, word [esi]
-    cmp     edx, 0
-    je      .alu_w_add
-    cmp     edx, 1
-    je      .alu_w_or
-    cmp     edx, 2
-    je      .alu_w_adc
-    cmp     edx, 3
-    je      .alu_w_sbb
-    cmp     edx, 4
-    je      .alu_w_and
-    cmp     edx, 5
-    je      .alu_w_sub
-    cmp     edx, 6
-    je      .alu_w_xor
     cmp     edx, 7
-    je      .alu_w_cmp
-    pop     ecx
-    jmp     .unknown_insn
+    ja      .alu_op_err
+    jmp     dword [.alu_w_table + edx*4]
 
 .reg_alu_byte:
     mov     al, byte [esi]
-    cmp     edx, 0
-    je      .alu_b_add
-    cmp     edx, 1
-    je      .alu_b_or
-    cmp     edx, 2
-    je      .alu_b_adc
-    cmp     edx, 3
-    je      .alu_b_sbb
-    cmp     edx, 4
-    je      .alu_b_and
-    cmp     edx, 5
-    je      .alu_b_sub
-    cmp     edx, 6
-    je      .alu_b_xor
     cmp     edx, 7
-    je      .alu_b_cmp
-    pop     ecx
-    jmp     .unknown_insn
+    ja      .alu_op_err
+    jmp     dword [.alu_b_table + edx*4]
 
 .ax_imm_add:
     mov     ax, word [ebp+1]
@@ -1657,22 +1621,38 @@ step:
     test    bl, bl
     jz      .shift_byte
 
-    cmp     edx, 0
-    je      .sh16_rol
-    cmp     edx, 1
-    je      .sh16_ror
-    cmp     edx, 2
-    je      .sh16_rcl
-    cmp     edx, 3
-    je      .sh16_rcr
-    cmp     edx, 4
-    je      .sh16_shl
-    cmp     edx, 5
-    je      .sh16_shr
     cmp     edx, 7
-    je      .sh16_sar
+    ja      .shift_op_err
+    jmp     dword [.shift_w_table + edx*4]
+
+.shift_byte:
+    cmp     edx, 7
+    ja      .shift_op_err
+    jmp     dword [.shift_b_table + edx*4]
+
+.shift_op_err:
     pop     ecx
     jmp     .unknown_insn
+
+.shift_w_table:
+    dd .sh16_rol
+    dd .sh16_ror
+    dd .sh16_rcl
+    dd .sh16_rcr
+    dd .sh16_shl
+    dd .sh16_shr
+    dd .shift_op_err
+    dd .sh16_sar
+
+.shift_b_table:
+    dd .sh8_rol
+    dd .sh8_ror
+    dd .sh8_rcl
+    dd .sh8_rcr
+    dd .sh8_shl
+    dd .sh8_shr
+    dd .shift_op_err
+    dd .sh8_sar
 
 .sh16_rol:
     rol     word [edi], cl
@@ -1697,24 +1677,6 @@ step:
 .sh16_sar:
     sar     word [edi], cl
     jmp     .shift_flags
-
-.shift_byte:
-    cmp     edx, 0
-    je      .sh8_rol
-    cmp     edx, 1
-    je      .sh8_ror
-    cmp     edx, 2
-    je      .sh8_rcl
-    cmp     edx, 3
-    je      .sh8_rcr
-    cmp     edx, 4
-    je      .sh8_shl
-    cmp     edx, 5
-    je      .sh8_shr
-    cmp     edx, 7
-    je      .sh8_sar
-    pop     ecx
-    jmp     .unknown_insn
 
 .sh8_rol:
     rol     byte [edi], cl
@@ -1770,21 +1732,22 @@ step:
     call    decode_modrm
     jc      .out_of_bounds
 
-    cmp     edx, 0
-    je      .f67_test
-    cmp     edx, 2
-    je      .f67_not
-    cmp     edx, 3
-    je      .f67_neg
-    cmp     edx, 4
-    je      .f67_mul
-    cmp     edx, 5
-    je      .f67_imul
-    cmp     edx, 6
-    je      .f67_div
     cmp     edx, 7
-    je      .f67_idiv
+    ja      .f67_op_err
+    jmp     dword [.f67_table + edx*4]
+
+.f67_op_err:
     jmp     .unknown_insn
+
+.f67_table:
+    dd .f67_test
+    dd .f67_op_err
+    dd .f67_not
+    dd .f67_neg
+    dd .f67_mul
+    dd .f67_imul
+    dd .f67_div
+    dd .f67_idiv
 
 .f67_test:
     test    bl, bl
@@ -2316,21 +2279,21 @@ step:
     mov     bl, al
     call    decode_modrm
     jc      .out_of_bounds
-    test    edx, edx
-    jz      .fe_ff_inc
-    cmp     edx, 1
-    je      .fe_ff_dec
-    cmp     edx, 2
-    je      .ff_call_near
-    cmp     edx, 3
-    je      .ff_call_far
-    cmp     edx, 4
-    je      .ff_jmp_near
-    cmp     edx, 5
-    je      .ff_jmp_far
     cmp     edx, 6
-    je      .ff_push
+    ja      .fe_ff_op_err
+    jmp     dword [.fe_ff_table + edx*4]
+
+.fe_ff_op_err:
     jmp     .unknown_insn
+
+.fe_ff_table:
+    dd .fe_ff_inc
+    dd .fe_ff_dec
+    dd .ff_call_near
+    dd .ff_call_far
+    dd .ff_jmp_near
+    dd .ff_jmp_far
+    dd .ff_push
 
 .fe_ff_dec:
     test    byte [ebp], 1
