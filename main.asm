@@ -4134,6 +4134,51 @@ mem_mnem_table:
     db 'jmp', 0, 9, 4
     db 0
 
+; In: edi = pointer to mnemonic string in asm_token
+; Out: cl = type, ch = code, CF = 0 if found, CF = 1 if not found
+lookup_mnemonic:
+    push    esi
+    push    edx
+    push    ebx
+    mov     ebx, mem_mnem_table
+.lm_search:
+    cmp     byte [ebx], 0
+    je      .lm_not_found
+    mov     edx, ebx
+    mov     esi, edi
+.lm_cmp:
+    mov     al, [esi]
+    mov     ah, [edx]
+    cmp     al, ah
+    jne     .lm_next
+    test    al, al
+    jz      .lm_match
+    inc     esi
+    inc     edx
+    jmp     .lm_cmp
+.lm_next:
+    cmp     byte [ebx], 0
+    je      .lm_skip_null
+    inc     ebx
+    jmp     .lm_next
+.lm_skip_null:
+    add     ebx, 3
+    jmp     .lm_search
+.lm_match:
+    mov     cl, [edx+1]
+    mov     ch, [edx+2]
+    pop     ebx
+    pop     edx
+    pop     esi
+    clc
+    ret
+.lm_not_found:
+    pop     ebx
+    pop     edx
+    pop     esi
+    stc
+    ret
+
 check_has_bracket:
 .scan:
     mov     al, [esi]
@@ -5446,6 +5491,248 @@ parse_mem_instruction:
 .seg_none:
     ret
 
+try_parse_reg_insn:
+    push    ebp
+    push    ebx
+    push    esi
+
+    mov     edi, asm_token
+    call    lookup_mnemonic
+    jc      .prr_backtrack
+
+    cmp     cl, 0
+    je      .prr_type_ok
+    cmp     cl, 1
+    je      .prr_type_ok
+    cmp     cl, 2
+    je      .prr_type_ok
+    cmp     cl, 6
+    je      .prr_type_ok
+    cmp     cl, 7
+    je      .prr_type_ok
+    jmp     .prr_backtrack
+
+.prr_type_ok:
+    push    ecx
+    call    skip_whitespace
+
+    mov     cl, [esp]
+    cmp     cl, 1
+    jne     .prr_check_reg1
+    call    parse_asm_sreg
+    jc      .prr_check_reg1
+
+    cmp     al, 1
+    je      .prr_syntax_err_pop1
+    movzx   ebx, al
+
+    call    skip_whitespace
+    cmp     byte [esi], ','
+    jne     .sreg1_no_comma
+    inc     esi
+.sreg1_no_comma:
+    call    skip_whitespace
+
+    call    parse_asm_reg
+    jc      .prr_syntax_err_pop1
+    cmp     ah, 2
+    jne     .prr_syntax_err_pop1
+
+    call    skip_whitespace
+    call    is_eol
+    jnc     .prr_syntax_err_pop1
+
+    mov     byte [asm_bytes], 8Eh
+    mov     ah, bl
+    shl     ah, 3
+    or      ah, 0C0h
+    or      ah, al
+    mov     byte [asm_bytes+1], ah
+    mov     word [asm_len], 2
+    add     esp, 4
+    add     esp, 4
+    pop     ebx
+    pop     ebp
+    clc
+    ret
+
+.prr_check_reg1:
+    call    parse_asm_reg
+    jc      .prr_backtrack_pop1
+
+    push    eax
+
+    call    skip_whitespace
+    cmp     byte [esi], ','
+    jne     .reg1_no_comma
+    inc     esi
+.reg1_no_comma:
+    call    skip_whitespace
+
+    mov     cl, [esp+4]
+
+    cmp     cl, 6
+    je      .prr_shift
+
+    cmp     cl, 1
+    jne     .prr_check_reg2
+    cmp     byte [esp+1], 2
+    jne     .prr_check_reg2
+    call    parse_asm_sreg
+    jc      .prr_check_reg2
+
+    call    skip_whitespace
+    call    is_eol
+    jnc     .prr_syntax_err_pop2
+
+    mov     byte [asm_bytes], 8Ch
+    shl     al, 3
+    or      al, 0C0h
+    or      al, [esp]
+    mov     byte [asm_bytes+1], al
+    jmp     .prr_success_2bytes
+
+.prr_shift:
+    mov     al, [esi]
+    cmp     al, '1'
+    je      .shift_1
+    cmp     al, '0'
+    jne     .check_cl
+    cmp     byte [esi+1], '1'
+    jne     .prr_syntax_err_pop2
+    inc     esi
+.shift_1:
+    inc     esi
+    call    skip_whitespace
+    call    is_eol
+    jnc     .prr_syntax_err_pop2
+    mov     al, 0D0h
+    add     al, [esp+1]
+    dec     al
+    mov     [asm_bytes], al
+    mov     ah, [esp+5]
+    shl     ah, 3
+    or      ah, 0C0h
+    or      ah, [esp]
+    mov     [asm_bytes+1], ah
+    jmp     .prr_success_2bytes
+
+.check_cl:
+    mov     ah, [esi+1]
+    or      al, 20h
+    or      ah, 20h
+    cmp     al, 'c'
+    jne     .prr_syntax_err_pop2
+    cmp     ah, 'l'
+    jne     .prr_syntax_err_pop2
+    add     esi, 2
+    call    skip_whitespace
+    call    is_eol
+    jnc     .prr_syntax_err_pop2
+    mov     al, 0D2h
+    add     al, [esp+1]
+    dec     al
+    mov     [asm_bytes], al
+    mov     ah, [esp+5]
+    shl     ah, 3
+    or      ah, 0C0h
+    or      ah, [esp]
+    mov     [asm_bytes+1], ah
+    jmp     .prr_success_2bytes
+
+.prr_check_reg2:
+    call    parse_asm_reg
+    jc      .prr_op2_not_reg
+
+    cmp     ah, [esp+1]
+    jne     .prr_syntax_err_pop2
+
+    mov     dl, al
+    shl     dl, 3
+    or      dl, 0C0h
+    or      dl, [esp]
+
+    call    skip_whitespace
+    call    is_eol
+    jnc     .prr_syntax_err_pop2
+
+    mov     cl, [esp+4]
+    mov     ch, [esp+5]
+    mov     bl, [esp+1]
+    dec     bl
+
+    cmp     cl, 0
+    je      .emit_alu
+    cmp     cl, 1
+    je      .emit_mov
+    cmp     cl, 7
+    je      .emit_xchg
+    cmp     cl, 2
+    je      .emit_test
+    jmp     .prr_syntax_err_pop2
+
+.emit_alu:
+    shl     ch, 3
+    or      ch, bl
+    mov     [asm_bytes], ch
+    mov     [asm_bytes+1], dl
+    jmp     .prr_success_2bytes
+
+.emit_mov:
+    mov     al, 88h
+    or      al, bl
+    mov     [asm_bytes], al
+    mov     [asm_bytes+1], dl
+    jmp     .prr_success_2bytes
+
+.emit_xchg:
+    mov     al, 86h
+    or      al, bl
+    mov     [asm_bytes], al
+    mov     [asm_bytes+1], dl
+    jmp     .prr_success_2bytes
+
+.emit_test:
+    mov     al, 84h
+    or      al, bl
+    mov     [asm_bytes], al
+    mov     [asm_bytes+1], dl
+    jmp     .prr_success_2bytes
+
+.prr_success_2bytes:
+    mov     word [asm_len], 2
+    add     esp, 8
+    add     esp, 4
+    pop     ebx
+    pop     ebp
+    clc
+    ret
+
+.prr_op2_not_reg:
+    mov     cl, [esp+4]
+    cmp     cl, 7
+    je      .prr_syntax_err_pop2
+    add     esp, 4
+.prr_backtrack_pop1:
+    add     esp, 4
+.prr_backtrack:
+    pop     esi
+    pop     ebx
+    pop     ebp
+    xor     al, al
+    stc
+    ret
+
+.prr_syntax_err_pop2:
+    add     esp, 4
+.prr_syntax_err_pop1:
+    add     esp, 4
+    add     esp, 4
+    pop     ebx
+    pop     ebp
+    mov     al, 1
+    stc
+    ret
 parse_instruction:
     call    skip_whitespace
     call    is_eol
@@ -5716,6 +6003,10 @@ parse_instruction:
 .not_out_imm_restore:
     pop     esi
 .not_out_imm:
+    call    try_parse_reg_insn
+    jnc     .reg_reg_ok
+    test    al, al
+    jnz     .err
     mov     edi, asm_token
 .find_end:
     cmp     byte [edi], 0
@@ -5770,6 +6061,10 @@ parse_instruction:
     ret
 .found_3word_1byte:
     mov     word [asm_len], 1
+    clc
+    ret
+
+.reg_reg_ok:
     clc
     ret
 

@@ -536,159 +536,6 @@ macro gen_dec_8 {
     db 'dec bh', 0, 0FEh, 0CFh
 }
 
-macro gen_shift_1 op, op16, op8, modrm_base {
-    db op, ' ax 1', 0, op16, modrm_base + 0
-    db op, ' ax 01', 0, op16, modrm_base + 0
-    db op, ' cx 1', 0, op16, modrm_base + 1
-    db op, ' cx 01', 0, op16, modrm_base + 1
-    db op, ' dx 1', 0, op16, modrm_base + 2
-    db op, ' dx 01', 0, op16, modrm_base + 2
-    db op, ' bx 1', 0, op16, modrm_base + 3
-    db op, ' bx 01', 0, op16, modrm_base + 3
-    db op, ' sp 1', 0, op16, modrm_base + 4
-    db op, ' sp 01', 0, op16, modrm_base + 4
-    db op, ' bp 1', 0, op16, modrm_base + 5
-    db op, ' bp 01', 0, op16, modrm_base + 5
-    db op, ' si 1', 0, op16, modrm_base + 6
-    db op, ' si 01', 0, op16, modrm_base + 6
-    db op, ' di 1', 0, op16, modrm_base + 7
-    db op, ' di 01', 0, op16, modrm_base + 7
-    db op, ' al 1', 0, op8,  modrm_base + 0
-    db op, ' al 01', 0, op8,  modrm_base + 0
-    db op, ' cl 1', 0, op8,  modrm_base + 1
-    db op, ' cl 01', 0, op8,  modrm_base + 1
-    db op, ' dl 1', 0, op8,  modrm_base + 2
-    db op, ' dl 01', 0, op8,  modrm_base + 2
-    db op, ' bl 1', 0, op8,  modrm_base + 3
-    db op, ' bl 01', 0, op8,  modrm_base + 3
-    db op, ' ah 1', 0, op8,  modrm_base + 4
-    db op, ' ah 01', 0, op8,  modrm_base + 4
-    db op, ' ch 1', 0, op8,  modrm_base + 5
-    db op, ' ch 01', 0, op8,  modrm_base + 5
-    db op, ' dh 1', 0, op8,  modrm_base + 6
-    db op, ' dh 01', 0, op8,  modrm_base + 6
-    db op, ' bh 1', 0, op8,  modrm_base + 7
-    db op, ' bh 01', 0, op8,  modrm_base + 7
-}
-
-macro gen_shift_cl op, op16, op8, modrm_base {
-    db op, ' ax cl', 0, op16, modrm_base + 0
-    db op, ' cx cl', 0, op16, modrm_base + 1
-    db op, ' dx cl', 0, op16, modrm_base + 2
-    db op, ' bx cl', 0, op16, modrm_base + 3
-    db op, ' sp cl', 0, op16, modrm_base + 4
-    db op, ' bp cl', 0, op16, modrm_base + 5
-    db op, ' si cl', 0, op16, modrm_base + 6
-    db op, ' di cl', 0, op16, modrm_base + 7
-    db op, ' al cl', 0, op8,  modrm_base + 0
-    db op, ' cl cl', 0, op8,  modrm_base + 1
-    db op, ' dl cl', 0, op8,  modrm_base + 2
-    db op, ' bl cl', 0, op8,  modrm_base + 3
-    db op, ' ah cl', 0, op8,  modrm_base + 4
-    db op, ' ch cl', 0, op8,  modrm_base + 5
-    db op, ' dh cl', 0, op8,  modrm_base + 6
-    db op, ' bh cl', 0, op8,  modrm_base + 7
-}
-
-macro gen_logic_dst op, sep, opcode, d, d_idx, r0, r1, r2, r3, r4, r5, r6, r7 {
-    db op, ' ', d, sep, r0, 0, opcode, 0C0h + (0 shl 3) + d_idx
-    db op, ' ', d, sep, r1, 0, opcode, 0C0h + (1 shl 3) + d_idx
-    db op, ' ', d, sep, r2, 0, opcode, 0C0h + (2 shl 3) + d_idx
-    db op, ' ', d, sep, r3, 0, opcode, 0C0h + (3 shl 3) + d_idx
-    db op, ' ', d, sep, r4, 0, opcode, 0C0h + (4 shl 3) + d_idx
-    db op, ' ', d, sep, r5, 0, opcode, 0C0h + (5 shl 3) + d_idx
-    db op, ' ', d, sep, r6, 0, opcode, 0C0h + (6 shl 3) + d_idx
-    db op, ' ', d, sep, r7, 0, opcode, 0C0h + (7 shl 3) + d_idx
-}
-
-macro gen_logic_all op, sep, op16, op8 {
-    gen_logic_dst op, sep, op16, 'ax', 0, 'ax','cx','dx','bx','sp','bp','si','di'
-    gen_logic_dst op, sep, op16, 'cx', 1, 'ax','cx','dx','bx','sp','bp','si','di'
-    gen_logic_dst op, sep, op16, 'dx', 2, 'ax','cx','dx','bx','sp','bp','si','di'
-    gen_logic_dst op, sep, op16, 'bx', 3, 'ax','cx','dx','bx','sp','bp','si','di'
-    gen_logic_dst op, sep, op16, 'sp', 4, 'ax','cx','dx','bx','sp','bp','si','di'
-    gen_logic_dst op, sep, op16, 'bp', 5, 'ax','cx','dx','bx','sp','bp','si','di'
-    gen_logic_dst op, sep, op16, 'si', 6, 'ax','cx','dx','bx','sp','bp','si','di'
-    gen_logic_dst op, sep, op16, 'di', 7, 'ax','cx','dx','bx','sp','bp','si','di'
-
-    gen_logic_dst op, sep, op8, 'al', 0, 'al','cl','dl','bl','ah','ch','dh','bh'
-    gen_logic_dst op, sep, op8, 'cl', 1, 'al','cl','dl','bl','ah','ch','dh','bh'
-    gen_logic_dst op, sep, op8, 'dl', 2, 'al','cl','dl','bl','ah','ch','dh','bh'
-    gen_logic_dst op, sep, op8, 'bl', 3, 'al','cl','dl','bl','ah','ch','dh','bh'
-    gen_logic_dst op, sep, op8, 'ah', 4, 'al','cl','dl','bl','ah','ch','dh','bh'
-    gen_logic_dst op, sep, op8, 'ch', 5, 'al','cl','dl','bl','ah','ch','dh','bh'
-    gen_logic_dst op, sep, op8, 'dh', 6, 'al','cl','dl','bl','ah','ch','dh','bh'
-    gen_logic_dst op, sep, op8, 'bh', 7, 'al','cl','dl','bl','ah','ch','dh','bh'
-}
-
-macro gen_shift_2byte op, op16, op8, modrm_base {
-    db op, ' ax,1', 0, op16, modrm_base + 0
-    db op, ' cx,1', 0, op16, modrm_base + 1
-    db op, ' dx,1', 0, op16, modrm_base + 2
-    db op, ' bx,1', 0, op16, modrm_base + 3
-    db op, ' sp,1', 0, op16, modrm_base + 4
-    db op, ' bp,1', 0, op16, modrm_base + 5
-    db op, ' si,1', 0, op16, modrm_base + 6
-    db op, ' di,1', 0, op16, modrm_base + 7
-    db op, ' al,1', 0, op8,  modrm_base + 0
-    db op, ' cl,1', 0, op8,  modrm_base + 1
-    db op, ' dl,1', 0, op8,  modrm_base + 2
-    db op, ' bl,1', 0, op8,  modrm_base + 3
-    db op, ' ah,1', 0, op8,  modrm_base + 4
-    db op, ' ch,1', 0, op8,  modrm_base + 5
-    db op, ' dh,1', 0, op8,  modrm_base + 6
-    db op, ' bh,1', 0, op8,  modrm_base + 7
-    db op, ' ax,cl', 0, op16 + 2, modrm_base + 0
-    db op, ' cx,cl', 0, op16 + 2, modrm_base + 1
-    db op, ' dx,cl', 0, op16 + 2, modrm_base + 2
-    db op, ' bx,cl', 0, op16 + 2, modrm_base + 3
-    db op, ' sp,cl', 0, op16 + 2, modrm_base + 4
-    db op, ' bp,cl', 0, op16 + 2, modrm_base + 5
-    db op, ' si,cl', 0, op16 + 2, modrm_base + 6
-    db op, ' di,cl', 0, op16 + 2, modrm_base + 7
-    db op, ' al,cl', 0, op8  + 2, modrm_base + 0
-    db op, ' cl,cl', 0, op8  + 2, modrm_base + 1
-    db op, ' dl,cl', 0, op8  + 2, modrm_base + 2
-    db op, ' bl,cl', 0, op8  + 2, modrm_base + 3
-    db op, ' ah,cl', 0, op8  + 2, modrm_base + 4
-    db op, ' ch,cl', 0, op8  + 2, modrm_base + 5
-    db op, ' dh,cl', 0, op8  + 2, modrm_base + 6
-    db op, ' bh,cl', 0, op8  + 2, modrm_base + 7
-}
-
-macro gen_mov_sreg_dst sreg, sreg_idx, sep {
-    db 'mov ', sreg, sep, 'ax', 0, 8Eh, 0C0h + (sreg_idx shl 3) + 0
-    db 'mov ', sreg, sep, 'cx', 0, 8Eh, 0C0h + (sreg_idx shl 3) + 1
-    db 'mov ', sreg, sep, 'dx', 0, 8Eh, 0C0h + (sreg_idx shl 3) + 2
-    db 'mov ', sreg, sep, 'bx', 0, 8Eh, 0C0h + (sreg_idx shl 3) + 3
-    db 'mov ', sreg, sep, 'sp', 0, 8Eh, 0C0h + (sreg_idx shl 3) + 4
-    db 'mov ', sreg, sep, 'bp', 0, 8Eh, 0C0h + (sreg_idx shl 3) + 5
-    db 'mov ', sreg, sep, 'si', 0, 8Eh, 0C0h + (sreg_idx shl 3) + 6
-    db 'mov ', sreg, sep, 'di', 0, 8Eh, 0C0h + (sreg_idx shl 3) + 7
-}
-
-macro gen_mov_sreg_src sreg, sreg_idx, sep {
-    db 'mov ax', sep, sreg, 0, 8Ch, 0C0h + (sreg_idx shl 3) + 0
-    db 'mov cx', sep, sreg, 0, 8Ch, 0C0h + (sreg_idx shl 3) + 1
-    db 'mov dx', sep, sreg, 0, 8Ch, 0C0h + (sreg_idx shl 3) + 2
-    db 'mov bx', sep, sreg, 0, 8Ch, 0C0h + (sreg_idx shl 3) + 3
-    db 'mov sp', sep, sreg, 0, 8Ch, 0C0h + (sreg_idx shl 3) + 4
-    db 'mov bp', sep, sreg, 0, 8Ch, 0C0h + (sreg_idx shl 3) + 5
-    db 'mov si', sep, sreg, 0, 8Ch, 0C0h + (sreg_idx shl 3) + 6
-    db 'mov di', sep, sreg, 0, 8Ch, 0C0h + (sreg_idx shl 3) + 7
-}
-
-macro gen_sreg_all sep {
-    gen_mov_sreg_dst 'es', 0, sep
-    gen_mov_sreg_dst 'ss', 2, sep
-    gen_mov_sreg_dst 'ds', 3, sep
-
-    gen_mov_sreg_src 'es', 0, sep
-    gen_mov_sreg_src 'cs', 1, sep
-    gen_mov_sreg_src 'ss', 2, sep
-    gen_mov_sreg_src 'ds', 3, sep
-}
-
 macro gen_r16_only prefix, opcode, modrm_base {
     db prefix, 'ax', 0, opcode, modrm_base + 0
     db prefix, 'cx', 0, opcode, modrm_base + 1
@@ -830,43 +677,14 @@ macro gen_r16_only prefix, opcode, modrm_base {
         gen_r16_only 'jmp ',  0FFh, 0E0h
         db 0
 
-    asm_3word_table db "mov bx ax",0,OP_MOV_BX_AX,OP_MOV_BX_AX_MODRM
+    asm_3word_table:
         db "in al dx",0,0ECh,0
         db "in ax dx",0,0EDh,0
         db "out dx al",0,0EEh,0
         db "out dx ax",0,0EFh,0
-        gen_shift_1 'shl', 0D1h, 0D0h, 0E0h
-        gen_shift_1 'sal', 0D1h, 0D0h, 0E0h
-        gen_shift_1 'shr', 0D1h, 0D0h, 0E8h
-        gen_shift_1 'sar', 0D1h, 0D0h, 0F8h
-        gen_shift_1 'rol', 0D1h, 0D0h, 0C0h
-        gen_shift_1 'ror', 0D1h, 0D0h, 0C8h
-        gen_shift_1 'rcl', 0D1h, 0D0h, 0D0h
-        gen_shift_1 'rcr', 0D1h, 0D0h, 0D8h
-        gen_shift_cl 'shl', 0D3h, 0D2h, 0E0h
-        gen_shift_cl 'sal', 0D3h, 0D2h, 0E0h
-        gen_shift_cl 'shr', 0D3h, 0D2h, 0E8h
-        gen_shift_cl 'sar', 0D3h, 0D2h, 0F8h
-        gen_shift_cl 'rol', 0D3h, 0D2h, 0C0h
-        gen_shift_cl 'ror', 0D3h, 0D2h, 0C8h
-        gen_shift_cl 'rcl', 0D3h, 0D2h, 0D0h
-        gen_shift_cl 'rcr', 0D3h, 0D2h, 0D8h
-        gen_logic_all 'xor', ' ', 31h, 30h
-        gen_logic_all 'and', ' ', 21h, 20h
-        gen_logic_all 'or',  ' ', 09h, 08h
-        gen_logic_all 'test',' ', 85h, 84h
-        gen_logic_all 'add', ' ', 01h, 00h
-        gen_logic_all 'adc', ' ', 11h, 10h
-        gen_logic_all 'sub', ' ', 29h, 28h
-        gen_logic_all 'sbb', ' ', 19h, 18h
-        gen_logic_all 'cmp', ' ', 39h, 38h
-        gen_logic_all 'mov', ' ', 89h, 88h
-        gen_logic_all 'xchg', ' ', 87h, 86h
-        gen_sreg_all ' '
         db 0
 
-    asm_2byte_table db "mov bx,ax",0,OP_MOV_BX_AX,OP_MOV_BX_AX_MODRM
-        db "add [bx+si],al",0,00h,00h
+    asm_2byte_table:
         db "rep stosb",0,0F3h,0AAh
         db "rep stosw",0,0F3h,0ABh
         db "rep movsb",0,0F3h,0A4h
@@ -881,35 +699,6 @@ macro gen_r16_only prefix, opcode, modrm_base {
         db "repne cmpsw",0,0F2h,0A7h
         db "repne scasb",0,0F2h,0AEh
         db "repne scasw",0,0F2h,0AFh
-        gen_inc_8
-        gen_r16_unary 'not ', 0F7h, 0F6h, 0D0h
-        gen_r16_unary 'neg ', 0F7h, 0F6h, 0D8h
-        gen_shift_2byte 'shl', 0D1h, 0D0h, 0E0h
-        gen_shift_2byte 'shr', 0D1h, 0D0h, 0E8h
-        gen_shift_2byte 'sar', 0D1h, 0D0h, 0F8h
-        gen_shift_2byte 'rol', 0D1h, 0D0h, 0C0h
-        gen_shift_2byte 'ror', 0D1h, 0D0h, 0C8h
-        gen_shift_2byte 'rcl', 0D1h, 0D0h, 0D0h
-        gen_shift_2byte 'rcr', 0D1h, 0D0h, 0D8h
-        gen_logic_all 'xor', ',', 31h, 30h
-        gen_logic_all 'and', ',', 21h, 20h
-        gen_logic_all 'or',  ',', 09h, 08h
-        gen_logic_all 'test',',', 85h, 84h
-        gen_logic_all 'add', ',', 01h, 00h
-        gen_logic_all 'adc', ',', 11h, 10h
-        gen_logic_all 'sub', ',', 29h, 28h
-        gen_logic_all 'sbb', ',', 19h, 18h
-        gen_logic_all 'cmp', ',', 39h, 38h
-        gen_logic_all 'mov', ',', 89h, 88h
-        gen_logic_all 'xchg', ',', 87h, 86h
-        gen_sreg_all ','
-        gen_r16_only 'call ', 0FFh, 0D0h
-        gen_r16_only 'jmp ',  0FFh, 0E0h
-        gen_r16_unary 'mul ', 0F7h, 0F6h, 0E0h
-        gen_r16_unary 'imul ', 0F7h, 0F6h, 0E8h
-        gen_r16_unary 'div ', 0F7h, 0F6h, 0F0h
-        gen_r16_unary 'idiv ', 0F7h, 0F6h, 0F8h
-        gen_dec_8
         db 0
 
     asm_rel8_table:
