@@ -235,6 +235,9 @@ cmd_register:
     ret
 
 .show_all:
+    jmp     show_cpu_state
+
+show_cpu_state:
     call    print_registers
 
     mov     ax, [reg_CS]
@@ -6474,6 +6477,25 @@ search_table:
     stc
     ret
 
+handle_exec_interrupted:
+    mov     byte [ctrl_c_flag], 0
+    mov     byte [line_buffer], CR
+    mov     byte [line_buffer+1], LF
+    mov     esi, line_buffer
+    mov     ecx, 2
+    call    print_buffer
+    jmp     show_cpu_state
+
+handle_exec_prog_end:
+    mov     esi, msg_prog_end
+    mov     ecx, msg_prog_end_len
+    call    print_buffer
+    ret
+
+handle_exec_error:
+    call    print_error
+    ret
+
 cmd_go:
     mov     word [num_breakpoints], 0
     mov     esi, [cmd_ptr]
@@ -6518,16 +6540,16 @@ cmd_go:
     cmp     eax, STEP_OK
     je      .run_loop
     cmp     eax, STEP_BREAKPOINT
-    je      .hit_breakpoint
+    je      show_cpu_state
     cmp     eax, STEP_PROGRAM_END
-    je      .program_end
+    je      handle_exec_prog_end
     cmp     eax, STEP_UNKNOWN
-    je      .unknown_insn
-    jmp     .out_of_bounds
+    je      show_cpu_state
+    jmp     handle_exec_error
 
 .run_loop:
     cmp     byte [ctrl_c_flag], 0
-    jne     .interrupted
+    jne     handle_exec_interrupted
 
     mov     cx, [num_breakpoints]
     test    cx, cx
@@ -6543,58 +6565,27 @@ cmd_go:
     jne     .next_bp
     mov     bx, [breakpoints_off + edx*2]
     cmp     bx, [reg_IP]
-    jne     .next_bp
-    
-    jmp     .hit_breakpoint
-    
+    je      show_cpu_state
+
 .next_bp:
     inc     edx
     jmp     .bp_check
 
 .no_bp:
-    cmp     byte [ctrl_c_flag], 0
-    jne     .interrupted
-
     call    step
     cmp     eax, STEP_OK
     je      .run_loop
     cmp     eax, STEP_BREAKPOINT
-    je      .hit_breakpoint
+    je      show_cpu_state
     cmp     eax, STEP_PROGRAM_END
-    je      .program_end
+    je      handle_exec_prog_end
     cmp     eax, STEP_UNKNOWN
-    je      .unknown_insn
-    jmp     .out_of_bounds
-
-.interrupted:
-    mov     byte [ctrl_c_flag], 0
-    mov     byte [line_buffer], CR
-    mov     byte [line_buffer+1], LF
-    mov     esi, line_buffer
-    mov     ecx, 2
-    call    print_buffer
-    jmp     cmd_register.show_all
-
-.hit_breakpoint:
-    jmp     cmd_register.show_all
-
-.program_end:
-    mov     esi, msg_prog_end
-    mov     ecx, msg_prog_end_len
-    call    print_buffer
-    ret
-
-.unknown_insn:
-    jmp     cmd_register.show_all
+    je      show_cpu_state
+    jmp     handle_exec_error
 
 .too_many_bp:
     call    print_bp_error
     ret
-
-.out_of_bounds:
-    call    print_error
-    ret
-
 parse_exec_params:
     mov     ax, 1
     push    eax
@@ -6649,7 +6640,7 @@ cmd_trace:
 
 .trace_loop:
     cmp     byte [ctrl_c_flag], 0
-    jne     .trace_interrupted
+    jne     handle_exec_interrupted
 
     call    step
     cmp     eax, STEP_OK
@@ -6657,39 +6648,17 @@ cmd_trace:
     cmp     eax, STEP_BREAKPOINT
     je      .step_ok
     cmp     eax, STEP_PROGRAM_END
-    je      .step_prog_end
+    je      handle_exec_prog_end
     cmp     eax, STEP_UNKNOWN
-    je      .step_unknown
-
-.step_out_of_bounds:
-    call    print_error
-    ret
-
-.step_prog_end:
-    mov     esi, msg_prog_end
-    mov     ecx, msg_prog_end_len
-    call    print_buffer
-    ret
-
-.step_unknown:
-    jmp     cmd_register.show_all
-
-.trace_interrupted:
-    mov     byte [ctrl_c_flag], 0
-    mov     byte [line_buffer], CR
-    mov     byte [line_buffer+1], LF
-    mov     esi, line_buffer
-    mov     ecx, 2
-    call    print_buffer
-    jmp     cmd_register.show_all
+    je      show_cpu_state
+    jmp     handle_exec_error
 
 .step_ok:
-    call    cmd_register.show_all
+    call    show_cpu_state
     dec     word [trace_count]
     jnz     .trace_loop
 .ret:
     ret
-
 cmd_proceed:
     call    parse_exec_params
     jc      .ret
@@ -6700,7 +6669,7 @@ cmd_proceed:
 
 .proceed_loop:
     cmp     byte [ctrl_c_flag], 0
-    jne     .proceed_interrupted
+    jne     handle_exec_interrupted
 
     mov     ax, [reg_CS]
     mov     bx, [reg_IP]
@@ -6708,7 +6677,7 @@ cmd_proceed:
 
     mov     ecx, 1
     call    check_mem_range
-    jc      .proceed_out_of_bounds
+    jc      handle_exec_error
 
     lea     esi, [memory + eax]
     mov     edi, esi
@@ -6869,13 +6838,13 @@ cmd_proceed:
     cmp     eax, STEP_BREAKPOINT
     je      .proceed_hit_target
     cmp     eax, STEP_PROGRAM_END
-    je      .proceed_prog_end
+    je      handle_exec_prog_end
     cmp     eax, STEP_UNKNOWN
-    je      .proceed_unknown
-    jmp     .proceed_out_of_bounds
+    je      show_cpu_state
+    jmp     handle_exec_error
 
 .proceed_step_ok:
-    call    cmd_register.show_all
+    call    show_cpu_state
     dec     word [proceed_count]
     jnz     .proceed_loop
     ret
@@ -6887,69 +6856,37 @@ cmd_proceed:
     add     ax, cx
     mov     [proceed_target_off], ax
 
-    call    step
-    cmp     eax, STEP_OK
-    je      .proceed_step_loop
-    cmp     eax, STEP_BREAKPOINT
-    je      .proceed_hit_target
-    cmp     eax, STEP_PROGRAM_END
-    je      .proceed_prog_end
-    cmp     eax, STEP_UNKNOWN
-    je      .proceed_unknown
-    jmp     .proceed_out_of_bounds
-
 .proceed_step_loop:
     cmp     byte [ctrl_c_flag], 0
-    jne     .proceed_interrupted
+    jne     handle_exec_interrupted
 
-    mov     ax, [reg_CS]
-    cmp     ax, [proceed_target_seg]
-    jne     .proceed_continue_run
-    mov     bx, [reg_IP]
-    cmp     bx, [proceed_target_off]
-    je      .proceed_hit_target
-
-.proceed_continue_run:
     call    step
     cmp     eax, STEP_OK
-    je      .proceed_step_loop
+    je      .proceed_check_target
     cmp     eax, STEP_BREAKPOINT
     je      .proceed_hit_target
     cmp     eax, STEP_PROGRAM_END
-    je      .proceed_prog_end
+    je      handle_exec_prog_end
     cmp     eax, STEP_UNKNOWN
-    je      .proceed_unknown
-    jmp     .proceed_out_of_bounds
+    je      show_cpu_state
+    jmp     handle_exec_error
+
+.proceed_check_target:
+    mov     ax, [reg_CS]
+    cmp     ax, [proceed_target_seg]
+    jne     .proceed_step_loop
+    mov     bx, [reg_IP]
+    cmp     bx, [proceed_target_off]
+    jne     .proceed_step_loop
 
 .proceed_hit_target:
-    call    cmd_register.show_all
+    call    show_cpu_state
     dec     word [proceed_count]
     jnz     .proceed_loop
     ret
 
-.proceed_interrupted:
-    mov     byte [ctrl_c_flag], 0
-    mov     byte [line_buffer], CR
-    mov     byte [line_buffer+1], LF
-    mov     esi, line_buffer
-    mov     ecx, 2
-    call    print_buffer
-    jmp     cmd_register.show_all
-
-.proceed_prog_end:
-    mov     esi, msg_prog_end
-    mov     ecx, msg_prog_end_len
-    call    print_buffer
-    ret
-
-.proceed_unknown:
-    jmp     cmd_register.show_all
-
-.proceed_out_of_bounds:
-    call    print_error
 .ret:
     ret
-
 update_flags_from_eflags:
     push    eax
     mov     eax, edx
