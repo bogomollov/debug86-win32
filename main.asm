@@ -8,7 +8,6 @@ include 'data.inc'
 
 section '.text' code readable executable
 include 'hex.inc'
-include 'dump.inc'
 include 'utils.inc'
 
 ctrl_handler:
@@ -124,8 +123,6 @@ cmd_help:
     call    print_buffer
     ret
 
-include 'cmd_reg.inc'
-
 cmd_quit:
     mov     esi, [cmd_ptr]
     call    skip_whitespace
@@ -133,18 +130,13 @@ cmd_quit:
     jc      exit_program
     jmp     print_error_and_ret
 
+include 'cmd_reg.inc'
 include 'dos_file.inc'
-
 include 'cmd_memory.inc'
-
 include 'disasm.inc'
-
 include 'asm.inc'
-
 include 'cmd_exec.inc'
-
 include 'cpu_interrupts.inc'
-
 include 'cpu_step.inc'
 
 section '.idata' import data readable writeable

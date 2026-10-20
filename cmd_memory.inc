@@ -37,6 +37,171 @@ cmd_dump:
     call    do_dump
     ret
 
+do_dump:
+    push    eax
+    push    ebx
+    push    ecx
+    push    edx
+    push    esi
+    push    edi
+    push    ebp
+
+    mov     byte [ctrl_c_flag], 0
+
+    cmp     dword [dump_len], 0
+    jz      dd_done
+
+    mov     ax, [dump_off]
+    movzx   ecx, ax
+    and     ecx, 0Fh
+    mov     [dd_skip], cx
+
+    and     ax, 0FFF0h
+    mov     [dump_off], ax
+
+dd_line_loop:
+    cmp     byte [ctrl_c_flag], 0
+    jne     .dd_interrupted
+
+    mov     edi, line_buffer
+
+    mov     ax, [dump_seg]
+    call    put_hex_word
+    mov     al, COLON
+    stosb
+    mov     ax, [dump_off]
+    call    put_hex_word
+
+    mov     al, SPACE
+    stosb
+    stosb
+
+    movzx   eax, word [dump_seg]
+    shl     eax, 4
+    movzx   ebx, word [dump_off]
+    add     eax, ebx
+    movzx   ecx, word [dd_skip]
+    add     eax, ecx
+    mov     esi, memory
+    add     esi, eax
+
+    movzx   ecx, word [dd_skip]
+    mov     edx, DUMP_LINE_BYTES
+    sub     edx, ecx
+    mov     eax, [dump_len]
+    cmp     eax, edx
+    jae     .dd_have_n
+    mov     edx, eax
+.dd_have_n:
+    mov     [dd_line_bytes], dx
+    mov     ebx, edx
+
+    movzx   edx, word [dd_skip]
+    xor     ecx, ecx
+
+.dd_hex_slot:
+    cmp     ecx, DUMP_LINE_BYTES
+    jae     .dd_hex_done
+    cmp     edx, 0
+    je      .dd_hex_try_byte
+    mov     al, SPACE
+    stosb
+    stosb
+    dec     edx
+    jmp     .dd_hex_sep
+.dd_hex_try_byte:
+    cmp     ebx, 0
+    je      .dd_hex_blank
+    lodsb
+    call    put_hex_byte
+    dec     ebx
+    jmp     .dd_hex_sep
+.dd_hex_blank:
+    mov     al, SPACE
+    stosb
+    stosb
+.dd_hex_sep:
+    inc     ecx
+    cmp     ecx, 8
+    jne     .dd_hex_sep_space
+    mov     al, '-'
+    stosb
+    jmp     .dd_hex_slot
+.dd_hex_sep_space:
+    mov     al, SPACE
+    stosb
+    jmp     .dd_hex_slot
+
+.dd_hex_done:
+    mov     al, SPACE
+    stosb
+    stosb
+
+    movzx   ecx, word [dd_line_bytes]
+    sub     esi, ecx
+
+    movzx   edx, word [dd_skip]
+    movzx   ebx, word [dd_line_bytes]
+
+.dd_ascii_loop:
+    test    edx, edx
+    jz      .dd_ascii_char
+    mov     al, SPACE
+    stosb
+    dec     edx
+    jmp     .dd_ascii_loop
+.dd_ascii_char:
+    test    ebx, ebx
+    jz      .dd_ascii_done
+    lodsb
+    cmp     al, 20h
+    jb      .dd_ascii_nonprint
+    cmp     al, 7Eh
+    ja      .dd_ascii_nonprint
+    jmp     .dd_ascii_store
+.dd_ascii_nonprint:
+    mov     al, '.'
+.dd_ascii_store:
+    stosb
+    dec     ebx
+    jmp     .dd_ascii_loop
+.dd_ascii_done:
+    mov     al, 13
+    stosb
+    mov     al, 10
+    stosb
+
+    mov     ecx, edi
+    sub     ecx, line_buffer
+    mov     esi, line_buffer
+    call    print_buffer
+
+    add     word [dump_off], DUMP_LINE_BYTES
+    movzx   ecx, word [dd_line_bytes]
+    sub     [dump_len], ecx
+    jbe     dd_done
+    mov     word [dd_skip], 0
+    jmp     dd_line_loop
+
+.dd_interrupted:
+    mov     byte [ctrl_c_flag], 0
+    mov     byte [line_buffer], CR
+    mov     byte [line_buffer+1], LF
+    mov     esi, line_buffer
+    mov     ecx, 2
+    call    print_buffer
+
+dd_done:
+    pop     ebp
+    pop     edi
+    pop     esi
+    pop     edx
+    pop     ecx
+    pop     ebx
+    pop     eax
+    ret
+
+
 cmd_fill:
     mov     esi, [cmd_ptr]
 
@@ -115,45 +280,11 @@ cmd_edit:
     jc      .ce_interactive
 
     mov     edi, ebp
-.ce_next_token:
-    call    skip_whitespace
-    call    is_eol
-    jc      .ce_ret
-
-    cmp     edi, memory + MEM_SIZE
-    jae     print_error_and_ret
-
-    cmp     al, QUOTE_DOUBLE
-    je      .ce_string
-    cmp     al, QUOTE_SINGLE
-    je      .ce_string
-
-    call    parse_hex_byte
+    mov     edx, memory + MEM_SIZE
+    sub     edx, edi
+    call    parse_pattern_list
     jc      print_error_and_ret
-    mov     [edi], al
-    inc     edi
-    jmp     .ce_next_token
-
-.ce_string:
-    mov     dl, al
-    inc     esi
-.ce_str_loop:
-    mov     al, [esi]
-    call    is_eol
-    jc      print_error_and_ret
-    cmp     al, dl
-    je      .ce_str_end
-
-    cmp     edi, memory + MEM_SIZE
-    jae     print_error_and_ret
-
-    mov     [edi], al
-    inc     edi
-    inc     esi
-    jmp     .ce_str_loop
-.ce_str_end:
-    inc     esi
-    jmp     .ce_next_token
+    ret
 
 .ce_interactive:
     invoke  GetConsoleMode, [hStdIn], old_console_mode
