@@ -17,6 +17,34 @@ handle_exec_error:
     call    print_error
     ret
 
+handle_step_result:
+    call    step
+    cmp     eax, STEP_OK
+    je      .ok
+    cmp     eax, STEP_BREAKPOINT
+    je      .ok
+    cmp     eax, STEP_PROGRAM_END
+    je      .prog_end
+    cmp     eax, STEP_UNKNOWN
+    je      .unknown
+    call    handle_exec_error
+    stc
+    ret
+
+.prog_end:
+    call    handle_exec_prog_end
+    stc
+    ret
+
+.unknown:
+    call    show_cpu_state
+    stc
+    ret
+
+.ok:
+    clc
+    ret
+
 cmd_go:
     mov     word [num_breakpoints], 0
     mov     esi, [cmd_ptr]
@@ -57,16 +85,11 @@ cmd_go:
 
 .start_run:
     mov     byte [ctrl_c_flag], 0
-    call    step
-    cmp     eax, STEP_OK
-    je      .run_loop
+    call    handle_step_result
+    jc      .ret
     cmp     eax, STEP_BREAKPOINT
     je      show_cpu_state
-    cmp     eax, STEP_PROGRAM_END
-    je      handle_exec_prog_end
-    cmp     eax, STEP_UNKNOWN
-    je      show_cpu_state
-    jmp     handle_exec_error
+    jmp     .run_loop
 
 .run_loop:
     cmp     byte [ctrl_c_flag], 0
@@ -93,19 +116,15 @@ cmd_go:
     jmp     .bp_check
 
 .no_bp:
-    call    step
-    cmp     eax, STEP_OK
-    je      .run_loop
+    call    handle_step_result
+    jc      .ret
     cmp     eax, STEP_BREAKPOINT
     je      show_cpu_state
-    cmp     eax, STEP_PROGRAM_END
-    je      handle_exec_prog_end
-    cmp     eax, STEP_UNKNOWN
-    je      show_cpu_state
-    jmp     handle_exec_error
+    jmp     .run_loop
 
 .too_many_bp:
     call    print_bp_error
+.ret:
     ret
 parse_exec_params:
     mov     ax, 1
@@ -163,16 +182,8 @@ cmd_trace:
     cmp     byte [ctrl_c_flag], 0
     jne     handle_exec_interrupted
 
-    call    step
-    cmp     eax, STEP_OK
-    je      .step_ok
-    cmp     eax, STEP_BREAKPOINT
-    je      .step_ok
-    cmp     eax, STEP_PROGRAM_END
-    je      handle_exec_prog_end
-    cmp     eax, STEP_UNKNOWN
-    je      show_cpu_state
-    jmp     handle_exec_error
+    call    handle_step_result
+    jc      .ret
 
 .step_ok:
     call    show_cpu_state
@@ -336,16 +347,8 @@ cmd_proceed:
     jmp     .do_step_over
 
 .not_step_over:
-    call    step
-    cmp     eax, STEP_OK
-    je      .proceed_step_ok
-    cmp     eax, STEP_BREAKPOINT
-    je      .proceed_hit_target
-    cmp     eax, STEP_PROGRAM_END
-    je      handle_exec_prog_end
-    cmp     eax, STEP_UNKNOWN
-    je      show_cpu_state
-    jmp     handle_exec_error
+    call    handle_step_result
+    jc      .ret
 
 .proceed_step_ok:
     call    show_cpu_state
@@ -364,16 +367,11 @@ cmd_proceed:
     cmp     byte [ctrl_c_flag], 0
     jne     handle_exec_interrupted
 
-    call    step
-    cmp     eax, STEP_OK
-    je      .proceed_check_target
+    call    handle_step_result
+    jc      .ret
     cmp     eax, STEP_BREAKPOINT
     je      .proceed_hit_target
-    cmp     eax, STEP_PROGRAM_END
-    je      handle_exec_prog_end
-    cmp     eax, STEP_UNKNOWN
-    je      show_cpu_state
-    jmp     handle_exec_error
+    jmp     .proceed_check_target
 
 .proceed_check_target:
     mov     ax, [reg_CS]
