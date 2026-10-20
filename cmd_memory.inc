@@ -123,9 +123,9 @@ cmd_edit:
     cmp     edi, memory + MEM_SIZE
     jae     print_error_and_ret
 
-    cmp     al, 22h
+    cmp     al, QUOTE_DOUBLE
     je      .ce_string
-    cmp     al, 27h
+    cmp     al, QUOTE_SINGLE
     je      .ce_string
 
     call    parse_hex_byte

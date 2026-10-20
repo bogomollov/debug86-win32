@@ -258,6 +258,45 @@ parse_address:
     stc
     ret
 
+parse_address_cs:
+    call    skip_whitespace
+    push    esi
+.check_colon_loop:
+    mov     al, [esi]
+    test    al, al
+    jz      .no_colon_found
+    cmp     al, CR
+    je      .no_colon_found
+    cmp     al, LF
+    je      .no_colon_found
+    cmp     al, ' '
+    je      .no_colon_found
+    cmp     al, 9
+    je      .no_colon_found
+    cmp     al, COMMA
+    je      .no_colon_found
+    cmp     al, COLON
+    je      .colon_found
+    inc     esi
+    jmp     .check_colon_loop
+
+.colon_found:
+    pop     esi
+    call    parse_address
+    ret
+
+.no_colon_found:
+    pop     esi
+    call    parse_hex
+    jc      .pac_err
+    mov     bx, ax
+    mov     ax, [reg_CS]
+    clc
+    ret
+.pac_err:
+    stc
+    ret
+
 parse_length:
     call    skip_whitespace
     call    is_eol
