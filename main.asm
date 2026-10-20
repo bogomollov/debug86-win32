@@ -205,16 +205,7 @@ cmd_register:
     mov     al, COLON
     stosb
 
-    mov     edx, edi
-    sub     edx, line_buffer
-    push    edx
-    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
-    test    eax, eax
-    jnz     .reg_prompt_ok
-    mov     edx, [esp]
-    invoke  WriteFile, [hStdOut], line_buffer, edx, chars_written, 0
-.reg_prompt_ok:
-    pop     edx
+    call    print_line_buffer
 
     mov     edi, input_buffer
     mov     edx, 255
@@ -369,16 +360,7 @@ show_flags:
     mov     al, SPACE
     stosb
 
-    mov     edx, edi
-    sub     edx, line_buffer
-    push    edx
-    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
-    test    eax, eax
-    jnz     .sf_ok
-    mov     edx, [esp]
-    invoke  WriteFile, [hStdOut], line_buffer, edx, chars_written, 0
-.sf_ok:
-    pop     edx
+    call    print_line_buffer
 
     pop     edi
     pop     esi
@@ -910,16 +892,7 @@ cmd_write:
     jmp     .cpy_bytes
 .cpy_b_done:
 
-    mov     edx, edi
-    sub     edx, line_buffer
-    push    edx
-    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
-    test    eax, eax
-    jnz     .cw_out_ok
-    mov     edx, [esp]
-    invoke  WriteFile, [hStdOut], line_buffer, edx, chars_written, 0
-.cw_out_ok:
-    pop     edx
+    call    print_line_buffer
     ret
 
 .err_write_close:
@@ -1887,16 +1860,7 @@ cmd_search:
     mov     al, LF
     stosb
 
-    mov     edx, edi
-    sub     edx, line_buffer
-    push    edx
-    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
-    test    eax, eax
-    jnz     .cs_out_ok
-    mov     edx, [esp]
-    invoke  WriteFile, [hStdOut], line_buffer, edx, chars_written, 0
-.cs_out_ok:
-    pop     edx
+    call    print_line_buffer
 
     pop     edi
     pop     ecx
@@ -1961,15 +1925,8 @@ cmd_assemble:
     
     mov     edx, edi
     sub     edx, line_buffer
-    push    edx
-    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
-    test    eax, eax
-    jnz     .prompt_ok
-    mov     edx, [esp]
-    invoke  WriteFile, [hStdOut], line_buffer, edx, chars_written, 0
-.prompt_ok:
-    pop     edx
     mov     [prompt_len], edx
+    call    print_line_buffer
 
     mov     edi, input_buffer
     mov     edx, 255
@@ -2679,16 +2636,7 @@ disasm_line:
     mov     al, LF
     stosb
 
-    mov     edx, edi
-    sub     edx, line_buffer
-    push    edx
-    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
-    test    eax, eax
-    jnz     .dis_out_ok
-    mov     edx, [esp]
-    invoke  WriteFile, [hStdOut], line_buffer, edx, chars_written, 0
-.dis_out_ok:
-    pop     edx
+    call    print_line_buffer
 
     mov     ebx, [esp+12]
     add     esp, 16
@@ -10139,16 +10087,7 @@ print_registers:
     mov     al, LF
     stosb
 
-    mov     edx, edi
-    sub     edx, line_buffer
-    push    edx
-    invoke  WriteConsoleA, [hStdOut], line_buffer, edx, chars_written, 0
-    test    eax, eax
-    jnz     .pr_ret
-    mov     edx, [esp]
-    invoke  WriteFile, [hStdOut], line_buffer, edx, chars_written, 0
-.pr_ret:
-    pop     edx
+    call    print_line_buffer
 
     pop     ecx
     pop     ebx

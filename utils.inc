@@ -11,6 +11,13 @@ print_buffer:
     pop     esi
     ret
 
+; In: edi = end of line_buffer
+print_line_buffer:
+    mov     ecx, edi
+    sub     ecx, line_buffer
+    mov     esi, line_buffer
+    jmp     print_buffer
+
 print_string:
     push    eax
     push    ecx
@@ -325,35 +332,27 @@ parse_length:
     ret
 
 print_br_error:
-    invoke  WriteConsoleA, [hStdOut], msg_br_error, msg_br_error_len, chars_written, 0
-    test    eax, eax
-    jnz     .br_done
-    invoke  WriteFile, [hStdOut], msg_br_error, msg_br_error_len, chars_written, 0
-.br_done:
+    mov     esi, msg_br_error
+    mov     ecx, msg_br_error_len
+    call    print_buffer
     ret
 
 print_bf_error:
-    invoke  WriteConsoleA, [hStdOut], msg_bf_error, msg_bf_error_len, chars_written, 0
-    test    eax, eax
-    jnz     .bf_done
-    invoke  WriteFile, [hStdOut], msg_bf_error, msg_bf_error_len, chars_written, 0
-.bf_done:
+    mov     esi, msg_bf_error
+    mov     ecx, msg_bf_error_len
+    call    print_buffer
     ret
 
 print_df_error:
-    invoke  WriteConsoleA, [hStdOut], msg_df_error, msg_df_error_len, chars_written, 0
-    test    eax, eax
-    jnz     .df_done
-    invoke  WriteFile, [hStdOut], msg_df_error, msg_df_error_len, chars_written, 0
-.df_done:
+    mov     esi, msg_df_error
+    mov     ecx, msg_df_error_len
+    call    print_buffer
     ret
 
 print_bp_error:
-    invoke  WriteConsoleA, [hStdOut], msg_bp_error, msg_bp_error_len, chars_written, 0
-    test    eax, eax
-    jnz     .bp_done
-    invoke  WriteFile, [hStdOut], msg_bp_error, msg_bp_error_len, chars_written, 0
-.bp_done:
+    mov     esi, msg_bp_error
+    mov     ecx, msg_bp_error_len
+    call    print_buffer
     ret
 
 ; In: edi = buffer, edx = max_len
