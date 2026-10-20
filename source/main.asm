@@ -2,7 +2,7 @@ format PE CONSOLE
 
 entry start
 
-include 'fasm/include/win32a.inc'
+include '../fasm/include/win32a.inc'
 
 include 'data.inc'
 
