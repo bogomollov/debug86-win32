@@ -1,3 +1,5 @@
 fasm/**
 *.exe
 MS-DOS
+__pycache__/
+.pyc
