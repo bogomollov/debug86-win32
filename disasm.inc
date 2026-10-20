@@ -1375,198 +1375,57 @@ disasm_line:
     inc     edi
     ret
 
-.dis_jcc:
-    mov     dword [esp+12], 2
-    mov     eax, ebp
-    sub     eax, memory
-    add     eax, 2
-    cmp     eax, MEM_SIZE
-    ja      .not_found
-
-    mov     al, [ebp]
-    call    put_hex_byte
-    mov     al, [ebp+1]
-    call    put_hex_byte
-
-    mov     ecx, 10
+.put_mnem_padded:
+    push    eax
+    push    ecx
+    xor     ecx, ecx
+.pmp_loop:
+    lodsb
+    test    al, al
+    jz      .pmp_pad
+    cmp     al, SPACE
+    je      .pmp_pad
+    stosb
+    inc     ecx
+    jmp     .pmp_loop
+.pmp_pad:
+    mov     eax, 8
+    sub     eax, ecx
+    mov     ecx, eax
     mov     al, SPACE
     rep     stosb
+    pop     ecx
+    pop     eax
+    ret
 
+.dis_jcc:
     movzx   eax, byte [ebp]
     sub     eax, 70h
     shl     eax, 2
-    lea     esi, [jcc_names + eax]
-    mov     al, [esi]
-    stosb
-    mov     al, [esi+1]
-    stosb
-    mov     al, [esi+2]
-    cmp     al, ' '
-    je      .jcc_skip_sp
-    stosb
-    mov     ecx, 5
-    jmp     .jcc_pad
-.jcc_skip_sp:
-    mov     ecx, 6
-.jcc_pad:
-    mov     al, SPACE
-    rep     stosb
-
-    movsx   eax, byte [ebp+1]
-    add     ax, [esp+4]
-    add     ax, 2
-    call    put_hex_word
-    jmp     .line_done
+    lea     edx, [jcc_names + eax]
+    jmp     .dis_rel8_common
 
 .dis_jmp_short:
-    mov     dword [esp+12], 2
-    mov     eax, ebp
-    sub     eax, memory
-    add     eax, 2
-    cmp     eax, MEM_SIZE
-    ja      .not_found
-
-    mov     al, [ebp]
-    call    put_hex_byte
-    mov     al, [ebp+1]
-    call    put_hex_byte
-
-    mov     ecx, 10
-    mov     al, SPACE
-    rep     stosb
-
-    mov     al, 'J'
-    stosb
-    mov     al, 'M'
-    stosb
-    mov     al, 'P'
-    stosb
-
-    mov     ecx, 5
-    mov     al, SPACE
-    rep     stosb
-
-    movsx   eax, byte [ebp+1]
-    add     ax, [esp+4]
-    add     ax, 2
-    call    put_hex_word
-    jmp     .line_done
+    mov     edx, dis_str_jmp
+    jmp     .dis_rel8_common
 
 .dis_loopnz:
-    mov     dword [esp+12], 2
-    mov     eax, ebp
-    sub     eax, memory
-    add     eax, 2
-    cmp     eax, MEM_SIZE
-    ja      .not_found
-
-    mov     al, [ebp]
-    call    put_hex_byte
-    mov     al, [ebp+1]
-    call    put_hex_byte
-
-    mov     ecx, 10
-    mov     al, SPACE
-    rep     stosb
-
-    mov     al, 'L'
-    stosb
-    mov     al, 'O'
-    stosb
-    mov     al, 'O'
-    stosb
-    mov     al, 'P'
-    stosb
-    mov     al, 'N'
-    stosb
-    mov     al, 'Z'
-    stosb
-
-    mov     ecx, 2
-    mov     al, SPACE
-    rep     stosb
-
-    movsx   eax, byte [ebp+1]
-    add     ax, [esp+4]
-    add     ax, 2
-    call    put_hex_word
-    jmp     .line_done
+    mov     edx, dis_str_loopnz
+    jmp     .dis_rel8_common
 
 .dis_loopz:
-    mov     dword [esp+12], 2
-    mov     eax, ebp
-    sub     eax, memory
-    add     eax, 2
-    cmp     eax, MEM_SIZE
-    ja      .not_found
-
-    mov     al, [ebp]
-    call    put_hex_byte
-    mov     al, [ebp+1]
-    call    put_hex_byte
-
-    mov     ecx, 10
-    mov     al, SPACE
-    rep     stosb
-
-    mov     al, 'L'
-    stosb
-    mov     al, 'O'
-    stosb
-    mov     al, 'O'
-    stosb
-    mov     al, 'P'
-    stosb
-    mov     al, 'Z'
-    stosb
-
-    mov     ecx, 3
-    mov     al, SPACE
-    rep     stosb
-
-    movsx   eax, byte [ebp+1]
-    add     ax, [esp+4]
-    add     ax, 2
-    call    put_hex_word
-    jmp     .line_done
+    mov     edx, dis_str_loopz
+    jmp     .dis_rel8_common
 
 .dis_loop:
-    mov     dword [esp+12], 2
-    mov     eax, ebp
-    sub     eax, memory
-    add     eax, 2
-    cmp     eax, MEM_SIZE
-    ja      .not_found
-
-    mov     al, [ebp]
-    call    put_hex_byte
-    mov     al, [ebp+1]
-    call    put_hex_byte
-
-    mov     ecx, 10
-    mov     al, SPACE
-    rep     stosb
-
-    mov     al, 'L'
-    stosb
-    mov     al, 'O'
-    stosb
-    mov     al, 'O'
-    stosb
-    mov     al, 'P'
-    stosb
-
-    mov     ecx, 4
-    mov     al, SPACE
-    rep     stosb
-
-    movsx   eax, byte [ebp+1]
-    add     ax, [esp+4]
-    add     ax, 2
-    call    put_hex_word
-    jmp     .line_done
+    mov     edx, dis_str_loop
+    jmp     .dis_rel8_common
 
 .dis_jcxz:
+    mov     edx, dis_str_jcxz
+    jmp     .dis_rel8_common
+
+.dis_rel8_common:
     mov     dword [esp+12], 2
     mov     eax, ebp
     sub     eax, memory
@@ -1583,18 +1442,8 @@ disasm_line:
     mov     al, SPACE
     rep     stosb
 
-    mov     al, 'J'
-    stosb
-    mov     al, 'C'
-    stosb
-    mov     al, 'X'
-    stosb
-    mov     al, 'Z'
-    stosb
-
-    mov     ecx, 4
-    mov     al, SPACE
-    rep     stosb
+    mov     esi, edx
+    call    .put_mnem_padded
 
     movsx   eax, byte [ebp+1]
     add     ax, [esp+4]
@@ -1603,42 +1452,14 @@ disasm_line:
     jmp     .line_done
 
 .dis_jmp_near:
-    mov     dword [esp+12], 3
-    mov     eax, ebp
-    sub     eax, memory
-    add     eax, 3
-    cmp     eax, MEM_SIZE
-    ja      .not_found
-
-    mov     al, [ebp]
-    call    put_hex_byte
-    mov     al, [ebp+1]
-    call    put_hex_byte
-    mov     al, [ebp+2]
-    call    put_hex_byte
-
-    mov     ecx, 8
-    mov     al, SPACE
-    rep     stosb
-
-    mov     al, 'J'
-    stosb
-    mov     al, 'M'
-    stosb
-    mov     al, 'P'
-    stosb
-
-    mov     ecx, 5
-    mov     al, SPACE
-    rep     stosb
-
-    mov     ax, word [ebp+1]
-    add     ax, [esp+4]
-    add     ax, 3
-    call    put_hex_word
-    jmp     .line_done
+    mov     edx, dis_str_jmp
+    jmp     .dis_near_common
 
 .dis_call_near:
+    mov     edx, dis_str_call
+    jmp     .dis_near_common
+
+.dis_near_common:
     mov     dword [esp+12], 3
     mov     eax, ebp
     sub     eax, memory
@@ -1657,18 +1478,8 @@ disasm_line:
     mov     al, SPACE
     rep     stosb
 
-    mov     al, 'C'
-    stosb
-    mov     al, 'A'
-    stosb
-    mov     al, 'L'
-    stosb
-    mov     al, 'L'
-    stosb
-
-    mov     ecx, 4
-    mov     al, SPACE
-    rep     stosb
+    mov     esi, edx
+    call    .put_mnem_padded
 
     mov     ax, word [ebp+1]
     add     ax, [esp+4]
@@ -1677,64 +1488,18 @@ disasm_line:
     jmp     .line_done
 
 .dis_inc_r16:
-    mov     dword [esp+12], 1
-    mov     al, [ebp]
-    call    put_hex_byte
-
-    mov     ecx, 12
-    mov     al, SPACE
-    rep     stosb
-
-    mov     al, 'I'
-    stosb
-    mov     al, 'N'
-    stosb
-    mov     al, 'C'
-    stosb
-
-    mov     ecx, 5
-    mov     al, SPACE
-    rep     stosb
-
-    movzx   eax, byte [ebp]
-    sub     eax, 40h
-    shl     eax, 1
-    lea     esi, [op_reg16_names + eax]
-    lodsw
-    stosw
-    jmp     .line_done
+    mov     edx, dis_str_inc
+    jmp     .dis_r16_unary_common
 
 .dis_push_r16:
-    mov     dword [esp+12], 1
-    mov     al, [ebp]
-    call    put_hex_byte
-
-    mov     ecx, 12
-    mov     al, SPACE
-    rep     stosb
-
-    mov     al, 'P'
-    stosb
-    mov     al, 'U'
-    stosb
-    mov     al, 'S'
-    stosb
-    mov     al, 'H'
-    stosb
-
-    mov     ecx, 4
-    mov     al, SPACE
-    rep     stosb
-
-    movzx   eax, byte [ebp]
-    sub     eax, 50h
-    shl     eax, 1
-    lea     esi, [op_reg16_names + eax]
-    lodsw
-    stosw
-    jmp     .line_done
+    mov     edx, dis_str_push
+    jmp     .dis_r16_unary_common
 
 .dis_pop_r16:
+    mov     edx, dis_str_pop
+    jmp     .dis_r16_unary_common
+
+.dis_r16_unary_common:
     mov     dword [esp+12], 1
     mov     al, [ebp]
     call    put_hex_byte
@@ -1743,19 +1508,11 @@ disasm_line:
     mov     al, SPACE
     rep     stosb
 
-    mov     al, 'P'
-    stosb
-    mov     al, 'O'
-    stosb
-    mov     al, 'P'
-    stosb
-
-    mov     ecx, 5
-    mov     al, SPACE
-    rep     stosb
+    mov     esi, edx
+    call    .put_mnem_padded
 
     movzx   eax, byte [ebp]
-    sub     eax, 58h
+    and     eax, 7
     shl     eax, 1
     lea     esi, [op_reg16_names + eax]
     lodsw
@@ -1798,39 +1555,14 @@ disasm_line:
     jmp     .line_done
 
 .dis_call_far:
-    mov     dword [esp+12], 5
-    mov     eax, ebp
-    sub     eax, memory
-    add     eax, 5
-    cmp     eax, MEM_SIZE
-    ja      .not_found
-
-    mov     esi, ebp
-    mov     ecx, 5
-.dis_cf_hex:
-    lodsb
-    call    put_hex_byte
-    loop    .dis_cf_hex
-
-    mov     ecx, 4
-    mov     al, SPACE
-    rep     stosb
-
-    mov     eax, 'CALL'
-    stosd
-    mov     ecx, 4
-    mov     al, SPACE
-    rep     stosb
-
-    mov     ax, word [ebp+3]
-    call    put_hex_word
-    mov     al, COLON
-    stosb
-    mov     ax, word [ebp+1]
-    call    put_hex_word
-    jmp     .line_done
+    mov     edx, dis_str_call
+    jmp     .dis_far_common
 
 .dis_jmp_far:
+    mov     edx, dis_str_jmp
+    jmp     .dis_far_common
+
+.dis_far_common:
     mov     dword [esp+12], 5
     mov     eax, ebp
     sub     eax, memory
@@ -1840,24 +1572,17 @@ disasm_line:
 
     mov     esi, ebp
     mov     ecx, 5
-.dis_jf_hex:
+.dis_far_hex:
     lodsb
     call    put_hex_byte
-    loop    .dis_jf_hex
+    loop    .dis_far_hex
 
     mov     ecx, 4
     mov     al, SPACE
     rep     stosb
 
-    mov     al, 'J'
-    stosb
-    mov     al, 'M'
-    stosb
-    mov     al, 'P'
-    stosb
-    mov     ecx, 5
-    mov     al, SPACE
-    rep     stosb
+    mov     esi, edx
+    call    .put_mnem_padded
 
     mov     ax, word [ebp+3]
     call    put_hex_word
@@ -1959,6 +1684,16 @@ jcc_names:
     db 'JZ ', 0, 'JNZ', 0, 'JBE', 0, 'JA ', 0
     db 'JS ', 0, 'JNS', 0, 'JP ', 0, 'JNP', 0
     db 'JL ', 0, 'JGE', 0, 'JLE', 0, 'JG ', 0
+
+dis_str_jmp     db 'JMP', 0
+dis_str_call    db 'CALL', 0
+dis_str_loopnz  db 'LOOPNZ', 0
+dis_str_loopz   db 'LOOPZ', 0
+dis_str_loop    db 'LOOP', 0
+dis_str_jcxz    db 'JCXZ', 0
+dis_str_inc     db 'INC', 0
+dis_str_push    db 'PUSH', 0
+dis_str_pop     db 'POP', 0
 
 
 find_opcode:
