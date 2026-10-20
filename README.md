@@ -1,26 +1,24 @@
 <div align="center">
 <h1>Debug86 Win32</h1>
-<p align="center">An authentic MS-DOS DEBUG.EXE-style console debugger for modern Windows built in x86 assembly. It features an emulated 16-bit 8086 real-mode CPU, a segmented memory architecture, and an integrated assembler and disassembler. Supports single-stepping, breakpoints, simulated DOS/BIOS interrupts, and direct execution of 16-bit .COM programs.</p>
+<p align="center">Консольный отладчик в стиле MS-DOS DEBUG.EXE для современной Windows, встроенный в сборку x86. Он оснащен эмулируемым 16-разрядным процессором реального режима 8086, сегментированной архитектурой памяти и встроенным ассемблером и дизассемблером. Поддерживает пошаговый режим, точки останова, имитацию прерываний DOS/BIOS и прямое выполнение 16-разрядных программ .COM</p>
 </div>
 
-**Debug86 Win32** is a native 32-bit Windows console debugger (PE console, written in Flat Assembler) that replicates the authentic interface, command set, and behavior of the classic MS-DOS `DEBUG.EXE`. It provides a full 16-bit 8086 real-mode virtual environment with a segmented 1 MB + 64 KB memory space, allowing developers and retrocomputing enthusiasts to load, inspect, disassemble, assemble, and execute MS-DOS `.COM` programs directly on modern 32-bit and 64-bit Windows without needing an external emulator like DOSBox.
+**Debug86 Win32** — это нативный 32-битный консольный отладчик для Windows (исполняемый файл формата PE, написанный на языке Flat Assembler), который в точности воспроизводит интерфейс, набор команд и поведение классической утилиты `DEBUG.EXE` из MS-DOS. Он создает полноценную виртуальную среду, имитирующую реальный режим процессора 8086 (архитектура x86) с сегментированным адресным пространством объемом 1 МБ + 64 КБ. Это позволяет разработчикам и энтузиастам ретрокомпьютеров загружать, исследовать, дизассемблировать, ассемблировать и запускать программы формата `.COM` для MS-DOS непосредственно в современных 32-битных и 64-битных версиях Windows, не прибегая к использованию сторонних эмуляторов, таких как DOSBox.
 
-### Key Features
+### Основные возможности
 
-* **Virtual 8086 Real-Mode Environment**: Complete register architecture (`AX`, `BX`, `CX`, `DX`, `SP`, `BP`, `SI`, `DI`, `CS`, `DS`, `SS`, `ES`, `IP`) and 8086 FLAGS (`OF`, `DF`, `IF`, `SF`, `ZF`, `AF`, `PF`, `CF`).
-* **Segmented Memory Model**: 1,114,112 bytes (1 MB conventional memory + 64 KB HMA) supporting full `Segment:Offset` real-mode addressing, segment overrides, and boundary safety checks.
-* **Full 20-Command Set**: Implements the complete classic MS-DOS DEBUG command suite:
-  * **Memory**: `D` (Dump), `E` (Enter/Edit &mdash; batch list and interactive single-cell modes), `F` (Fill), `M` (Move with overlap safety), `C` (Compare), `S` (Search).
-  * **Code & Assembly**: `A` (Line-by-line assembler with `DB`/`DW` directives), `U` (Unassemble with live effective address dereference previews at column 55).
-  * **Execution**: `G` (Go with up to 10 breakpoints), `T` (Trace single-step into, stepping repeated string ops per iteration), `P` (Proceed step-over calls, loops, software interrupts, and string ops).
-  * **Registers & Ports**: `R` / `RF` (Inspect and modify registers and flags), `I` / `O` (Read/write from simulated 64 KB I/O port address space), `H` (Hexadecimal addition and subtraction).
-  * **File Operations**: `N` (Name file and set PSP argument tail), `L` (Load file into memory), `W` (Write memory block to disk).
-  * **Control**: `Q` (Quit with strict argument validation), `?` (Command syntax reference).
-* **Authentic DOS & BIOS Emulation**:
-  * **PSP Layout**: Automatic Program Segment Prefix generation at `CS:0000h` (`INT 20h` exit, `A000h` memory ceiling, `INT 21h; RETF` dispatcher, FCBs, command tail at `80h`, and near `RET` termination).
-  * **Interrupt Dispatchers**: Emulates `INT 20h` (terminate), `INT 21h` (functions `00h`, `01h`, `02h`, `06h`, `07h`/`08h`, `09h`, `0Ah`, `0Bh`, `25h`, `30h`, `35h`, `4Ch`), `INT 10h` (BIOS teletype and cursor positioning), and `INT 16h` (BIOS keyboard input with peek buffer).
-* **Strict MS-DOS Authenticity**:
-  * Dynamic column-aligned caret error formatting (`^ Error`) accounting for tab stops and prompt lengths.
-  * Classic error designations: `BR error` (bad register), `BF error` (bad flag), `DF error` (duplicate flag), and `BP error` (too many breakpoints).
-  * Native Code Page 866 (MS-DOS OEM Cyrillic/box-drawing) support.
-  * Standard stream redirection support (pipes and batch scripts) with automated input fallback and Ctrl+C interrupt handling.
+* **Виртуальная среда реального режима 8086**: Полная реализация архитектуры регистров (`AX`, `BX`, `CX`, `DX`, `SP`, `BP`, `SI`, `DI`, `CS`, `DS`, `SS`, `ES`, `IP`) и флагов процессора 8086 (`OF`, `DF`, `IF`, `SF`, `ZF`, `AF`, `PF`, `CF`).
+* **Сегментированная модель памяти**: 1 114 112 байт (1 МБ основной памяти + 64 КБ области HMA) с поддержкой полноценной адресации в формате «сегмент:смещение» (Segment:Offset), переопределением сегментов и проверкой границ памяти.
+* **Полный набор из 20 команд**: Реализован весь классический функционал утилиты DEBUG из MS-DOS:
+* **Работа с памятью**: `D` (Dump — дамп памяти), `E` (Enter/Edit — ввод/редактирование данных; поддерживаются пакетный режим и интерактивное редактирование отдельных ячеек), `F` (Fill — заполнение памяти), `M` (Move — перемещение данных с защитой от перекрытия областей), `C` (Compare — сравнение), `S` (Search — поиск). 
+* **Работа с кодом и ассемблирование**: `A` (построчный ассемблер с поддержкой директив `DB`/`DW`), `U` (дизассемблирование с отображением вычисленных эффективных адресов в 55-м столбце). * **Выполнение**: `G` (запуск программы, поддерживается до 10 точек останова), `T` (пошаговое выполнение с заходом в подпрограммы; строковые операции выполняются по одной итерации за шаг), `P` (пошаговое выполнение с «перешагиванием» через вызовы подпрограмм, циклы, программные прерывания и строковые операции).
+* **Регистры и порты**: `R` / `RF` (просмотр и изменение значений регистров и флагов), `I` / `O` (чтение из портов ввода-вывода или запись в них в рамках эмулируемого адресного пространства 64 КБ), `H` (шестнадцатеричное сложение и вычитание).
+* **Файловые операции**: `N` (задание имени файла и аргументов в PSP — Program Segment Prefix), `L` (загрузка файла в память), `W` (запись блока памяти на диск).
+* **Управление**: `Q` (выход из программы с обязательной проверкой аргументов), `?` (справка по синтаксису команд).
+* **Аутентичная эмуляция DOS и BIOS**:
+* **Структура PSP**: автоматическое создание префикса программного сегмента (PSP) по адресу `CS:0000h` (включает код завершения `INT 20h`, указатель на верхнюю границу памяти `A000h`, диспетчер `INT 21h` с инструкцией `RETF`, блоки управления файлами (FCB), командную строку по смещению `80h` и механизм завершения через `RET`). 
+* **Диспетчеры прерываний**: эмуляция `INT 20h` (завершение программы), `INT 21h` (функции `00h`, `01h`, `02h`, `06h`, `07h`/`08h`, `09h`, `0Ah`, `0Bh`, `25h`, `30h`, `35h`, `4Ch`), `INT 10h` (вывод символов в стиле телетайпа и управление курсором BIOS) и `INT 16h` (ввод с клавиатуры через BIOS с использованием буфера предварительного просмотра).
+* **Строгое соответствие стандартам MS-DOS**:
+* Динамическое форматирование сообщений об ошибках с указанием позиции (символ `^` под ошибочным элементом), учитывающее табуляцию и длину строки приглашения. * Классические обозначения ошибок: `BR error` (некорректный регистр), `BF error` (некорректный флаг), `DF error` (дублирующийся флаг) и `BP error` (слишком много точек останова). 
+* Поддержка кодовой страницы 866 (кириллица MS-DOS OEM / символы псевдографики). 
+* Поддержка перенаправления стандартных потоков (каналы/pipes и пакетные сценарии) с автоматическим переключением на ввод по умолчанию и обработкой прерывания Ctrl+C.
