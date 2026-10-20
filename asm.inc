@@ -257,6 +257,25 @@ parse_asm_sreg:
     stc
     ret
 
+asm_reg_table:
+    db 'ax', 0, 2
+    db 'cx', 1, 2
+    db 'dx', 2, 2
+    db 'bx', 3, 2
+    db 'sp', 4, 2
+    db 'bp', 5, 2
+    db 'si', 6, 2
+    db 'di', 7, 2
+    db 'al', 0, 1
+    db 'cl', 1, 1
+    db 'dl', 2, 1
+    db 'bl', 3, 1
+    db 'ah', 4, 1
+    db 'ch', 5, 1
+    db 'dh', 6, 1
+    db 'bh', 7, 1
+    db 0
+
 parse_asm_reg:
     push    ebx
     push    ecx
@@ -325,135 +344,19 @@ parse_asm_reg:
     jmp     .fail
 
 .delim_ok:
-    cmp     al, 'a'
-    jne     .not_ax
-    cmp     ah, 'x'
-    jne     .not_ax
-    mov     al, 0
-    mov     ah, 2
-    jmp     .matched
-.not_ax:
-    cmp     al, 'c'
-    jne     .not_cx
-    cmp     ah, 'x'
-    jne     .not_cx
-    mov     al, 1
-    mov     ah, 2
-    jmp     .matched
-.not_cx:
-    cmp     al, 'd'
-    jne     .not_dx
-    cmp     ah, 'x'
-    jne     .not_dx
-    mov     al, 2
-    mov     ah, 2
-    jmp     .matched
-.not_dx:
-    cmp     al, 'b'
-    jne     .not_bx
-    cmp     ah, 'x'
-    jne     .not_bx
-    mov     al, 3
-    mov     ah, 2
-    jmp     .matched
-.not_bx:
-    cmp     al, 's'
-    jne     .not_sp
-    cmp     ah, 'p'
-    jne     .not_sp
-    mov     al, 4
-    mov     ah, 2
-    jmp     .matched
-.not_sp:
-    cmp     al, 'b'
-    jne     .not_bp
-    cmp     ah, 'p'
-    jne     .not_bp
-    mov     al, 5
-    mov     ah, 2
-    jmp     .matched
-.not_bp:
-    cmp     al, 's'
-    jne     .not_si
-    cmp     ah, 'i'
-    jne     .not_si
-    mov     al, 6
-    mov     ah, 2
-    jmp     .matched
-.not_si:
-    cmp     al, 'd'
-    jne     .not_di
-    cmp     ah, 'i'
-    jne     .not_di
-    mov     al, 7
-    mov     ah, 2
-    jmp     .matched
-.not_di:
+    mov     edx, asm_reg_table
+.reg_loop:
+    cmp     byte [edx], 0
+    je      .fail
+    cmp     ax, [edx]
+    je      .reg_found
+    add     edx, 4
+    jmp     .reg_loop
 
-    cmp     al, 'a'
-    jne     .not_al
-    cmp     ah, 'l'
-    jne     .not_al
-    mov     al, 0
-    mov     ah, 1
+.reg_found:
+    mov     al, [edx+2]
+    mov     ah, [edx+3]
     jmp     .matched
-.not_al:
-    cmp     al, 'c'
-    jne     .not_cl
-    cmp     ah, 'l'
-    jne     .not_cl
-    mov     al, 1
-    mov     ah, 1
-    jmp     .matched
-.not_cl:
-    cmp     al, 'd'
-    jne     .not_dl
-    cmp     ah, 'l'
-    jne     .not_dl
-    mov     al, 2
-    mov     ah, 1
-    jmp     .matched
-.not_dl:
-    cmp     al, 'b'
-    jne     .not_bl
-    cmp     ah, 'l'
-    jne     .not_bl
-    mov     al, 3
-    mov     ah, 1
-    jmp     .matched
-.not_bl:
-    cmp     al, 'a'
-    jne     .not_ah
-    cmp     ah, 'h'
-    jne     .not_ah
-    mov     al, 4
-    mov     ah, 1
-    jmp     .matched
-.not_ah:
-    cmp     al, 'c'
-    jne     .not_ch
-    cmp     ah, 'h'
-    jne     .not_ch
-    mov     al, 5
-    mov     ah, 1
-    jmp     .matched
-.not_ch:
-    cmp     al, 'd'
-    jne     .not_dh
-    cmp     ah, 'h'
-    jne     .not_dh
-    mov     al, 6
-    mov     ah, 1
-    jmp     .matched
-.not_dh:
-    cmp     al, 'b'
-    jne     .not_bh
-    cmp     ah, 'h'
-    jne     .not_bh
-    mov     al, 7
-    mov     ah, 1
-    jmp     .matched
-.not_bh:
 
 .fail:
     pop     edx
