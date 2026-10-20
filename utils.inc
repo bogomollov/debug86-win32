@@ -425,3 +425,70 @@ read_line_console_or_pipe:
     pop     ebx
     stc
     ret
+
+
+; In: esi = input stream, edi = destination buffer, edx = max length
+; Out: ecx = pattern length, CF = 0 if ok, CF = 1 if syntax error or empty pattern
+parse_pattern_list:
+    push    ebx
+    push    edx
+    push    ebp
+    mov     ebp, edx
+    xor     ecx, ecx
+
+.ppl_next_token:
+    call    skip_whitespace
+    call    is_eol
+    jc      .ppl_pat_done
+
+    cmp     ecx, ebp
+    jae     .ppl_pat_done
+
+    cmp     al, QUOTE_DOUBLE
+    je      .ppl_string
+    cmp     al, QUOTE_SINGLE
+    je      .ppl_string
+
+    call    parse_hex_byte
+    jc      .ppl_error
+    stosb
+    inc     ecx
+    jmp     .ppl_next_token
+
+.ppl_string:
+    mov     dl, al
+    inc     esi
+.ppl_str_loop:
+    mov     al, [esi]
+    call    is_eol
+    jc      .ppl_error
+    cmp     al, dl
+    je      .ppl_str_end
+
+    cmp     ecx, ebp
+    jae     .ppl_pat_done
+
+    stosb
+    inc     ecx
+    inc     esi
+    jmp     .ppl_str_loop
+
+.ppl_str_end:
+    inc     esi
+    jmp     .ppl_next_token
+
+.ppl_pat_done:
+    test    ecx, ecx
+    jz      .ppl_error
+    pop     ebp
+    pop     edx
+    pop     ebx
+    clc
+    ret
+
+.ppl_error:
+    pop     ebp
+    pop     edx
+    pop     ebx
+    stc
+    ret

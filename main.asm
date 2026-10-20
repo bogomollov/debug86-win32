@@ -60,38 +60,14 @@ main_loop:
     invoke  WriteFile, [hStdOut], prompt, 1, chars_written, 0
 .prompt_ok:
 
-    mov     byte [input_buffer], 0
-    invoke  ReadConsoleA, [hStdIn], input_buffer, INPUT_BUFFER_MAX, chars_read, 0
-    test    eax, eax
-    jnz     .check_read_count
+    mov     edi, input_buffer
+    mov     edx, INPUT_BUFFER_MAX
+    call    read_line_console_or_pipe
+    jnc     .check_read_count
 
     cmp     byte [ctrl_c_flag], 0
     jnz     .read_failed
-
-    ; Fallback for redirected input (pipes, automated scripts)
-    xor     ecx, ecx
-.pipe_read_loop:
-    cmp     ecx, INPUT_BUFFER_MAX - 1
-    jae     .pipe_line_done
-    push    ecx
-    lea     eax, [input_buffer + ecx]
-    invoke  ReadFile, [hStdIn], eax, 1, chars_read, 0
-    pop     ecx
-    test    eax, eax
-    jz      .pipe_eof_check
-    cmp     dword [chars_read], 0
-    jz      .pipe_eof_check
-    mov     al, [input_buffer + ecx]
-    inc     ecx
-    cmp     al, LF
-    je      .pipe_line_done
-    jmp     .pipe_read_loop
-.pipe_eof_check:
-    test    ecx, ecx
-    jz      exit_program
-.pipe_line_done:
-    mov     [chars_read], ecx
-    mov     byte [input_buffer + ecx], 0
+    jmp     exit_program
 
 .check_read_count:
     cmp     dword [chars_read], 0
@@ -961,51 +937,9 @@ cmd_fill:
     mov     [fill_len], ecx
 
     mov     edi, fill_pat
-    xor     ecx, ecx
-
-.cf_next_token:
-    call    skip_whitespace
-    call    is_eol
-    jc      .cf_pat_done
-
-    cmp     ecx, FILL_PAT_MAX
-    jae     .cf_pat_done
-
-    cmp     al, 22h
-    je      .cf_string
-    cmp     al, 27h
-    je      .cf_string
-
-    call    parse_hex_byte
+    mov     edx, FILL_PAT_MAX
+    call    parse_pattern_list
     jc      print_error_and_ret
-    stosb
-    inc     ecx
-    jmp     .cf_next_token
-
-.cf_string:
-    mov     dl, al
-    inc     esi
-.cf_str_loop:
-    mov     al, [esi]
-    call    is_eol
-    jc      print_error_and_ret
-    cmp     al, dl
-    je      .cf_str_end
-
-    cmp     ecx, FILL_PAT_MAX
-    jae     .cf_pat_done
-
-    stosb
-    inc     ecx
-    inc     esi
-    jmp     .cf_str_loop
-.cf_str_end:
-    inc     esi
-    jmp     .cf_next_token
-
-.cf_pat_done:
-    test    ecx, ecx
-    jz      print_error_and_ret
     mov     [fill_patlen], cx
 
 .cf_do_fill:
@@ -1757,51 +1691,9 @@ cmd_search:
     mov     [search_len], ecx
 
     mov     edi, search_pat
-    xor     ecx, ecx
-
-.cs_next_token:
-    call    skip_whitespace
-    call    is_eol
-    jc      .cs_pat_done
-
-    cmp     ecx, FILL_PAT_MAX
-    jae     .cs_pat_done
-
-    cmp     al, 22h
-    je      .cs_string
-    cmp     al, 27h
-    je      .cs_string
-
-    call    parse_hex_byte
+    mov     edx, FILL_PAT_MAX
+    call    parse_pattern_list
     jc      print_error_and_ret
-    stosb
-    inc     ecx
-    jmp     .cs_next_token
-
-.cs_string:
-    mov     dl, al
-    inc     esi
-.cs_str_loop:
-    mov     al, [esi]
-    call    is_eol
-    jc      print_error_and_ret
-    cmp     al, dl
-    je      .cs_str_end
-
-    cmp     ecx, FILL_PAT_MAX
-    jae     .cs_pat_done
-
-    stosb
-    inc     ecx
-    inc     esi
-    jmp     .cs_str_loop
-.cs_str_end:
-    inc     esi
-    jmp     .cs_next_token
-
-.cs_pat_done:
-    test    ecx, ecx
-    jz      print_error_and_ret
     mov     [search_patlen], cx
 
 .cs_do_search:
