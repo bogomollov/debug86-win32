@@ -108,6 +108,127 @@ unpack_flags:
     pop     eax
     ret
 
+; ----------------------------------------------------------------------------
+; Stack Helper Routines (16-bit real mode stack)
+; ----------------------------------------------------------------------------
+; In: ax = value to push
+; Out: CF = 0 on success, CF = 1 on out-of-bounds error
+; Preserves: ebx, ecx, edx, esi, edi, ebp
+cpu_push16:
+    push    ebx
+    push    ecx
+    push    edx
+    movzx   edx, ax
+    sub     word [reg_SP], 2
+    mov     ax, [reg_SS]
+    mov     bx, [reg_SP]
+    call    calc_linear_addr
+    mov     ecx, 2
+    call    check_mem_range
+    jc      .push16_fail
+    mov     word [memory + eax], dx
+    pop     edx
+    pop     ecx
+    pop     ebx
+    clc
+    ret
+.push16_fail:
+    pop     edx
+    pop     ecx
+    pop     ebx
+    stc
+    ret
+
+; In: none
+; Out: ax = popped 16-bit value, CF = 0 on success, CF = 1 on out-of-bounds
+; Preserves: ebx, ecx, edx, esi, edi, ebp
+cpu_pop16:
+    push    ebx
+    push    ecx
+    push    edx
+    mov     ax, [reg_SS]
+    mov     bx, [reg_SP]
+    call    calc_linear_addr
+    mov     ecx, 2
+    call    check_mem_range
+    jc      .pop16_fail
+    movzx   edx, word [memory + eax]
+    add     word [reg_SP], 2
+    mov     ax, dx
+    pop     edx
+    pop     ecx
+    pop     ebx
+    clc
+    ret
+.pop16_fail:
+    pop     edx
+    pop     ecx
+    pop     ebx
+    stc
+    ret
+
+; In: ax = offset (IP), dx = segment (CS)
+; Out: CF = 0 on success, CF = 1 on out-of-bounds
+; Preserves: ebx, ecx, edx, esi, edi, ebp
+cpu_push_far:
+    push    ebx
+    push    ecx
+    push    edx
+    push    esi
+    push    edi
+    movzx   esi, ax
+    movzx   edi, dx
+    sub     word [reg_SP], 4
+    mov     ax, [reg_SS]
+    mov     bx, [reg_SP]
+    call    calc_linear_addr
+    mov     ecx, 4
+    call    check_mem_range
+    jc      .push_far_fail
+    mov     word [memory + eax], si
+    mov     word [memory + eax + 2], di
+    pop     edi
+    pop     esi
+    pop     edx
+    pop     ecx
+    pop     ebx
+    clc
+    ret
+.push_far_fail:
+    pop     edi
+    pop     esi
+    pop     edx
+    pop     ecx
+    pop     ebx
+    stc
+    ret
+
+; In: none
+; Out: ax = offset (IP), dx = segment (CS), CF = 0 on success, CF = 1 on error
+; Preserves: ebx, ecx, esi, edi, ebp
+cpu_pop_far:
+    push    ebx
+    push    ecx
+    mov     ax, [reg_SS]
+    mov     bx, [reg_SP]
+    call    calc_linear_addr
+    mov     ecx, 4
+    call    check_mem_range
+    jc      .pop_far_fail
+    mov     cx, word [memory + eax]
+    mov     dx, word [memory + eax + 2]
+    add     word [reg_SP], 4
+    mov     ax, cx
+    pop     ecx
+    pop     ebx
+    clc
+    ret
+.pop_far_fail:
+    pop     ecx
+    pop     ebx
+    stc
+    ret
+
 decode_modrm:
     push    ebp
     mov     ebp, esp
@@ -1163,15 +1284,9 @@ step:
     sub     al, 50h
     movzx   eax, al
     mov     edi, [reg16_ptrs + eax*4]
-    mov     si, [edi]
-    sub     word [reg_SP], 2
-    mov     ax, [reg_SS]
-    mov     bx, [reg_SP]
-    call    calc_linear_addr
-    mov     ecx, 2
-    call    check_mem_range
+    mov     ax, [edi]
+    call    cpu_push16
     jc      .out_of_bounds
-    mov     word [memory + eax], si
     add     word [reg_IP], 1
     jmp     .step_ok
 
@@ -1179,101 +1294,58 @@ step:
     sub     al, 58h
     movzx   eax, al
     mov     edi, [reg16_ptrs + eax*4]
-    mov     ax, [reg_SS]
-    mov     bx, [reg_SP]
-    call    calc_linear_addr
-    mov     ecx, 2
-    call    check_mem_range
+    call    cpu_pop16
     jc      .out_of_bounds
-    mov     cx, word [memory + eax]
-    mov     [edi], cx
-    add     word [reg_SP], 2
+    mov     [edi], ax
     add     word [reg_IP], 1
     jmp     .step_ok
 
 .push_es:
-    mov     dx, [reg_ES]
+    mov     ax, [reg_ES]
     jmp     .do_push_seg
 .push_cs:
-    mov     dx, [reg_CS]
+    mov     ax, [reg_CS]
     jmp     .do_push_seg
 .push_ss:
-    mov     dx, [reg_SS]
+    mov     ax, [reg_SS]
     jmp     .do_push_seg
 .push_ds:
-    mov     dx, [reg_DS]
+    mov     ax, [reg_DS]
 .do_push_seg:
-    sub     word [reg_SP], 2
-    mov     ax, [reg_SS]
-    mov     bx, [reg_SP]
-    call    calc_linear_addr
-    mov     ecx, 2
-    call    check_mem_range
+    call    cpu_push16
     jc      .out_of_bounds
-    mov     word [memory + eax], dx
     add     word [reg_IP], 1
     jmp     .step_ok
 
 .pop_es:
-    mov     ax, [reg_SS]
-    mov     bx, [reg_SP]
-    call    calc_linear_addr
-    mov     ecx, 2
-    call    check_mem_range
+    call    cpu_pop16
     jc      .out_of_bounds
-    mov     dx, word [memory + eax]
-    mov     [reg_ES], dx
-    add     word [reg_SP], 2
+    mov     [reg_ES], ax
     add     word [reg_IP], 1
     jmp     .step_ok
 .pop_ss:
-    mov     ax, [reg_SS]
-    mov     bx, [reg_SP]
-    call    calc_linear_addr
-    mov     ecx, 2
-    call    check_mem_range
+    call    cpu_pop16
     jc      .out_of_bounds
-    mov     dx, word [memory + eax]
-    mov     [reg_SS], dx
-    add     word [reg_SP], 2
+    mov     [reg_SS], ax
     add     word [reg_IP], 1
     jmp     .step_ok
 .pop_ds:
-    mov     ax, [reg_SS]
-    mov     bx, [reg_SP]
-    call    calc_linear_addr
-    mov     ecx, 2
-    call    check_mem_range
+    call    cpu_pop16
     jc      .out_of_bounds
-    mov     dx, word [memory + eax]
-    mov     [reg_DS], dx
-    add     word [reg_SP], 2
+    mov     [reg_DS], ax
     add     word [reg_IP], 1
     jmp     .step_ok
 
 .is_pushf:
     call    pack_flags
-    sub     word [reg_SP], 2
-    mov     dx, ax
-    mov     ax, [reg_SS]
-    mov     bx, [reg_SP]
-    call    calc_linear_addr
-    mov     ecx, 2
-    call    check_mem_range
+    call    cpu_push16
     jc      .out_of_bounds
-    mov     word [memory + eax], dx
     add     word [reg_IP], 1
     jmp     .step_ok
 
 .is_popf:
-    mov     ax, [reg_SS]
-    mov     bx, [reg_SP]
-    call    calc_linear_addr
-    mov     ecx, 2
-    call    check_mem_range
+    call    cpu_pop16
     jc      .out_of_bounds
-    mov     ax, word [memory + eax]
-    add     word [reg_SP], 2
     call    unpack_flags
     add     word [reg_IP], 1
     jmp     .step_ok
@@ -1286,17 +1358,11 @@ step:
     jnz     .unknown_insn
     push    ecx
     push    edi
-    mov     ax, [reg_SS]
-    mov     bx, [reg_SP]
-    call    calc_linear_addr
-    mov     ecx, 2
-    call    check_mem_range
+    call    cpu_pop16
     pop     edi
     pop     ecx
     jc      .out_of_bounds
-    mov     dx, word [memory + eax]
-    add     word [reg_SP], 2
-    mov     word [edi], dx
+    mov     word [edi], ax
     add     [reg_IP], cx
     jmp     .step_ok
 
@@ -2135,98 +2201,59 @@ step:
 ; 6. CATEGORY: BRANCH & CALL
 ; ============================================================================
 .is_ret_near:
-    mov     ax, [reg_SS]
-    mov     bx, [reg_SP]
-    call    calc_linear_addr
-    mov     ecx, 2
-    call    check_mem_range
+    call    cpu_pop16
     jc      .out_of_bounds
-    mov     cx, word [memory + eax]
-    test    cx, cx
+    test    ax, ax
     jz      .step_prog_end
-    mov     [reg_IP], cx
-    add     word [reg_SP], 2
+    mov     [reg_IP], ax
     jmp     .step_ok
 
 .is_ret_imm16:
-    mov     ax, [reg_SS]
-    mov     bx, [reg_SP]
-    call    calc_linear_addr
-    mov     ecx, 2
-    call    check_mem_range
+    call    cpu_pop16
     jc      .out_of_bounds
-    mov     cx, word [memory + eax]
-    test    cx, cx
+    test    ax, ax
     jz      .step_prog_end
-    mov     [reg_IP], cx
-    add     word [reg_SP], 2
+    mov     [reg_IP], ax
     mov     dx, word [ebp+1]
     add     [reg_SP], dx
     jmp     .step_ok
 
 .is_retf_far:
-    mov     ax, [reg_SS]
-    mov     bx, [reg_SP]
-    call    calc_linear_addr
-    mov     ecx, 4
-    call    check_mem_range
+    call    cpu_pop_far
     jc      .out_of_bounds
-    mov     cx, word [memory + eax]
-    mov     dx, word [memory + eax + 2]
-    test    cx, cx
+    test    ax, ax
     jz      .step_prog_end
-    mov     [reg_IP], cx
+    mov     [reg_IP], ax
     mov     [reg_CS], dx
-    add     word [reg_SP], 4
     jmp     .step_ok
 
 .is_retf_imm16:
-    mov     ax, [reg_SS]
-    mov     bx, [reg_SP]
-    call    calc_linear_addr
-    mov     ecx, 4
-    call    check_mem_range
+    call    cpu_pop_far
     jc      .out_of_bounds
-    mov     cx, word [memory + eax]
-    mov     dx, word [memory + eax + 2]
-    test    cx, cx
+    test    ax, ax
     jz      .step_prog_end
-    mov     [reg_IP], cx
+    mov     [reg_IP], ax
     mov     [reg_CS], dx
-    add     word [reg_SP], 4
     mov     si, word [ebp+1]
     add     [reg_SP], si
     jmp     .step_ok
 
 .is_call_near:
-    sub     word [reg_SP], 2
-    mov     ax, [reg_SS]
-    mov     bx, [reg_SP]
-    call    calc_linear_addr
-    mov     ecx, 2
-    call    check_mem_range
+    mov     ax, [reg_IP]
+    add     ax, 3
+    call    cpu_push16
     jc      .out_of_bounds
-    mov     dx, [reg_IP]
-    add     dx, 3
-    mov     word [memory + eax], dx
     mov     cx, word [ebp+1]
     add     [reg_IP], cx
     add     word [reg_IP], 3
     jmp     .step_ok
 
 .is_call_far:
-    sub     word [reg_SP], 4
-    mov     ax, [reg_SS]
-    mov     bx, [reg_SP]
-    call    calc_linear_addr
-    mov     ecx, 4
-    call    check_mem_range
-    jc      .out_of_bounds
-    mov     dx, [reg_IP]
-    add     dx, 5
-    mov     word [memory + eax], dx
+    mov     ax, [reg_IP]
+    add     ax, 5
     mov     dx, [reg_CS]
-    mov     word [memory + eax + 2], dx
+    call    cpu_push_far
+    jc      .out_of_bounds
     mov     cx, word [ebp+1]
     mov     dx, word [ebp+3]
     mov     [reg_IP], cx
@@ -2425,18 +2452,10 @@ step:
     test    byte [ebp], 1
     jz      .unknown_insn
     mov     si, word [edi]
-    mov     dx, [reg_IP]
-    add     dx, cx
-    sub     word [reg_SP], 2
-    mov     ax, [reg_SS]
-    mov     bx, [reg_SP]
-    call    calc_linear_addr
-    push    ecx
-    mov     ecx, 2
-    call    check_mem_range
-    pop     ecx
+    mov     ax, [reg_IP]
+    add     ax, cx
+    call    cpu_push16
     jc      .out_of_bounds
-    mov     word [memory + eax], dx
     mov     [reg_IP], si
     jmp     .step_ok
 
@@ -2446,20 +2465,11 @@ step:
     cmp     byte [ebp+1], 0C0h
     jae     .unknown_insn
     mov     si, word [edi]
-    mov     dx, [reg_IP]
-    add     dx, cx
-    sub     word [reg_SP], 4
-    mov     ax, [reg_SS]
-    mov     bx, [reg_SP]
-    call    calc_linear_addr
-    push    ecx
-    mov     ecx, 4
-    call    check_mem_range
-    pop     ecx
-    jc      .out_of_bounds
-    mov     word [memory + eax], dx
+    mov     ax, [reg_IP]
+    add     ax, cx
     mov     dx, [reg_CS]
-    mov     word [memory + eax+2], dx
+    call    cpu_push_far
+    jc      .out_of_bounds
     mov     dx, word [edi+2]
     mov     [reg_IP], si
     mov     [reg_CS], dx
@@ -2486,17 +2496,11 @@ step:
 .ff_push:
     test    byte [ebp], 1
     jz      .unknown_insn
-    mov     si, word [edi]
-    sub     word [reg_SP], 2
-    mov     ax, [reg_SS]
-    mov     bx, [reg_SP]
-    call    calc_linear_addr
+    mov     ax, word [edi]
     push    ecx
-    mov     ecx, 2
-    call    check_mem_range
+    call    cpu_push16
     pop     ecx
     jc      .out_of_bounds
-    mov     word [memory + eax], si
     add     [reg_IP], cx
     jmp     .step_ok
 
