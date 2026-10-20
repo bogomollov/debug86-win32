@@ -289,28 +289,11 @@ cmd_proceed:
     jne     .not_step_over
 
 .is_ff_call:
-    mov     dh, al
-    shr     dh, 6
-    and     dh, 3
-    and     al, 7
-    cmp     dh, 3
-    je      .ff_len_2
-    cmp     dh, 1
-    je      .ff_len_3
-    cmp     dh, 2
-    je      .ff_len_4
-    cmp     al, 6
-    je      .ff_len_4
-.ff_len_2:
-    lea     ecx, [edi + 2]
-    sub     ecx, esi
-    jmp     .do_step_over
-.ff_len_3:
-    lea     ecx, [edi + 3]
-    sub     ecx, esi
-    jmp     .do_step_over
-.ff_len_4:
-    lea     ecx, [edi + 4]
+    push    esi
+    mov     esi, edi
+    call    decode_modrm_ea
+    pop     esi
+    lea     ecx, [edi + ecx + 2]
     sub     ecx, esi
     jmp     .do_step_over
 .not_call_indirect:

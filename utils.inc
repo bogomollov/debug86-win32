@@ -189,6 +189,130 @@ calc_linear_addr:
     add     eax, ebx
     ret
 
+; ============================================================================
+; decode_modrm_ea
+; Decodes 8086 ModR/M effective address and displacement.
+;
+; In:  esi = pointer to instruction opcode byte ([esi+1] = modrm byte)
+; Out: bx  = effective address offset
+;      dx  = default segment word value (from reg_DS or reg_SS)
+;      eax = default segment name ('DS' or 'SS')
+;      ecx = displacement length (0, 1, or 2 bytes)
+; Preserves: esi, edi, ebp
+; ============================================================================
+decode_modrm_ea:
+    movzx   eax, byte [esi+1]   ; ModR/M byte
+    mov     cl, al
+    shr     cl, 6               ; cl = mod (0..3)
+    and     al, 7               ; al = rm (0..7)
+
+    cmp     cl, 3
+    jne     .ea_is_mem
+
+    ; mod == 3: register operand (no memory ea)
+    xor     ebx, ebx
+    xor     ecx, ecx
+    mov     eax, 'DS'
+    mov     dx, word [reg_DS]
+    ret
+
+.ea_is_mem:
+    cmp     al, 0
+    jne     .ea_rm1
+    movzx   ebx, word [reg_BX]
+    add     bx, word [reg_SI]
+    mov     edx, 'DS'
+    jmp     .ea_apply_disp
+
+.ea_rm1:
+    cmp     al, 1
+    jne     .ea_rm2
+    movzx   ebx, word [reg_BX]
+    add     bx, word [reg_DI]
+    mov     edx, 'DS'
+    jmp     .ea_apply_disp
+
+.ea_rm2:
+    cmp     al, 2
+    jne     .ea_rm3
+    movzx   ebx, word [reg_BP]
+    add     bx, word [reg_SI]
+    mov     edx, 'SS'
+    jmp     .ea_apply_disp
+
+.ea_rm3:
+    cmp     al, 3
+    jne     .ea_rm4
+    movzx   ebx, word [reg_BP]
+    add     bx, word [reg_DI]
+    mov     edx, 'SS'
+    jmp     .ea_apply_disp
+
+.ea_rm4:
+    cmp     al, 4
+    jne     .ea_rm5
+    movzx   ebx, word [reg_SI]
+    mov     edx, 'DS'
+    jmp     .ea_apply_disp
+
+.ea_rm5:
+    cmp     al, 5
+    jne     .ea_rm6
+    movzx   ebx, word [reg_DI]
+    mov     edx, 'DS'
+    jmp     .ea_apply_disp
+
+.ea_rm6:
+    cmp     al, 6
+    jne     .ea_rm7
+    test    cl, cl
+    jnz     .ea_bp_base
+    ; mod == 0, rm == 6: direct 16-bit address
+    movzx   ebx, word [esi+2]
+    mov     edx, 'DS'
+    mov     ecx, 2
+    jmp     .ea_done
+
+.ea_bp_base:
+    movzx   ebx, word [reg_BP]
+    mov     edx, 'SS'
+    jmp     .ea_apply_disp
+
+.ea_rm7:
+    movzx   ebx, word [reg_BX]
+    mov     edx, 'DS'
+
+.ea_apply_disp:
+    test    cl, cl
+    jz      .ea_disp_zero
+    cmp     cl, 1
+    je      .ea_disp_byte
+    ; mod == 2: 16-bit displacement
+    add     bx, word [esi+2]
+    mov     ecx, 2
+    jmp     .ea_done
+
+.ea_disp_byte:
+    ; mod == 1: 8-bit sign-extended displacement
+    movsx   ax, byte [esi+2]
+    add     bx, ax
+    mov     ecx, 1
+    jmp     .ea_done
+
+.ea_disp_zero:
+    xor     ecx, ecx
+
+.ea_done:
+    mov     eax, edx
+    cmp     eax, 'SS'
+    je      .ea_seg_ss
+    mov     dx, word [reg_DS]
+    ret
+
+.ea_seg_ss:
+    mov     dx, word [reg_SS]
+    ret
+
 parse_address:
     call    skip_whitespace
 

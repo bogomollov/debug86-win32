@@ -490,78 +490,8 @@ disasm_line:
     push    ecx                 ; [esp]: is_word
     push    edx                 ; [esp+4]: override seg name
 
-    mov     ch, ah
-    shr     ch, 6               ; ch = mod
-    and     ah, 7               ; ah = rm
-
-    cmp     ah, 0
-    jne     .res_rm1
-    movzx   ebx, word [reg_BX]
-    add     bx, word [reg_SI]
-    mov     edx, 'DS'
-    jmp     .res_apply_disp
-.res_rm1:
-    cmp     ah, 1
-    jne     .res_rm2
-    movzx   ebx, word [reg_BX]
-    add     bx, word [reg_DI]
-    mov     edx, 'DS'
-    jmp     .res_apply_disp
-.res_rm2:
-    cmp     ah, 2
-    jne     .res_rm3
-    movzx   ebx, word [reg_BP]
-    add     bx, word [reg_SI]
-    mov     edx, 'SS'
-    jmp     .res_apply_disp
-.res_rm3:
-    cmp     ah, 3
-    jne     .res_rm4
-    movzx   ebx, word [reg_BP]
-    add     bx, word [reg_DI]
-    mov     edx, 'SS'
-    jmp     .res_apply_disp
-.res_rm4:
-    cmp     ah, 4
-    jne     .res_rm5
-    movzx   ebx, word [reg_SI]
-    mov     edx, 'DS'
-    jmp     .res_apply_disp
-.res_rm5:
-    cmp     ah, 5
-    jne     .res_rm6
-    movzx   ebx, word [reg_DI]
-    mov     edx, 'DS'
-    jmp     .res_apply_disp
-.res_rm6:
-    cmp     ah, 6
-    jne     .res_rm7
-    test    ch, ch
-    jnz     .res_bp_base
-    ; mod == 0, rm == 6: direct address
-    movzx   ebx, word [esi+2]
-    mov     edx, 'DS'
-    jmp     .res_disp_done
-.res_bp_base:
-    movzx   ebx, word [reg_BP]
-    mov     edx, 'SS'
-    jmp     .res_apply_disp
-.res_rm7:
-    movzx   ebx, word [reg_BX]
-    mov     edx, 'DS'
-
-.res_apply_disp:
-    cmp     ch, 1
-    jne     .res_chk_disp2
-    movsx   ax, byte [esi+2]
-    add     bx, ax
-    jmp     .res_disp_done
-.res_chk_disp2:
-    cmp     ch, 2
-    jne     .res_disp_done
-    add     bx, word [esi+2]
-
-.res_disp_done:
+    call    decode_modrm_ea
+    mov     edx, eax            ; default seg name ('DS' or 'SS')
     pop     eax                 ; override seg name
     test    eax, eax
     jz      .res_default_seg_kept

@@ -276,85 +276,11 @@ decode_modrm:
     ret
 
 .is_mem:
-    and     eax, 7
-    mov     dword [ebp-12], 0
-
-    cmp     eax, 0
-    jne     .not_rm0
-    movzx   ebx, word [reg_BX]
-    add     bx, word [reg_SI]
-    mov     dx, word [reg_DS]
-    jmp     .got_base
-.not_rm0:
-    cmp     eax, 1
-    jne     .not_rm1
-    movzx   ebx, word [reg_BX]
-    add     bx, word [reg_DI]
-    mov     dx, word [reg_DS]
-    jmp     .got_base
-.not_rm1:
-    cmp     eax, 2
-    jne     .not_rm2
-    movzx   ebx, word [reg_BP]
-    add     bx, word [reg_SI]
-    mov     dx, word [reg_SS]
-    jmp     .got_base
-.not_rm2:
-    cmp     eax, 3
-    jne     .not_rm3
-    movzx   ebx, word [reg_BP]
-    add     bx, word [reg_DI]
-    mov     dx, word [reg_SS]
-    jmp     .got_base
-.not_rm3:
-    cmp     eax, 4
-    jne     .not_rm4
-    movzx   ebx, word [reg_SI]
-    mov     dx, word [reg_DS]
-    jmp     .got_base
-.not_rm4:
-    cmp     eax, 5
-    jne     .not_rm5
-    movzx   ebx, word [reg_DI]
-    mov     dx, word [reg_DS]
-    jmp     .got_base
-.not_rm5:
-    cmp     eax, 6
-    jne     .not_rm6
-    test    ecx, ecx
-    jnz     .bp_base
-    mov     eax, [ebp-16]
-    mov     bx, word [eax+2]
-    mov     dx, word [reg_DS]
-    mov     dword [ebp-12], 2
-    jmp     .disp_done
-.bp_base:
-    movzx   ebx, word [reg_BP]
-    mov     dx, word [reg_SS]
-    jmp     .got_base
-.not_rm6:
-    movzx   ebx, word [reg_BX]
-    mov     dx, word [reg_DS]
-
-.got_base:
-    test    ecx, ecx
-    jz      .disp_zero
-    cmp     ecx, 1
-    je      .disp_byte
-    mov     eax, [ebp-16]
-    add     bx, word [eax+2]
-    mov     dword [ebp-12], 2
-    jmp     .disp_done
-.disp_byte:
-    mov     eax, [ebp-16]
-    movsx   ax, byte [eax+2]
-    add     bx, ax
-    mov     dword [ebp-12], 1
-    jmp     .disp_done
-.disp_zero:
-    mov     dword [ebp-12], 0
-
-.disp_done:
+    push    esi
+    mov     esi, [ebp-16]
+    call    decode_modrm_ea
+    pop     esi
+    mov     [ebp-12], ecx
     mov     [modrm_offset], bx
     cmp     dword [seg_override], 0
     jz      .no_seg_override
