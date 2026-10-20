@@ -4654,32 +4654,59 @@ parse_mem_instruction:
     mov     ebp, esp
     sub     esp, 128
 
-    mov     dword [ebp-4], 0      ; var_type
-    mov     dword [ebp-8], 0      ; var_reg
-    mov     dword [ebp-12], 2     ; var_size (default word = 2)
-    mov     dword [ebp-16], 0     ; var_has_bx
-    mov     dword [ebp-20], 0     ; var_has_bp
-    mov     dword [ebp-24], 0     ; var_has_si
-    mov     dword [ebp-28], 0     ; var_has_di
-    mov     dword [ebp-32], 0     ; var_has_disp
-    mov     dword [ebp-36], 1     ; var_sign = 1
-    mov     dword [ebp-40], 0     ; var_disp = 0
-    mov     dword [ebp-44], 0     ; var_mod = 0
-    mov     dword [ebp-48], 0     ; var_rm = 0
-    mov     dword [ebp-52], 0     ; var_disp_len = 0
-    mov     dword [ebp-56], 0     ; var_imm = 0
-    mov     dword [ebp-60], 0     ; var_opcode
-    mov     dword [ebp-64], 0     ; var_modrm
-    mov     dword [ebp-68], 2     ; var_imm_len = 2
-    mov     dword [ebp-72], 0     ; var_dir (0=mem dest, 1=reg dest)
-    mov     dword [ebp-76], 0     ; var_is_reg_op (0=imm, 1=reg)
-    mov     dword [ebp-80], 0     ; var_explicit_size (0=none, 1=byte, 2=word)
-    mov     dword [ebp-84], 0     ; var_alu_op (0..7)
-    mov     dword [ebp-88], 0     ; var_seg_pfx (0=none, or 26h, 2Eh, 36h, 3Eh)
-    mov     dword [ebp-92], 0     ; var_is_sreg (0=no, 1=yes)
+    virtual at ebp - 128
+        .var_type           dd ?
+        .var_reg            dd ?
+        .var_size           dd ?
+        .var_has_bx         dd ?
+        .var_has_bp         dd ?
+        .var_has_si         dd ?
+        .var_has_di         dd ?
+        .var_has_disp       dd ?
+        .var_sign           dd ?
+        .var_disp           dd ?
+        .var_mod            dd ?
+        .var_rm             dd ?
+        .var_disp_len       dd ?
+        .var_imm            dd ?
+        .var_opcode         dd ?
+        .var_modrm          dd ?
+        .var_imm_len        dd ?
+        .var_dir            dd ?
+        .var_is_reg_op      dd ?
+        .var_explicit_size  dd ?
+        .var_alu_op         dd ?
+        .var_seg_pfx        dd ?
+        .var_is_sreg        dd ?
+        .mnem_buf           rb 36
+    end virtual
+
+    mov     dword [.var_type], 0      ; var_type
+    mov     dword [.var_reg], 0      ; var_reg
+    mov     dword [.var_size], 2     ; var_size (default word = 2)
+    mov     dword [.var_has_bx], 0     ; var_has_bx
+    mov     dword [.var_has_bp], 0     ; var_has_bp
+    mov     dword [.var_has_si], 0     ; var_has_si
+    mov     dword [.var_has_di], 0     ; var_has_di
+    mov     dword [.var_has_disp], 0     ; var_has_disp
+    mov     dword [.var_sign], 1     ; var_sign = 1
+    mov     dword [.var_disp], 0     ; var_disp = 0
+    mov     dword [.var_mod], 0     ; var_mod = 0
+    mov     dword [.var_rm], 0     ; var_rm = 0
+    mov     dword [.var_disp_len], 0     ; var_disp_len = 0
+    mov     dword [.var_imm], 0     ; var_imm = 0
+    mov     dword [.var_opcode], 0     ; var_opcode
+    mov     dword [.var_modrm], 0     ; var_modrm
+    mov     dword [.var_imm_len], 2     ; var_imm_len = 2
+    mov     dword [.var_dir], 0     ; var_dir (0=mem dest, 1=reg dest)
+    mov     dword [.var_is_reg_op], 0     ; var_is_reg_op (0=imm, 1=reg)
+    mov     dword [.var_explicit_size], 0     ; var_explicit_size (0=none, 1=byte, 2=word)
+    mov     dword [.var_alu_op], 0     ; var_alu_op (0..7)
+    mov     dword [.var_seg_pfx], 0     ; var_seg_pfx (0=none, or 26h, 2Eh, 36h, 3Eh)
+    mov     dword [.var_is_sreg], 0     ; var_is_sreg (0=no, 1=yes)
 
     call    skip_whitespace
-    lea     edi, [ebp-128]
+    lea     edi, [.mnem_buf]
 .read_mnem:
     call    is_eol
     jc      .mem_err
@@ -4698,7 +4725,7 @@ parse_mem_instruction:
 .mnem_store:
     stosb
     inc     esi
-    lea     eax, [ebp-128+15]
+    lea     eax, [.mnem_buf+15]
     cmp     edi, eax
     jae     .mem_err
     jmp     .read_mnem
@@ -4709,7 +4736,7 @@ parse_mem_instruction:
 .search_mnem:
     cmp     byte [ebx], 0
     je      .mem_err
-    lea     edi, [ebp-128]
+    lea     edi, [.mnem_buf]
     mov     edx, ebx
 .cmp_mnem:
     mov     al, [edi]
@@ -4739,26 +4766,26 @@ parse_mem_instruction:
     jmp     .find_mnem_null
 .got_mnem_null:
     movzx   eax, byte [edx+1]
-    mov     dword [ebp-4], eax   ; var_type
+    mov     dword [.var_type], eax   ; var_type
     movzx   eax, byte [edx+2]
-    mov     dword [ebp-8], eax   ; var_reg
-    mov     dword [ebp-84], eax  ; var_alu_op
+    mov     dword [.var_reg], eax   ; var_reg
+    mov     dword [.var_alu_op], eax  ; var_alu_op
 
     call    skip_whitespace
 
     ; Check if Operand 1 is a segment register (e.g. MOV DS, [0200])
-    cmp     dword [ebp-4], 1      ; MOV only
+    cmp     dword [.var_type], 1      ; MOV only
     jne     .check_op1_reg
     call    parse_asm_sreg
     jc      .check_op1_reg
     cmp     al, 1                 ; MOV CS, mem is illegal
     je      .mem_err
-    mov     dword [ebp-72], 1     ; reg is destination
+    mov     dword [.var_dir], 1     ; reg is destination
     movzx   edx, al
-    mov     dword [ebp-8], edx    ; sreg index in var_reg
-    mov     dword [ebp-12], 2     ; word size
-    mov     dword [ebp-92], 1     ; var_is_sreg = 1
-    mov     dword [ebp-76], 1     ; is reg op
+    mov     dword [.var_reg], edx    ; sreg index in var_reg
+    mov     dword [.var_size], 2     ; word size
+    mov     dword [.var_is_sreg], 1     ; var_is_sreg = 1
+    mov     dword [.var_is_reg_op], 1     ; is reg op
     call    skip_whitespace
     cmp     byte [esi], ','
     jne     .sreg_op1_no_comma
@@ -4781,13 +4808,13 @@ parse_mem_instruction:
     jnc     .op1_is_reg
 
     ; Operand 1 is MEMORY (e.g. MOV [0200], AX or MOV WORD PTR [BX+8], 0017)
-    mov     dword [ebp-72], 0    ; var_dir = 0 (mem is destination)
+    mov     dword [.var_dir], 0    ; var_dir = 0 (mem is destination)
 
     call    .parse_seg_prefix
     call    parse_size_prefix
     jc      .op1_no_size_prefix
-    mov     [ebp-12], eax        ; var_size = 1 or 2
-    mov     [ebp-80], eax        ; var_explicit_size = 1 or 2
+    mov     [.var_size], eax        ; var_size = 1 or 2
+    mov     [.var_explicit_size], eax        ; var_explicit_size = 1 or 2
 .op1_no_size_prefix:
 
     call    skip_whitespace
@@ -4798,76 +4825,76 @@ parse_mem_instruction:
     call    .parse_bracket_content
     jc      .mem_err
 
-    cmp     dword [ebp-4], 6
+    cmp     dword [.var_type], 6
     je      .shift_mem
-    cmp     dword [ebp-4], 9     ; CALL / JMP memory
+    cmp     dword [.var_type], 9     ; CALL / JMP memory
     je      .unary_mem_call_jmp
-    cmp     dword [ebp-4], 7     ; XCHG memory dest
+    cmp     dword [.var_type], 7     ; XCHG memory dest
     je      .not_unary_mem
-    cmp     dword [ebp-4], 3
+    cmp     dword [.var_type], 3
     jb      .not_unary_mem
-    cmp     dword [ebp-4], 5
+    cmp     dword [.var_type], 5
     je      .unary_mem_pop
-    cmp     dword [ebp-4], 4
+    cmp     dword [.var_type], 4
     jne     .unary_req_size
-    cmp     dword [ebp-8], 6     ; PUSH r/m16?
+    cmp     dword [.var_reg], 6     ; PUSH r/m16?
     je      .unary_mem_push
 .unary_req_size:
-    cmp     dword [ebp-80], 0
+    cmp     dword [.var_explicit_size], 0
     jz      .mem_err
     call    skip_whitespace
     call    is_eol
     jnc     .mem_err
-    cmp     dword [ebp-4], 3
+    cmp     dword [.var_type], 3
     jne     .unary_mem_dec
-    mov     dword [ebp-60], 0F6h
-    cmp     dword [ebp-12], 2
+    mov     dword [.var_opcode], 0F6h
+    cmp     dword [.var_size], 2
     jne     .unary_mem_done
-    mov     dword [ebp-60], 0F7h
+    mov     dword [.var_opcode], 0F7h
     jmp     .unary_mem_done
 .unary_mem_dec:
-    mov     dword [ebp-60], 0FEh
-    cmp     dword [ebp-12], 2
+    mov     dword [.var_opcode], 0FEh
+    cmp     dword [.var_size], 2
     jne     .unary_mem_done
-    mov     dword [ebp-60], 0FFh
+    mov     dword [.var_opcode], 0FFh
     jmp     .unary_mem_done
 .unary_mem_push:
     call    skip_whitespace
     call    is_eol
     jnc     .mem_err
-    cmp     dword [ebp-12], 1
+    cmp     dword [.var_size], 1
     je      .mem_err             ; PUSH BYTE PTR is illegal
-    mov     dword [ebp-60], 0FFh
-    mov     dword [ebp-12], 2
+    mov     dword [.var_opcode], 0FFh
+    mov     dword [.var_size], 2
     jmp     .unary_mem_done
 .unary_mem_pop:
     call    skip_whitespace
     call    is_eol
     jnc     .mem_err
-    cmp     dword [ebp-12], 1
+    cmp     dword [.var_size], 1
     je      .mem_err             ; POP BYTE PTR is illegal
-    mov     dword [ebp-60], 8Fh
-    mov     dword [ebp-8], 0
-    mov     dword [ebp-12], 2
+    mov     dword [.var_opcode], 8Fh
+    mov     dword [.var_reg], 0
+    mov     dword [.var_size], 2
     jmp     .unary_mem_done
 .unary_mem_call_jmp:
     call    skip_whitespace
     call    is_eol
     jnc     .mem_err
-    cmp     dword [ebp-12], 1
+    cmp     dword [.var_size], 1
     je      .mem_err             ; BYTE PTR is illegal
-    cmp     dword [ebp-12], 4
+    cmp     dword [.var_size], 4
     jne     .not_far_target
-    inc     dword [ebp-8]        ; 2 -> 3 (CALL FAR), 4 -> 5 (JMP FAR)
+    inc     dword [.var_reg]        ; 2 -> 3 (CALL FAR), 4 -> 5 (JMP FAR)
 .not_far_target:
-    mov     dword [ebp-60], 0FFh
-    mov     dword [ebp-12], 2
+    mov     dword [.var_opcode], 0FFh
+    mov     dword [.var_size], 2
 .unary_mem_done:
-    mov     dword [ebp-68], 0
+    mov     dword [.var_imm_len], 0
     jmp     .encode_instruction
 
 .shift_mem:
-    cmp     dword [ebp-80], 0
+    cmp     dword [.var_explicit_size], 0
     jz      .mem_err
     call    skip_whitespace
     call    parse_asm_reg
@@ -4876,7 +4903,7 @@ parse_mem_instruction:
     jne     .mem_err
     cmp     al, 1
     jne     .mem_err
-    mov     dword [ebp-76], 1
+    mov     dword [.var_is_reg_op], 1
     jmp     .shift_count_parsed
 
 .shift_check_imm:
@@ -4884,7 +4911,7 @@ parse_mem_instruction:
     jc      .mem_err
     cmp     ax, 1
     jne     .mem_err
-    mov     dword [ebp-76], 0
+    mov     dword [.var_is_reg_op], 0
 
 .shift_count_parsed:
     call    skip_whitespace
@@ -4892,16 +4919,16 @@ parse_mem_instruction:
     jnc     .mem_err
 
     mov     eax, 0D0h
-    cmp     dword [ebp-12], 2
+    cmp     dword [.var_size], 2
     jne     .shift_size_byte
     inc     eax
 .shift_size_byte:
-    cmp     dword [ebp-76], 1
+    cmp     dword [.var_is_reg_op], 1
     jne     .shift_op_set
     add     eax, 2
 .shift_op_set:
-    mov     dword [ebp-60], eax
-    mov     dword [ebp-68], 0
+    mov     dword [.var_opcode], eax
+    mov     dword [.var_imm_len], 0
     jmp     .encode_instruction
 .not_unary_mem:
 
@@ -4913,15 +4940,15 @@ parse_mem_instruction:
 .op1_mem_no_comma:
 
     ; Check if Operand 2 is a segment register (e.g. MOV [100], DS)
-    cmp     dword [ebp-4], 1      ; MOV only
+    cmp     dword [.var_type], 1      ; MOV only
     jne     .check_op2_reg
     call    parse_asm_sreg
     jc      .check_op2_reg
-    mov     dword [ebp-76], 1     ; var_is_reg_op = 1
-    mov     dword [ebp-92], 1     ; var_is_sreg = 1
+    mov     dword [.var_is_reg_op], 1     ; var_is_reg_op = 1
+    mov     dword [.var_is_sreg], 1     ; var_is_sreg = 1
     movzx   edx, al
-    mov     dword [ebp-8], edx    ; sreg index in var_reg
-    mov     dword [ebp-12], 2     ; word size
+    mov     dword [.var_reg], edx    ; sreg index in var_reg
+    mov     dword [.var_size], 2     ; word size
     call    skip_whitespace
     call    is_eol
     jnc     .mem_err
@@ -4933,17 +4960,17 @@ parse_mem_instruction:
     jc      .op2_is_immediate
 
     ; Operand 2 IS A REGISTER!
-    mov     dword [ebp-76], 1    ; var_is_reg_op = 1
+    mov     dword [.var_is_reg_op], 1    ; var_is_reg_op = 1
     movzx   edx, al
-    mov     dword [ebp-8], edx   ; var_reg = source reg
+    mov     dword [.var_reg], edx   ; var_reg = source reg
     movzx   edx, ah              ; edx = reg size (1 or 2)
 
-    cmp     dword [ebp-80], 0
+    cmp     dword [.var_explicit_size], 0
     jz      .op2_deduce_size
-    cmp     [ebp-80], edx
+    cmp     [.var_explicit_size], edx
     jne     .mem_err
 .op2_deduce_size:
-    mov     [ebp-12], edx        ; var_size = reg size
+    mov     [.var_size], edx        ; var_size = reg size
 
     call    skip_whitespace
     call    is_eol
@@ -4952,18 +4979,18 @@ parse_mem_instruction:
     jmp     .encode_instruction
 
 .op2_is_immediate:
-    cmp     dword [ebp-80], 0
+    cmp     dword [.var_explicit_size], 0
     jz      .mem_err
-    mov     dword [ebp-76], 0    ; var_is_reg_op = 0
+    mov     dword [.var_is_reg_op], 0    ; var_is_reg_op = 0
     call    parse_hex
     jc      .mem_err
-    cmp     dword [ebp-12], 1
+    cmp     dword [.var_size], 1
     jne     .op2_imm_ok
     test    ah, ah
     jnz     .mem_err
 .op2_imm_ok:
     movzx   eax, ax
-    mov     dword [ebp-56], eax  ; var_imm = eax
+    mov     dword [.var_imm], eax  ; var_imm = eax
 
     call    skip_whitespace
     call    is_eol
@@ -4972,11 +4999,11 @@ parse_mem_instruction:
     jmp     .encode_instruction
 
 .op1_is_reg:
-    cmp     dword [ebp-4], 3
+    cmp     dword [.var_type], 3
     jb      .op1_reg_type_ok
-    cmp     dword [ebp-4], 7     ; XCHG
+    cmp     dword [.var_type], 7     ; XCHG
     je      .op1_reg_type_ok
-    cmp     dword [ebp-4], 8     ; LEA / LDS / LES
+    cmp     dword [.var_type], 8     ; LEA / LDS / LES
     je      .op1_reg_type_8
     jmp     .mem_err
 
@@ -4985,12 +5012,12 @@ parse_mem_instruction:
     jne     .mem_err
 
 .op1_reg_type_ok:
-    mov     dword [ebp-72], 1    ; var_dir = 1 (reg is destination)
+    mov     dword [.var_dir], 1    ; var_dir = 1 (reg is destination)
     movzx   edx, al
-    mov     dword [ebp-8], edx   ; var_reg = destination reg
+    mov     dword [.var_reg], edx   ; var_reg = destination reg
     movzx   edx, ah
-    mov     dword [ebp-12], edx  ; var_size = reg size (1 or 2)
-    mov     dword [ebp-76], 1    ; var_is_reg_op = 1
+    mov     dword [.var_size], edx  ; var_size = reg size (1 or 2)
+    mov     dword [.var_is_reg_op], 1    ; var_is_reg_op = 1
 
     call    skip_whitespace
     cmp     byte [esi], ','
@@ -5002,9 +5029,9 @@ parse_mem_instruction:
     call    .parse_seg_prefix
     call    parse_size_prefix
     jc      .op2_no_size_prefix
-    cmp     dword [ebp-4], 8     ; LEA/LDS/LES doesn't enforce size prefix matching reg
+    cmp     dword [.var_type], 8     ; LEA/LDS/LES doesn't enforce size prefix matching reg
     je      .op2_no_size_prefix
-    cmp     eax, [ebp-12]
+    cmp     eax, [.var_size]
     jne     .mem_err
 .op2_no_size_prefix:
 
@@ -5021,187 +5048,187 @@ parse_mem_instruction:
     jnc     .mem_err
 
 .encode_instruction:
-    mov     eax, [ebp-44]        ; var_mod
+    mov     eax, [.var_mod]        ; var_mod
     shl     al, 6
-    mov     edx, [ebp-8]         ; var_reg
+    mov     edx, [.var_reg]         ; var_reg
     shl     dl, 3
     or      al, dl
-    mov     edx, [ebp-48]        ; var_rm
+    mov     edx, [.var_rm]        ; var_rm
     or      al, dl
-    mov     dword [ebp-64], eax  ; var_modrm
+    mov     dword [.var_modrm], eax  ; var_modrm
 
-    cmp     dword [ebp-4], 3
+    cmp     dword [.var_type], 3
     jb      .check_reg_op
-    cmp     dword [ebp-4], 7
+    cmp     dword [.var_type], 7
     je      .check_reg_op
-    cmp     dword [ebp-4], 8
+    cmp     dword [.var_type], 8
     je      .check_reg_op
     jmp     .emit_bytes
 
 .check_reg_op:
-    cmp     dword [ebp-76], 1
+    cmp     dword [.var_is_reg_op], 1
     je      .enc_reg_op
 
     ; --- IMMEDIATE OPERAND ---
-    cmp     dword [ebp-4], 1     ; MOV?
+    cmp     dword [.var_type], 1     ; MOV?
     je      .enc_mov_imm
-    cmp     dword [ebp-4], 2     ; TEST?
+    cmp     dword [.var_type], 2     ; TEST?
     je      .enc_test_imm
 
     ; ALU with immediate
-    cmp     dword [ebp-12], 1    ; byte?
+    cmp     dword [.var_size], 1    ; byte?
     jne     .alu_word_imm
-    mov     dword [ebp-60], 80h  ; opcode 80h
-    mov     dword [ebp-68], 1    ; imm_len = 1
+    mov     dword [.var_opcode], 80h  ; opcode 80h
+    mov     dword [.var_imm_len], 1    ; imm_len = 1
     jmp     .emit_bytes
 
 .alu_word_imm:
-    mov     al, byte [ebp-56]
+    mov     al, byte [.var_imm]
     movsx   eax, al
-    cmp     eax, dword [ebp-56]
+    cmp     eax, dword [.var_imm]
     jne     .alu_imm16
-    mov     dword [ebp-60], 83h  ; opcode 83h
-    mov     dword [ebp-68], 1    ; imm_len = 1
+    mov     dword [.var_opcode], 83h  ; opcode 83h
+    mov     dword [.var_imm_len], 1    ; imm_len = 1
     jmp     .emit_bytes
 
 .alu_imm16:
-    mov     dword [ebp-60], 81h  ; opcode 81h
-    mov     dword [ebp-68], 2    ; imm_len = 2
+    mov     dword [.var_opcode], 81h  ; opcode 81h
+    mov     dword [.var_imm_len], 2    ; imm_len = 2
     jmp     .emit_bytes
 
 .enc_mov_imm:
-    cmp     dword [ebp-12], 1    ; byte?
+    cmp     dword [.var_size], 1    ; byte?
     jne     .mov_word_imm
-    mov     dword [ebp-60], 0C6h ; opcode C6h
-    mov     dword [ebp-68], 1
+    mov     dword [.var_opcode], 0C6h ; opcode C6h
+    mov     dword [.var_imm_len], 1
     jmp     .emit_bytes
 .mov_word_imm:
-    mov     dword [ebp-60], 0C7h ; opcode C7h
-    mov     dword [ebp-68], 2
+    mov     dword [.var_opcode], 0C7h ; opcode C7h
+    mov     dword [.var_imm_len], 2
     jmp     .emit_bytes
 
 .enc_test_imm:
-    cmp     dword [ebp-12], 1    ; byte?
+    cmp     dword [.var_size], 1    ; byte?
     jne     .test_word_imm
-    mov     dword [ebp-60], 0F6h ; opcode F6h
-    mov     dword [ebp-68], 1
+    mov     dword [.var_opcode], 0F6h ; opcode F6h
+    mov     dword [.var_imm_len], 1
     jmp     .emit_bytes
 .test_word_imm:
-    mov     dword [ebp-60], 0F7h ; opcode F7h
-    mov     dword [ebp-68], 2
+    mov     dword [.var_opcode], 0F7h ; opcode F7h
+    mov     dword [.var_imm_len], 2
     jmp     .emit_bytes
 
     ; --- REGISTER OPERAND ---
 .enc_reg_op:
-    mov     dword [ebp-68], 0    ; imm_len = 0
+    mov     dword [.var_imm_len], 0    ; imm_len = 0
 
-    cmp     dword [ebp-92], 1    ; segment register?
+    cmp     dword [.var_is_sreg], 1    ; segment register?
     jne     .not_sreg_move
-    cmp     dword [ebp-72], 1    ; sreg is dest?
+    cmp     dword [.var_dir], 1    ; sreg is dest?
     je      .sreg_is_dest
-    mov     dword [ebp-60], 8Ch  ; MOV r/m16, sreg
+    mov     dword [.var_opcode], 8Ch  ; MOV r/m16, sreg
     jmp     .emit_bytes
 .sreg_is_dest:
-    mov     dword [ebp-60], 8Eh  ; MOV sreg, r/m16
+    mov     dword [.var_opcode], 8Eh  ; MOV sreg, r/m16
     jmp     .emit_bytes
 .not_sreg_move:
 
-    cmp     dword [ebp-4], 1     ; MOV?
+    cmp     dword [.var_type], 1     ; MOV?
     je      .enc_mov_reg
-    cmp     dword [ebp-4], 2     ; TEST?
+    cmp     dword [.var_type], 2     ; TEST?
     je      .enc_test_reg
-    cmp     dword [ebp-4], 7     ; XCHG?
+    cmp     dword [.var_type], 7     ; XCHG?
     je      .enc_xchg_reg
-    cmp     dword [ebp-4], 8     ; LEA / LDS / LES?
+    cmp     dword [.var_type], 8     ; LEA / LDS / LES?
     je      .enc_lea_lds_les
 
     ; ALU with register
-    mov     eax, [ebp-84]        ; var_alu_op
+    mov     eax, [.var_alu_op]        ; var_alu_op
     shl     eax, 3
-    cmp     dword [ebp-72], 1
+    cmp     dword [.var_dir], 1
     jne     .alu_reg_mem_dst
     add     eax, 2
 .alu_reg_mem_dst:
-    cmp     dword [ebp-12], 2
+    cmp     dword [.var_size], 2
     jne     .alu_reg_set_op
     inc     eax
 .alu_reg_set_op:
-    mov     dword [ebp-60], eax
+    mov     dword [.var_opcode], eax
     jmp     .emit_bytes
 
 .enc_xchg_reg:
-    cmp     dword [ebp-12], 1
+    cmp     dword [.var_size], 1
     je      .xchg_rm8_r8
-    mov     dword [ebp-60], 87h
+    mov     dword [.var_opcode], 87h
     jmp     .emit_bytes
 .xchg_rm8_r8:
-    mov     dword [ebp-60], 86h
+    mov     dword [.var_opcode], 86h
     jmp     .emit_bytes
 
 .enc_lea_lds_les:
-    mov     eax, [ebp-84]
-    mov     dword [ebp-60], eax
+    mov     eax, [.var_alu_op]
+    mov     dword [.var_opcode], eax
     jmp     .emit_bytes
 
 .enc_mov_reg:
-    cmp     dword [ebp-72], 1
+    cmp     dword [.var_dir], 1
     je      .mov_reg_dst
-    cmp     dword [ebp-12], 1
+    cmp     dword [.var_size], 1
     je      .mov_rm8_r8
-    mov     dword [ebp-60], 89h
+    mov     dword [.var_opcode], 89h
     jmp     .emit_bytes
 .mov_rm8_r8:
-    mov     dword [ebp-60], 88h
+    mov     dword [.var_opcode], 88h
     jmp     .emit_bytes
 
 .mov_reg_dst:
-    cmp     dword [ebp-12], 1
+    cmp     dword [.var_size], 1
     je      .mov_r8_rm8
-    mov     dword [ebp-60], 8Bh
+    mov     dword [.var_opcode], 8Bh
     jmp     .emit_bytes
 .mov_r8_rm8:
-    mov     dword [ebp-60], 8Ah
+    mov     dword [.var_opcode], 8Ah
     jmp     .emit_bytes
 
 .enc_test_reg:
-    cmp     dword [ebp-12], 1
+    cmp     dword [.var_size], 1
     je      .test_rm8_r8
-    mov     dword [ebp-60], 85h
+    mov     dword [.var_opcode], 85h
     jmp     .emit_bytes
 .test_rm8_r8:
-    mov     dword [ebp-60], 84h
+    mov     dword [.var_opcode], 84h
     jmp     .emit_bytes
 
 .emit_bytes:
     mov     edi, asm_bytes
-    cmp     dword [ebp-88], 0
+    cmp     dword [.var_seg_pfx], 0
     jz      .no_seg_pfx
-    mov     al, byte [ebp-88]
+    mov     al, byte [.var_seg_pfx]
     stosb
 .no_seg_pfx:
-    mov     al, byte [ebp-60]    ; opcode
+    mov     al, byte [.var_opcode]    ; opcode
     stosb
-    mov     al, byte [ebp-64]    ; modrm
+    mov     al, byte [.var_modrm]    ; modrm
     stosb
 
-    mov     ecx, [ebp-52]        ; disp_len
+    mov     ecx, [.var_disp_len]        ; disp_len
     test    ecx, ecx
     jz      .emit_imm_check
-    mov     al, byte [ebp-40]
+    mov     al, byte [.var_disp]
     stosb
     cmp     ecx, 2
     jne     .emit_imm_check
-    mov     al, byte [ebp-40+1]
+    mov     al, byte [.var_disp+1]
     stosb
 
 .emit_imm_check:
-    cmp     dword [ebp-68], 0
+    cmp     dword [.var_imm_len], 0
     jz      .emit_done
-    mov     al, byte [ebp-56]
+    mov     al, byte [.var_imm]
     stosb
-    cmp     dword [ebp-68], 2
+    cmp     dword [.var_imm_len], 2
     jne     .emit_done
-    mov     al, byte [ebp-56+1]
+    mov     al, byte [.var_imm+1]
     stosb
 
 .emit_done:
@@ -5232,14 +5259,14 @@ parse_mem_instruction:
 
     cmp     al, '+'
     jne     .not_plus
-    mov     dword [ebp-36], 1    ; var_sign = 1
+    mov     dword [.var_sign], 1    ; var_sign = 1
     inc     esi
     jmp     .bracket_loop
 
 .not_plus:
     cmp     al, '-'
     jne     .not_minus
-    mov     dword [ebp-36], -1   ; var_sign = -1
+    mov     dword [.var_sign], -1   ; var_sign = -1
     inc     esi
     jmp     .bracket_loop
 
@@ -5266,9 +5293,9 @@ parse_mem_instruction:
     jne     .check_reg_bp
     cmp     ah, 'x'
     jne     .check_reg_bp
-    cmp     dword [ebp-16], 0
+    cmp     dword [.var_has_bx], 0
     jne     .bracket_err
-    mov     dword [ebp-16], 1    ; var_has_bx = 1
+    mov     dword [.var_has_bx], 1    ; var_has_bx = 1
     add     esi, 2
     jmp     .bracket_loop
 
@@ -5277,9 +5304,9 @@ parse_mem_instruction:
     jne     .check_reg_si
     cmp     ah, 'p'
     jne     .check_reg_si
-    cmp     dword [ebp-20], 0
+    cmp     dword [.var_has_bp], 0
     jne     .bracket_err
-    mov     dword [ebp-20], 1    ; var_has_bp = 1
+    mov     dword [.var_has_bp], 1    ; var_has_bp = 1
     add     esi, 2
     jmp     .bracket_loop
 
@@ -5288,9 +5315,9 @@ parse_mem_instruction:
     jne     .check_reg_di
     cmp     ah, 'i'
     jne     .check_reg_di
-    cmp     dword [ebp-24], 0
+    cmp     dword [.var_has_si], 0
     jne     .bracket_err
-    mov     dword [ebp-24], 1    ; var_has_si = 1
+    mov     dword [.var_has_si], 1    ; var_has_si = 1
     add     esi, 2
     jmp     .bracket_loop
 
@@ -5299,9 +5326,9 @@ parse_mem_instruction:
     jne     .parse_disp_num
     cmp     ah, 'i'
     jne     .parse_disp_num
-    cmp     dword [ebp-28], 0
+    cmp     dword [.var_has_di], 0
     jne     .bracket_err
-    mov     dword [ebp-28], 1    ; var_has_di = 1
+    mov     dword [.var_has_di], 1    ; var_has_di = 1
     add     esi, 2
     jmp     .bracket_loop
 
@@ -5309,127 +5336,127 @@ parse_mem_instruction:
     call    parse_hex
     jc      .bracket_err
     movsx   eax, ax
-    cmp     dword [ebp-36], -1
+    cmp     dword [.var_sign], -1
     jne     .disp_pos
     neg     eax
 .disp_pos:
-    add     dword [ebp-40], eax  ; var_disp += eax
-    mov     dword [ebp-32], 1    ; var_has_disp = 1
-    mov     dword [ebp-36], 1    ; reset var_sign = 1
+    add     dword [.var_disp], eax  ; var_disp += eax
+    mov     dword [.var_has_disp], 1    ; var_has_disp = 1
+    mov     dword [.var_sign], 1    ; reset var_sign = 1
     jmp     .bracket_loop
 
 .bracket_done:
     inc     esi
 
-    mov     eax, [ebp-16]
-    add     eax, [ebp-20]
+    mov     eax, [.var_has_bx]
+    add     eax, [.var_has_bp]
     cmp     eax, 2
     jae     .bracket_err
 
-    mov     eax, [ebp-24]
-    add     eax, [ebp-28]
+    mov     eax, [.var_has_si]
+    add     eax, [.var_has_di]
     cmp     eax, 2
     jae     .bracket_err
 
-    cmp     dword [ebp-16], 1
+    cmp     dword [.var_has_bx], 1
     jne     .check_bx_di
-    cmp     dword [ebp-24], 1
+    cmp     dword [.var_has_si], 1
     jne     .check_bx_di
-    mov     dword [ebp-48], 0    ; RM = 0
+    mov     dword [.var_rm], 0    ; RM = 0
     jmp     .got_rm
 
 .check_bx_di:
-    cmp     dword [ebp-16], 1
+    cmp     dword [.var_has_bx], 1
     jne     .check_bp_si
-    cmp     dword [ebp-28], 1
+    cmp     dword [.var_has_di], 1
     jne     .check_bp_si
-    mov     dword [ebp-48], 1    ; RM = 1
+    mov     dword [.var_rm], 1    ; RM = 1
     jmp     .got_rm
 
 .check_bp_si:
-    cmp     dword [ebp-20], 1
+    cmp     dword [.var_has_bp], 1
     jne     .check_bp_di
-    cmp     dword [ebp-24], 1
+    cmp     dword [.var_has_si], 1
     jne     .check_bp_di
-    mov     dword [ebp-48], 2    ; RM = 2
+    mov     dword [.var_rm], 2    ; RM = 2
     jmp     .got_rm
 
 .check_bp_di:
-    cmp     dword [ebp-20], 1
+    cmp     dword [.var_has_bp], 1
     jne     .check_si_only
-    cmp     dword [ebp-28], 1
+    cmp     dword [.var_has_di], 1
     jne     .check_si_only
-    mov     dword [ebp-48], 3    ; RM = 3
+    mov     dword [.var_rm], 3    ; RM = 3
     jmp     .got_rm
 
 .check_si_only:
-    cmp     dword [ebp-24], 1
+    cmp     dword [.var_has_si], 1
     jne     .check_di_only
-    mov     dword [ebp-48], 4    ; RM = 4
+    mov     dword [.var_rm], 4    ; RM = 4
     jmp     .got_rm
 
 .check_di_only:
-    cmp     dword [ebp-28], 1
+    cmp     dword [.var_has_di], 1
     jne     .check_bp_only
-    mov     dword [ebp-48], 5    ; RM = 5
+    mov     dword [.var_rm], 5    ; RM = 5
     jmp     .got_rm
 
 .check_bp_only:
-    cmp     dword [ebp-20], 1
+    cmp     dword [.var_has_bp], 1
     jne     .check_bx_only
-    mov     dword [ebp-48], 6    ; RM = 6
+    mov     dword [.var_rm], 6    ; RM = 6
     jmp     .got_rm
 
 .check_bx_only:
-    cmp     dword [ebp-16], 1
+    cmp     dword [.var_has_bx], 1
     jne     .direct_addr
-    mov     dword [ebp-48], 7    ; RM = 7
+    mov     dword [.var_rm], 7    ; RM = 7
     jmp     .got_rm
 
 .direct_addr:
-    mov     dword [ebp-48], 6    ; RM = 6
-    mov     dword [ebp-44], 0    ; Mod = 00b
-    mov     dword [ebp-52], 2    ; disp_len = 2
+    mov     dword [.var_rm], 6    ; RM = 6
+    mov     dword [.var_mod], 0    ; Mod = 00b
+    mov     dword [.var_disp_len], 2    ; disp_len = 2
     jmp     .rm_done
 
 .got_rm:
-    cmp     dword [ebp-32], 0    ; has_disp?
+    cmp     dword [.var_has_disp], 0    ; has_disp?
     jne     .has_some_disp
-    cmp     dword [ebp-48], 6    ; BP only?
+    cmp     dword [.var_rm], 6    ; BP only?
     jne     .no_disp_zero
-    mov     dword [ebp-44], 1    ; Mod = 01b
-    mov     dword [ebp-52], 1    ; disp_len = 1
-    mov     dword [ebp-40], 0
+    mov     dword [.var_mod], 1    ; Mod = 01b
+    mov     dword [.var_disp_len], 1    ; disp_len = 1
+    mov     dword [.var_disp], 0
     jmp     .rm_done
 
 .no_disp_zero:
-    mov     dword [ebp-44], 0    ; Mod = 00b
-    mov     dword [ebp-52], 0    ; disp_len = 0
+    mov     dword [.var_mod], 0    ; Mod = 00b
+    mov     dword [.var_disp_len], 0    ; disp_len = 0
     jmp     .rm_done
 
 .has_some_disp:
-    cmp     dword [ebp-40], 0
+    cmp     dword [.var_disp], 0
     jne     .check_disp_size
-    cmp     dword [ebp-48], 6    ; BP only?
+    cmp     dword [.var_rm], 6    ; BP only?
     je      .disp8_case
-    mov     dword [ebp-44], 0    ; Mod = 00b
-    mov     dword [ebp-52], 0    ; disp_len = 0
+    mov     dword [.var_mod], 0    ; Mod = 00b
+    mov     dword [.var_disp_len], 0    ; disp_len = 0
     jmp     .rm_done
 
 .check_disp_size:
-    mov     al, byte [ebp-40]
+    mov     al, byte [.var_disp]
     movsx   eax, al
-    cmp     eax, dword [ebp-40]
+    cmp     eax, dword [.var_disp]
     jne     .disp16_case
 
 .disp8_case:
-    mov     dword [ebp-44], 1    ; Mod = 01b
-    mov     dword [ebp-52], 1    ; disp_len = 1
+    mov     dword [.var_mod], 1    ; Mod = 01b
+    mov     dword [.var_disp_len], 1    ; disp_len = 1
     jmp     .rm_done
 
 .disp16_case:
-    mov     dword [ebp-44], 2    ; Mod = 10b
-    mov     dword [ebp-52], 2    ; disp_len = 2
+    mov     dword [.var_mod], 2    ; Mod = 10b
+    mov     dword [.var_disp_len], 2    ; disp_len = 2
 
 .rm_done:
     clc
@@ -5468,25 +5495,25 @@ parse_mem_instruction:
     pop     ebx
     cmp     al, 'e'
     jne     .seg_not_es
-    mov     dword [ebp-88], 26h
+    mov     dword [.var_seg_pfx], 26h
     call    skip_whitespace
     ret
 .seg_not_es:
     cmp     al, 'c'
     jne     .seg_not_cs
-    mov     dword [ebp-88], 2Eh
+    mov     dword [.var_seg_pfx], 2Eh
     call    skip_whitespace
     ret
 .seg_not_cs:
     cmp     al, 's'
     jne     .seg_not_ss
-    mov     dword [ebp-88], 36h
+    mov     dword [.var_seg_pfx], 36h
     call    skip_whitespace
     ret
 .seg_not_ss:
     cmp     al, 'd'
     jne     .seg_none
-    mov     dword [ebp-88], 3Eh
+    mov     dword [.var_seg_pfx], 3Eh
     call    skip_whitespace
     ret
 .seg_fail:
